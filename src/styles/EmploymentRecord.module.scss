@@ -1,0 +1,83 @@
+
+.EmploymentRecord {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+
+    /* Wrap search + tabs together */
+    .stickyHeader {
+        position: sticky;
+        top: 0;          // space allowance
+        background: #fff;      // ⬅️ solid background to cover aperture
+        z-index: 10;
+        padding: 0.75rem 0;    // add vertical padding
+    }
+
+    .formGroup {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        width: 300px;
+        margin-bottom: 10px;
+
+        label {
+            font-size: 0.85rem;
+            margin-bottom: 0.3rem;
+            font-weight: 600;
+        }
+
+        input,
+        select {
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+
+        .searchButton {
+            padding: 0.65rem 1.2rem;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            width: 80px;
+
+            &:hover {
+                background-color: #5a6268;
+            }
+        }
+    }
+
+    /* Existing styles for tabs */
+    .tabsHeader {
+        display: flex;
+        border-bottom: 2px solid #ccc;
+        margin-top: 0.5rem;
+
+        button {
+            background: none;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+
+            &.active {
+            border-bottom: 3px solid #0056b3;
+            font-weight: bold;
+            color: #0056b3;
+            }
+        }
+    }
+
+    .tabContent {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
+}

@@ -1,0 +1,131 @@
+.CurrentAppointment {
+  .formGroup {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+    width: 300px;
+
+    label {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    input,
+    select,
+    textarea {
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+
+      &:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+      }
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+  }
+
+  .salaryGroup {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+
+    label {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .numberField {
+      padding: 0.5rem;
+    }
+  }
+
+  .submitBtn {
+    padding: 0.8rem;
+    font-size: 1rem;
+    background: #3498db;
+    color: #fff;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+    width: 80px;
+    padding: 0.65rem 1.2rem;
+
+    &:hover {
+      background: #2980b9;
+    }
+  }
+
+  .formGroup {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .salaryGroup {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+
+    div {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  .numberField {
+    width: 100px;
+  }
+
+  .actionBtns {
+    display: flex;
+    gap: 20px;
+
+    .submitBtn {
+      background: #28a745;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+
+      &:hover {
+        background: #218838;
+      }
+    }
+
+    .editBtn {
+      padding: 0.8rem 2rem;
+      background: #0d6efd;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+
+      &:hover {
+        background: #0a58ca;
+      }
+    }
+
+    .cancelBtn {
+      padding: 0.8rem 2rem;
+      background: #adb5bd;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+
+      &:hover {
+        background: #868e96;
+      }
+    }
+  }
+}
