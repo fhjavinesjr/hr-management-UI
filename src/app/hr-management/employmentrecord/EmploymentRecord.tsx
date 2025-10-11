@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import PersonalData from "@/app/hr-management/personaldata/PersonalData";
-import CurrentAppointment from "@/app/hr-management/currentappointment/CurrentAppointment";
+import EmployeeAppointment from "@/app/hr-management/employeeappointment/EmployeeAppointment";
 import ServiceRecord from "@/app/hr-management/servicerecord/ServiceRecord";
 import Separation from "@/app/hr-management/separation/Separation";
 import modalStyles from "@/styles/Modal.module.scss";
@@ -120,7 +120,7 @@ export default function EmploymentRecord() {
                   className={activeTab === "appointment" ? styles.active : ""}
                   onClick={() => setActiveTab("appointment")}
                 >
-                  Current Appointment
+                  Employee Appointment
                 </button>
                 <button
                   className={activeTab === "service" ? styles.active : ""}
@@ -140,7 +140,7 @@ export default function EmploymentRecord() {
             {/* Tab Content */}
             <div className={styles.tabContent}>
               {activeTab === "personal" && <PersonalData />}
-              {activeTab === "appointment" && <CurrentAppointment/>}
+              {activeTab === "appointment" && <EmployeeAppointment/>}
               {activeTab === "service" && <ServiceRecord/>}
               {activeTab === "separation" && <Separation/>}
             </div>

@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import styles from "@/styles/CurrentAppointment.module.scss";
+import styles from "@/styles/EmployeeAppointment.module.scss";
 
 type Appointment = {
+  employeeNo: string;
+  biometricNo: string;
   appointmentId: string;
   dateIssued: string;
   dateAssumption: string;
@@ -25,9 +27,11 @@ type Props = {
   onCancel?: () => void;
 };
 
-export default function CurrentAppointment({onSave, initialData, onCancel}: Props) {
+export default function EmployeeAppointment({onSave, initialData, onCancel}: Props) {
   const [form, setForm] = useState<Appointment>(
     initialData || {
+      employeeNo: "",
+      biometricNo: "",
       appointmentId: "",
       dateIssued: "",
       dateAssumption: "",
@@ -65,6 +69,8 @@ export default function CurrentAppointment({onSave, initialData, onCancel}: Prop
       onSave(form);
       if (onCancel) onCancel();
       setForm({
+        employeeNo: "",
+        biometricNo: "",
         appointmentId: "",
         dateIssued: "",
         dateAssumption: "",
@@ -118,6 +124,28 @@ export default function CurrentAppointment({onSave, initialData, onCancel}: Prop
         </div>
 
         <div>&nbsp;</div>
+
+        <div className={styles.formGroup}>
+          <label>Employee No.</label>
+          <input
+            type="text"
+            name="employeeNo"
+            value={form.employeeNo}
+            onChange={handleChange}
+            disabled={isDisabled}
+          />
+        </div>
+
+        <div className={styles.formGroup}>
+          <label>Biometric No.</label>
+          <input
+            type="text"
+            name="biometricNo"
+            value={form.biometricNo}
+            onChange={handleChange}
+            disabled={isDisabled}
+          />
+        </div>
         
         <div className={styles.formGroup}>
           <label>Appointment Issued</label>

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import tableStyles from "@/styles/DTRTable.module.scss";
 import styles from "@/styles/ServiceRecord.module.scss";
-import CurrentAppointment from "@/app/hr-management/currentappointment/CurrentAppointment";
+import EmployeeAppointment from "@/app/hr-management/employeeappointment/EmployeeAppointment";
 import Swal from "sweetalert2";
 
 type Appointment = {
@@ -105,7 +105,7 @@ export default function ServiceRecord() {
         New
       </button>
       {showForm && (
-        <CurrentAppointment onSave={handleSave} onCancel={handleCancel} />
+        <EmployeeAppointment onSave={handleSave} onCancel={handleCancel} />
       )}
       <div>&nbsp;</div>
       <div className={tableStyles.DTRTable}>

@@ -10,8 +10,8 @@ type PersonalData = {
   extname: string;
   dob: string;
   pob: string;
-  sex: string;
-  civilStatus: string;
+  sex_id: number;
+  civilStatus_id: number;
   height: string;
   weight: string;
   bloodType: string;
@@ -76,8 +76,8 @@ export default function PersonalData() {
     extname: "",
     dob: "",
     pob: "",
-    sex: "",
-    civilStatus: "",
+    sex_id: 0,
+    civilStatus_id: 0,
     height: "",
     weight: "",
     bloodType: "",
@@ -285,7 +285,7 @@ export default function PersonalData() {
             Sex
             <select
               name="sex"
-              value={form.sex}
+              value={form.sex_id}
               onChange={handleChange}
               disabled={isDisabled}
             >
@@ -298,7 +298,7 @@ export default function PersonalData() {
             Civil Status
             <select
               name="civilStatus"
-              value={form.civilStatus}
+              value={form.civilStatus_id}
               onChange={handleChange}
               disabled={isDisabled}
             >
