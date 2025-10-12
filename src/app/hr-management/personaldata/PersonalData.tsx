@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import styles from "@/styles/PersonalData.module.scss";
+const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { toCustomFormat } from "@/lib/utils/dateFormatUtils";
 
 type PersonalData = {
   surname: string;
@@ -29,8 +32,8 @@ type PersonalData = {
   telNo: string;
   mobileNo: string;
   email: string;
-  employeePicture: string;
-  employeeSignature: string;
+  employeePicture: File | null;
+  employeeSignature: File | null;
   spouseSurname?: string;
   spouseFirstname?: string;
   spouseMiddlename?: string;
@@ -51,6 +54,18 @@ type PersonalData = {
   skillOrHobby?: string;
   distinction?: string;
   association?: string;
+  q34a?: string;
+  q34b?: string;
+  q35a?: string;
+  q35b?: string;
+  q36?: string;
+  q37a?: string;
+  q37b?: string;
+  q37c?: string;
+  q38?: string;
+  q39a?: string;
+  q39b?: string;
+  q39c?: string;
   q34aDetails?: string;
   q34bDetails?: string;
   q35aDetails?: string;
@@ -95,12 +110,39 @@ export default function PersonalData() {
     telNo: "",
     mobileNo: "",
     email: "",
-    employeePicture: "",
-    employeeSignature: "",
+    employeePicture: null,
+    employeeSignature: null,
     govIdNumber: "",
     govIdType: "",
     govIdDate: "",
     govIdPlace: "",
+    q34a: "",
+    q34b: "",
+    q35a: "",
+    q35b: "",
+    q36: "",
+    q37a: "",
+    q37b: "",
+    q37c: "",
+    q38: "",
+    q39a: "",
+    q39b: "",
+    q39c: "",
+    q34aDetails: "",
+    q34bDetails: "",
+    q35aDetails: "",
+    q35bDetails: "",
+    q35bDateFiled: "",
+    q35bStatus: "",
+    q36Details: "",
+    q37aDetails: "",
+    q37bDetails: "",
+    q37cDetails: "",
+    q38Details: "",
+    q39aDetails: "",
+    q39bDetails: "",
+    q39cDetails: "",
+    q42: false,
   });
 
   const [isDisabled, setIsDisabled] = useState(true);
@@ -165,7 +207,8 @@ export default function PersonalData() {
     setIsDisabled(true); // disable editing again
   };
 
-  const handleEditToggle = () => {
+  const handleEditToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     setIsDisabled((prev) => {
       console.log("Toggle isDisabled from", prev, "to", !prev);
       return !prev;
@@ -178,13 +221,138 @@ export default function PersonalData() {
     >
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+
+    // Auto-convert numeric fields
+    const numericFields = ["sex_id", "civilStatus_id", "height", "weight"];
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: numericFields.includes(name) ? Number(value) : value,
+    }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Convert files to Base64 strings
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1]; // remove prefix
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    console.log("Saved appointment:", form);
+    try {
+      const url = `${API_BASE_URL_HRM}/api/create/personal-data`;
+
+      // Prepare JSON data
+      const mappedData = {
+        surname: form.surname,
+        firstname: form.firstname,
+        middlename: form.middlename,
+        extname: form.extname,
+        dob: form.dob ? toCustomFormat(form.dob, false) : null,
+        pob: form.pob,
+        sex_id: form.sex_id,
+        civilStatus_id: form.civilStatus_id,
+        height: form.height ? Number(form.height) : null,
+        weight: form.weight ? Number(form.weight) : null,
+        bloodType: form.bloodType,
+        gsisId: form.gsisId,
+        pagibigId: form.pagibigId,
+        philhealthNo: form.philhealthNo,
+        sssNo: form.sssNo,
+        tinNo: form.tinNo,
+        agencyEmpNo: form.agencyEmpNo,
+        citizenship: form.citizenship,
+        resAddress: form.resAddress,
+        resZip: form.resZip,
+        permAddress: form.permAddress,
+        permZip: form.permZip,
+        telNo: form.telNo,
+        mobileNo: form.mobileNo,
+        email: form.email,
+        spouseSurname: form.spouseSurname ?? "",
+        spouseFirstname: form.spouseFirstname ?? "",
+        spouseMiddlename: form.spouseMiddlename ?? "",
+        spouseOccupation: form.spouseOccupation ?? "",
+        spouseEmployer: form.spouseEmployer ?? "",
+        spouseBusinessAddress: form.spouseBusinessAddress ?? "",
+        spouseTelNo: form.spouseTelNo ?? "",
+        fatherSurname: form.fatherSurname ?? "",
+        fatherFirstname: form.fatherFirstname ?? "",
+        fatherMiddlename: form.fatherMiddlename ?? "",
+        motherSurname: form.motherSurname ?? "",
+        motherFirstname: form.motherFirstname ?? "",
+        motherMiddlename: form.motherMiddlename ?? "",
+        govIdNumber: form.govIdNumber,
+        govIdType: form.govIdType,
+        govIdDate: form.govIdDate
+          ? toCustomFormat(form.govIdDate, false)
+          : null,
+        govIdPlace: form.govIdPlace,
+        skillOrHobby: form.skillOrHobby ?? "",
+        distinction: form.distinction ?? "",
+        association: form.association ?? "",
+        q34a: form.q34a ?? "",
+        q34b: form.q34b ?? "",
+        q35a: form.q35a ?? "",
+        q35b: form.q35b ?? "",
+        q36: form.q36 ?? "",
+        q37a: form.q37a ?? "",
+        q37b: form.q37b ?? "",
+        q37c: form.q37c ?? "",
+        q38: form.q38 ?? "",
+        q39a: form.q39a ?? "",
+        q39b: form.q39b ?? "",
+        q39c: form.q39c ?? "",
+        q34aDetails: form.q34aDetails ?? "",
+        q34bDetails: form.q34bDetails ?? "",
+        q35aDetails: form.q35aDetails ?? "",
+        q35bDetails: form.q35bDetails ?? "",
+        q35bDateFiled: form.q35bDateFiled
+          ? toCustomFormat(form.q35bDateFiled, false)
+          : null,
+        q35bStatus: form.q35bStatus ?? "",
+        q36Details: form.q36Details ?? "",
+        q37aDetails: form.q37aDetails ?? "",
+        q37bDetails: form.q37bDetails ?? "",
+        q37cDetails: form.q37cDetails ?? "",
+        q38Details: form.q38Details ?? "",
+        q39aDetails: form.q39aDetails ?? "",
+        q39bDetails: form.q39bDetails ?? "",
+        q39cDetails: form.q39cDetails ?? "",
+        q42: form.q42 ? "true" : "false",
+        employeePicture: form.employeePicture
+          ? await toBase64(form.employeePicture)
+          : null,
+        employeeSignature: form.employeeSignature
+          ? await toBase64(form.employeeSignature)
+          : null,
+      };
+
+      // Send as JSON
+      const res = await fetchWithAuth(url, {
+        method: "POST",
+        body: JSON.stringify(mappedData),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to save personal data: ${text}`);
+      }
+
+      setIsDisabled(true);
+      alert("✅ Personal data successfully saved!");
+    } catch (err) {
+      console.error("❌ Error saving personal data:", err);
+      alert("Failed to save personal data. Please check your inputs.");
+    }
   };
 
   return (
@@ -216,7 +384,7 @@ export default function PersonalData() {
       </div>
 
       <div>&nbsp;</div>
-      
+
       {/* I. PERSONAL INFORMATION */}
       <section>
         <h2>I. Personal Information</h2>
@@ -284,32 +452,33 @@ export default function PersonalData() {
           <label>
             Sex
             <select
-              name="sex"
+              name="sex_id"
               value={form.sex_id}
               onChange={handleChange}
               disabled={isDisabled}
             >
               <option value="">--Select--</option>
-              <option>Male</option>
-              <option>Female</option>
+              <option value="1">Male</option>
+              <option value="2">Female</option>
             </select>
           </label>
           <label>
             Civil Status
             <select
-              name="civilStatus"
+              name="civilStatus_id"
               value={form.civilStatus_id}
               onChange={handleChange}
               disabled={isDisabled}
             >
               <option value="">--Select--</option>
-              <option>Single</option>
-              <option>Married</option>
-              <option>Widowed</option>
-              <option>Separated</option>
-              <option>Other/s</option>
+              <option value="1">Single</option>
+              <option value="2">Married</option>
+              <option value="3">Widowed</option>
+              <option value="4">Separated</option>
+              <option value="5">Other/s</option>
             </select>
           </label>
+
           <label>
             Height (m){" "}
             <input
@@ -492,8 +661,13 @@ export default function PersonalData() {
                 type="file"
                 name="employeePicture"
                 accept="image/*"
-                value={form.employeePicture}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setForm((prev) => ({
+                    ...prev,
+                    employeePicture: file,
+                  }));
+                }}
                 disabled={isDisabled}
               />
             </label>
@@ -507,8 +681,13 @@ export default function PersonalData() {
                 type="file"
                 name="employeeSignature"
                 accept="image/*"
-                value={form.employeeSignature}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setForm((prev) => ({
+                    ...prev,
+                    employeeSignature: file,
+                  }));
+                }}
                 disabled={isDisabled}
               />
             </label>
@@ -619,14 +798,19 @@ export default function PersonalData() {
               }}
               disabled={isDisabled}
             />
-            <button type="button" onClick={() => handleRemove(setChildren, i)} disabled={isDisabled}>
+            <button
+              type="button"
+              onClick={() => handleRemove(setChildren, i)}
+              disabled={isDisabled}
+            >
               Remove
             </button>
           </div>
         ))}
         <button
           type="button"
-          onClick={() => handleAdd(setChildren, { name: "", dob: "" })} disabled={isDisabled}
+          onClick={() => handleAdd(setChildren, { name: "", dob: "" })}
+          disabled={isDisabled}
         >
           Add Child
         </button>
@@ -793,7 +977,11 @@ export default function PersonalData() {
               }}
               disabled={isDisabled}
             />
-            <button type="button" onClick={() => handleRemove(setEducation, i)} disabled={isDisabled}>
+            <button
+              type="button"
+              onClick={() => handleRemove(setEducation, i)}
+              disabled={isDisabled}
+            >
               Remove
             </button>
           </div>
@@ -893,7 +1081,9 @@ export default function PersonalData() {
             />
             <button
               type="button"
-              onClick={() => handleRemove(setEligibilities, i)} disabled={isDisabled}>
+              onClick={() => handleRemove(setEligibilities, i)}
+              disabled={isDisabled}
+            >
               Remove
             </button>
           </div>
@@ -1015,7 +1205,8 @@ export default function PersonalData() {
             />
             <button
               type="button"
-              onClick={() => handleRemove(setWorkExperience, i)} disabled={isDisabled}
+              onClick={() => handleRemove(setWorkExperience, i)}
+              disabled={isDisabled}
             >
               Remove
             </button>
@@ -1107,7 +1298,8 @@ export default function PersonalData() {
             />
             <button
               type="button"
-              onClick={() => handleRemove(setVoluntaryWork, i)} disabled={isDisabled}
+              onClick={() => handleRemove(setVoluntaryWork, i)}
+              disabled={isDisabled}
             >
               Remove
             </button>
@@ -1205,7 +1397,11 @@ export default function PersonalData() {
               }}
               disabled={isDisabled}
             />
-            <button type="button" onClick={() => handleRemove(setTrainings, i)} disabled={isDisabled}>
+            <button
+              type="button"
+              onClick={() => handleRemove(setTrainings, i)}
+              disabled={isDisabled}
+            >
               Remove
             </button>
           </div>
@@ -1282,10 +1478,26 @@ export default function PersonalData() {
           </p>
           <p>a. within the third degree?</p>
           <label>
-            <input type="radio" name="q34a" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q34a"
+              value="yes"
+              checked={form.q34a === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q34a" value="no" /> No
+            <input
+              type="radio"
+              name="q34a"
+              value="no"
+              checked={form.q34a === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1301,10 +1513,26 @@ export default function PersonalData() {
             Employee)?
           </p>
           <label>
-            <input type="radio" name="q34b" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q34b"
+              value="yes"
+              checked={form.q34b === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q34b" value="no" /> No
+            <input
+              type="radio"
+              name="q34b"
+              value="no"
+              checked={form.q34b === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1322,10 +1550,26 @@ export default function PersonalData() {
             35a. Have you ever been found guilty of any administrative offense?
           </p>
           <label>
-            <input type="radio" name="q35a" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q35a"
+              value="yes"
+              checked={form.q35a === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q35a" value="no" /> No
+            <input
+              type="radio"
+              name="q35a"
+              value="no"
+              checked={form.q35a === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1338,11 +1582,35 @@ export default function PersonalData() {
 
           <p>35b. Have you ever been criminally charged before any court?</p>
           <label>
-            <input type="radio" name="q35b" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q35b"
+              value="yes"
+              checked={form.q35b === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q35b" value="no" /> No
+            <input
+              type="radio"
+              name="q35b"
+              value="no"
+              checked={form.q35b === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
+          <input
+            type="text"
+            placeholder="If YES, give details"
+            name="q35bDetails"
+            value={form.q35bDetails ?? ""}
+            onChange={handleChange}
+            disabled={isDisabled}
+          />
           <div className={styles.row}>
             <label>
               Date Filed:{" "}
@@ -1375,10 +1643,26 @@ export default function PersonalData() {
             law, ordinance, or regulation by any court or tribunal?
           </p>
           <label>
-            <input type="radio" name="q36" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q36"
+              value="yes"
+              checked={form.q36 === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q36" value="no" /> No
+            <input
+              type="radio"
+              name="q36"
+              value="no"
+              checked={form.q36 === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1399,10 +1683,26 @@ export default function PersonalData() {
             (abolition) in the public or private sector?
           </p>
           <label>
-            <input type="radio" name="q37a" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q37a"
+              value="yes"
+              checked={form.q37a === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q37a" value="no" /> No
+            <input
+              type="radio"
+              name="q37a"
+              value="no"
+              checked={form.q37a === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1418,10 +1718,26 @@ export default function PersonalData() {
             held within the last year (except Barangay election)?
           </p>
           <label>
-            <input type="radio" name="q37b" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q37b"
+              value="yes"
+              checked={form.q37b === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q37b" value="no" /> No
+            <input
+              type="radio"
+              name="q37b"
+              value="no"
+              checked={form.q37b === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1438,10 +1754,26 @@ export default function PersonalData() {
             campaign for a national or local candidate?
           </p>
           <label>
-            <input type="radio" name="q37c" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q37c"
+              value="yes"
+              checked={form.q37c === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q37c" value="no" /> No
+            <input
+              type="radio"
+              name="q37c"
+              value="no"
+              checked={form.q37c === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1460,10 +1792,26 @@ export default function PersonalData() {
             resident of another country?
           </p>
           <label>
-            <input type="radio" name="q38" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q38"
+              value="yes"
+              checked={form.q38 === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q38" value="no" /> No
+            <input
+              type="radio"
+              name="q38"
+              value="no"
+              checked={form.q38 === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1485,10 +1833,26 @@ export default function PersonalData() {
 
           <p>a. Are you a member of any indigenous group?</p>
           <label>
-            <input type="radio" name="q39a" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q39a"
+              value="yes"
+              checked={form.q39a === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q39a" value="no" /> No
+            <input
+              type="radio"
+              name="q39a"
+              value="no"
+              checked={form.q39a === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1501,10 +1865,26 @@ export default function PersonalData() {
 
           <p>b. Are you a person with disability?</p>
           <label>
-            <input type="radio" name="q39b" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q39b"
+              value="yes"
+              checked={form.q39b === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q39b" value="no" /> No
+            <input
+              type="radio"
+              name="q39b"
+              value="no"
+              checked={form.q39b === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1517,10 +1897,26 @@ export default function PersonalData() {
 
           <p>c. Are you a solo parent?</p>
           <label>
-            <input type="radio" name="q39c" value="yes" /> Yes
+            <input
+              type="radio"
+              name="q39c"
+              value="yes"
+              checked={form.q39c === "yes"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            Yes
           </label>
           <label>
-            <input type="radio" name="q39c" value="no" /> No
+            <input
+              type="radio"
+              name="q39c"
+              value="no"
+              checked={form.q39c === "no"}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />{" "}
+            No
           </label>
           <input
             type="text"
@@ -1573,7 +1969,8 @@ export default function PersonalData() {
             />
             <button
               type="button"
-              onClick={() => handleRemove(setReferences, i)} disabled={isDisabled}
+              onClick={() => handleRemove(setReferences, i)}
+              disabled={isDisabled}
             >
               Remove
             </button>
