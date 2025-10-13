@@ -38,7 +38,7 @@
 
         .searchButton {
             padding: 0.65rem 1.2rem;
-            background-color: #6c757d;
+            background-color: #6366f1;
             color: white;
             border: none;
             border-radius: 8px;
@@ -49,6 +49,22 @@
 
             &:hover {
                 background-color: #5a6268;
+            }
+        }
+
+        .clearButton {
+            padding: 0.65rem 1.2rem;
+            background-color: #f59e0b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            width: 80px;
+
+            &:hover {
+                background-color: #d97706;
             }
         }
     }

@@ -28,28 +28,42 @@ export default function EmploymentRecord() {
 
   useEffect(() => {
     const role = localStorageUtil.getEmployeeRole();
-    const fullname = localStorageUtil.getEmployeeFullname();
-    const empNo = localStorageUtil.getEmployeeNo();
-
     setUserRole(role);
-
-    if (fullname && empNo) {
-      const emp = { employeeNo: empNo, fullName: fullname } as Employee;
-      setSelectedEmployee(emp);
-
-      if (role === "ROLE_ADMIN") {
-        setInputValue(`[${emp.employeeNo}] ${emp.fullName}`);
-      }
-    }
   }, []);
 
   // Fetch Employment Record
   const fetchEmploymentRecords = async () => {
     try {
+      const fullname = localStorageUtil.getEmployeeFullname();
+      const empNo = localStorageUtil.getEmployeeNo();
+      if (fullname && empNo) {
+        const emp = {
+          employeeNo: empNo,
+          fullName: fullname,
+          role: userRole,
+          isSearched: true,
+        } as Employee;
+        setSelectedEmployee(emp);
+
+        if (userRole === "ROLE_ADMIN") {
+          setInputValue(`[${emp.employeeNo}] ${emp.fullName}`);
+        }
+      }
+
+      if (!selectedEmployee) {
+        alert("Please select an employee.");
+        return;
+      }
     } catch (err) {
       console.log("Error: " + err);
     }
   };
+
+  const clearEmploymentRecords = async () => {
+    setSelectedEmployee({ isCleared: true } as Employee);
+    setInputValue("");
+    setActiveTab("personal");
+  }
 
   return (
     <div id="employmentecordsModal" className={modalStyles.Modal}>
@@ -100,12 +114,21 @@ export default function EmploymentRecord() {
                   </datalist>
                 )}
 
-                <button
-                  className={styles.searchButton}
-                  onClick={fetchEmploymentRecords}
-                >
-                  Search
-                </button>
+                <div>
+                  <button
+                    className={styles.searchButton}
+                    onClick={fetchEmploymentRecords}
+                  >
+                    Search
+                  </button>
+                  &nbsp;
+                  <button
+                    className={styles.clearButton}
+                    onClick={clearEmploymentRecords}
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
 
               {/* Tab Buttons */}
@@ -139,10 +162,12 @@ export default function EmploymentRecord() {
 
             {/* Tab Content */}
             <div className={styles.tabContent}>
-              {activeTab === "personal" && <PersonalData />}
-              {activeTab === "appointment" && <EmployeeAppointment/>}
-              {activeTab === "service" && <ServiceRecord/>}
-              {activeTab === "separation" && <Separation/>}
+              {activeTab === "personal" && (
+                <PersonalData selectedEmployee={selectedEmployee} />
+              )}
+              {activeTab === "appointment" && <EmployeeAppointment />}
+              {activeTab === "service" && <ServiceRecord />}
+              {activeTab === "separation" && <Separation />}
             </div>
           </div>
         </div>

@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "@/styles/PersonalData.module.scss";
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import { toCustomFormat } from "@/lib/utils/dateFormatUtils";
+import { Employee } from "@/lib/types/Employee";
 
 type PersonalData = {
   surname: string;
@@ -83,7 +84,11 @@ type PersonalData = {
   q42?: boolean;
 };
 
-export default function PersonalData() {
+type PersonalDataProps = {
+  selectedEmployee?: Employee | null;
+};
+
+export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
   const [form, setForm] = useState<PersonalData>({
     surname: "",
     firstname: "",
@@ -144,6 +149,116 @@ export default function PersonalData() {
     q39cDetails: "",
     q42: false,
   });
+
+  useEffect(() => {
+    if (selectedEmployee?.isCleared) {
+      console.log("Clearing personal data fields...");
+      setForm({
+        surname: "",
+        firstname: "",
+        middlename: "",
+        extname: "",
+        dob: "",
+        pob: "",
+        sex_id: 0,
+        civilStatus_id: 0,
+        height: "",
+        weight: "",
+        bloodType: "",
+        gsisId: "",
+        pagibigId: "",
+        philhealthNo: "",
+        sssNo: "",
+        tinNo: "",
+        agencyEmpNo: "",
+        citizenship: "",
+        resAddress: "",
+        resZip: "",
+        permAddress: "",
+        permZip: "",
+        telNo: "",
+        mobileNo: "",
+        email: "",
+        employeePicture: null,
+        employeeSignature: null,
+        govIdNumber: "",
+        govIdType: "",
+        govIdDate: "",
+        govIdPlace: "",
+        q34a: "",
+        q34b: "",
+        q35a: "",
+        q35b: "",
+        q36: "",
+        q37a: "",
+        q37b: "",
+        q37c: "",
+        q38: "",
+        q39a: "",
+        q39b: "",
+        q39c: "",
+        q34aDetails: "",
+        q34bDetails: "",
+        q35aDetails: "",
+        q35bDetails: "",
+        q35bDateFiled: "",
+        q35bStatus: "",
+        q36Details: "",
+        q37aDetails: "",
+        q37bDetails: "",
+        q37cDetails: "",
+        q38Details: "",
+        q39aDetails: "",
+        q39bDetails: "",
+        q39cDetails: "",
+        q42: false,
+      });
+
+      // Also clear repeating sections
+      setChildren([{ name: "", dob: "" }]);
+      setEducation([
+        {
+          level: "",
+          school: "",
+          course: "",
+          from: "",
+          to: "",
+          units: "",
+          yearGraduated: "",
+          honors: "",
+        },
+      ]);
+      setEligibilities([
+        {
+          careerService: "",
+          rating: "",
+          examDate: "",
+          examPlace: "",
+          licenseNumber: "",
+          validity: "",
+        },
+      ]);
+      setWorkExperience([
+        {
+          from: "",
+          to: "",
+          position: "",
+          department: "",
+          salary: "",
+          payGrade: "",
+          status: "",
+          govService: "",
+        },
+      ]);
+      setVoluntaryWork([
+        { orgName: "", from: "", to: "", hours: "", position: "" },
+      ]);
+      setTrainings([
+        { title: "", from: "", to: "", hours: "", type: "", conductedBy: "" },
+      ]);
+      setReferences([{ name: "", address: "", tel: "" }]);
+    }
+  }, [selectedEmployee?.isCleared]);
 
   const [isDisabled, setIsDisabled] = useState(true);
 
@@ -378,7 +493,9 @@ export default function PersonalData() {
             className={styles.editBtn}
             onClick={handleEditToggle}
           >
-            Edit
+            {selectedEmployee && selectedEmployee.isSearched === true
+              ? "Edit"
+              : "New"}
           </button>
         )}
       </div>
