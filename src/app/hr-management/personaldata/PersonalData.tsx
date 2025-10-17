@@ -8,6 +8,9 @@ import { toCustomFormat } from "@/lib/utils/dateFormatUtils";
 import { Employee } from "@/lib/types/Employee";
 
 type PersonalData = {
+  employeeNo: string;
+  biometricNo: string;
+  userRole: string;
   surname: string;
   firstname: string;
   middlename: string;
@@ -90,6 +93,9 @@ type PersonalDataProps = {
 
 export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
   const [form, setForm] = useState<PersonalData>({
+    employeeNo: "",
+    biometricNo: "",
+    userRole: "",
     surname: "",
     firstname: "",
     middlename: "",
@@ -154,6 +160,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
     if (selectedEmployee?.isCleared) {
       console.log("Clearing personal data fields...");
       setForm({
+        employeeNo: "",
+        biometricNo: "",
+        userRole: "",
         surname: "",
         firstname: "",
         middlename: "",
@@ -362,8 +371,26 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
     e.preventDefault();
 
     try {
-      const url = `${API_BASE_URL_HRM}/api/create/personal-data`;
+      const employeeUrl = `${API_BASE_URL_HRM}/api/employee/register`;
+      const employeeMappedData = {
+        employeeNo: form.employeeNo,
+        biometricNo: form.biometricNo,
+        role: form.userRole,
+      };
 
+      // Send as JSON
+      const resEmployee = await fetchWithAuth(employeeUrl, {
+        method: "POST",
+        body: JSON.stringify(employeeMappedData),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!resEmployee.ok) {
+        const text = await resEmployee.text();
+        throw new Error(`Failed to save employee identification: ${text}`);
+      }
+
+      const url = `${API_BASE_URL_HRM}/api/create/personal-data`;
       // Prepare JSON data
       const mappedData = {
         surname: form.surname,
@@ -502,9 +529,48 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
 
       <div>&nbsp;</div>
 
-      {/* I. PERSONAL INFORMATION */}
       <section>
-        <h2>I. Personal Information</h2>
+        <h2>I. Employee Identification</h2>
+        <div className={styles.grid2}>
+          <label>
+            Employee No.{" "}
+            <input
+              type="text"
+              name="employeeNo"
+              value={form.employeeNo}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />
+          </label>
+
+          <label>
+            Biometric No.{" "}
+            <input
+              type="text"
+              name="biometricNo"
+              value={form.biometricNo}
+              onChange={handleChange}
+              disabled={isDisabled}
+            />
+          </label>
+
+          <label>
+            Role{" "}
+            <select
+              name="userRole"
+              value={form.userRole}
+              onChange={handleChange}
+              disabled={isDisabled}
+            >
+              <option value="">-- Select Role --</option>
+              <option value="1">ADMIN</option>
+              <option value="2">USER</option>
+            </select>
+          </label>
+        </div>
+
+        {/* II. PERSONAL INFORMATION */}
+        <h2>II. Personal Information</h2>
         <div className={styles.grid2}>
           <label>
             Surname{" "}
@@ -812,9 +878,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </div>
       </section>
 
-      {/* II. FAMILY BACKGROUND */}
+      {/* III. FAMILY BACKGROUND */}
       <section>
-        <h2>II. Family Background</h2>
+        <h2>III. Family Background</h2>
         <div className={styles.grid2}>
           <label>
             Spouse&apos;s Surname{" "}
@@ -997,9 +1063,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </div>
       </section>
 
-      {/* III. EDUCATIONAL BACKGROUND */}
+      {/* IV. EDUCATIONAL BACKGROUND */}
       <section>
-        <h2>III. Educational Background</h2>
+        <h2>IV. Educational Background</h2>
         {education.map((row, i) => (
           <div key={i} className={styles.row}>
             <input
@@ -1123,9 +1189,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </button>
       </section>
 
-      {/* IV. CIVIL SERVICE ELIGIBILITY */}
+      {/* V. CIVIL SERVICE ELIGIBILITY */}
       <section>
-        <h2>IV. Civil Service Eligibility</h2>
+        <h2>V. Civil Service Eligibility</h2>
         {eligibilities.map((row, i) => (
           <div key={i} className={styles.row}>
             <input
@@ -1223,9 +1289,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </button>
       </section>
 
-      {/* V. WORK EXPERIENCE */}
+      {/* VI. WORK EXPERIENCE */}
       <section>
-        <h2>V. Work Experience</h2>
+        <h2>VI. Work Experience</h2>
         {workExperience.map((row, i) => (
           <div key={i} className={styles.row}>
             <input
@@ -1349,9 +1415,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </button>
       </section>
 
-      {/* VI. VOLUNTARY WORK */}
+      {/* VII. VOLUNTARY WORK */}
       <section>
-        <h2>VI. Voluntary Work</h2>
+        <h2>VII. Voluntary Work</h2>
         {voluntaryWork.map((row, i) => (
           <div key={i} className={styles.row}>
             <input
@@ -1439,9 +1505,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </button>
       </section>
 
-      {/* VII. LEARNING & DEVELOPMENT */}
+      {/* VIII. LEARNING & DEVELOPMENT */}
       <section>
-        <h2>VII. Learning & Development</h2>
+        <h2>VIII. Learning & Development</h2>
         {trainings.map((row, i) => (
           <div key={i} className={styles.row}>
             <input
@@ -1541,9 +1607,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </button>
       </section>
 
-      {/* VIII. OTHER INFORMATION */}
+      {/* IX. OTHER INFORMATION */}
       <section>
-        <h2>VIII. Other Information</h2>
+        <h2>IX. Other Information</h2>
 
         <h3>Special Skills and Hobbies</h3>
         <div className={styles.row}>
@@ -1582,9 +1648,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </div>
       </section>
 
-      {/* IX. ADDITIONAL INFORMATION (34–40) */}
+      {/* X. ADDITIONAL INFORMATION (34–40) */}
       <section>
-        <h2>IX. Additional Information</h2>
+        <h2>X. Additional Information</h2>
 
         {/* 34 */}
         <div className={styles.questionBlock}>
@@ -2046,9 +2112,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </div>
       </section>
 
-      {/* REFERENCES */}
+      {/* XI. REFERENCES */}
       <section>
-        <h2>X. References</h2>
+        <h2>XI. References</h2>
         {references.map((row, i) => (
           <div key={i} className={styles.row}>
             <input
@@ -2104,9 +2170,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </button>
       </section>
 
-      {/* XI. ISSUANCE INFORMATION */}
+      {/* XII. ISSUANCE INFORMATION */}
       <section>
-        <h2>XI. Issuance Information</h2>
+        <h2>XII. Issuance Information</h2>
         <div className={styles.grid2}>
           <label>
             ID/License/Passport No.
@@ -2154,9 +2220,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         </div>
       </section>
 
-      {/* XII. DECLARATION AND GOVERNMENT ID (42) */}
+      {/* XIII. DECLARATION AND GOVERNMENT ID (42) */}
       <section>
-        <h2>XII. Declaration</h2>
+        <h2>XIII. Declaration</h2>
         <div className={styles.questionBlock}>
           <label>
             <input
@@ -2198,7 +2264,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
             className={styles.editBtn}
             onClick={handleEditToggle}
           >
-            Edit
+            {selectedEmployee && selectedEmployee.isSearched === true
+              ? "Edit"
+              : "New"}
           </button>
         )}
       </div>
