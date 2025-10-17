@@ -45,7 +45,7 @@ export default function EmploymentRecord() {
         } as Employee;
         setSelectedEmployee(emp);
 
-        if (userRole === "ROLE_ADMIN") {
+        if (userRole === "1") {
           setInputValue(`[${emp.employeeNo}] ${emp.fullName}`);
         }
       }
@@ -80,18 +80,18 @@ export default function EmploymentRecord() {
                 <input
                   id="employee"
                   type="text"
-                  list={userRole === "ROLE_ADMIN" ? "employee-list" : undefined}
+                  list={userRole === "1" ? "employee-list" : undefined}
                   placeholder="Employee No / Lastname"
                   value={
-                    userRole === "ROLE_ADMIN"
+                    userRole === "1"
                       ? inputValue // ✅ Admin can type freely
                       : selectedEmployee
                       ? `[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}`
                       : ""
                   }
-                  readOnly={userRole !== "ROLE_ADMIN"} // ✅ Non-admin can't edit
+                  readOnly={userRole !== "1"} // ✅ Non-admin can't edit
                   onChange={(e) => {
-                    if (userRole === "ROLE_ADMIN") {
+                    if (userRole === "1") {
                       setInputValue(e.target.value); // ✅ Track admin typing
 
                       const selected = employees.find(
@@ -103,7 +103,7 @@ export default function EmploymentRecord() {
                     }
                   }}
                 />
-                {userRole === "ROLE_ADMIN" && (
+                {userRole === "1" && (
                   <datalist id="employee-list">
                     {employees.map((emp) => (
                       <option
