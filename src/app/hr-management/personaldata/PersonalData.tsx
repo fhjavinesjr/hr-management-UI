@@ -4,98 +4,22 @@ import React, { useState, useEffect } from "react";
 import styles from "@/styles/PersonalData.module.scss";
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
-import { toCustomFormat } from "@/lib/utils/dateFormatUtils";
+import { toCustomFormat, toDateInputValue } from "@/lib/utils/dateFormatUtils";
 import { Employee } from "@/lib/types/Employee";
-
-type PersonalData = {
-  employeeNo: string;
-  biometricNo: string;
-  userRole: string;
-  surname: string;
-  firstname: string;
-  middlename: string;
-  extname: string;
-  dob: string;
-  pob: string;
-  sex_id: number;
-  civilStatus_id: number;
-  height: string;
-  weight: string;
-  bloodType: string;
-  gsisId: string;
-  pagibigId: string;
-  philhealthNo: string;
-  sssNo: string;
-  tinNo: string;
-  agencyEmpNo: string;
-  citizenship: string;
-  resAddress: string;
-  resZip: string;
-  permAddress: string;
-  permZip: string;
-  telNo: string;
-  mobileNo: string;
-  email: string;
-  employeePicture: File | null;
-  employeeSignature: File | null;
-  spouseSurname?: string;
-  spouseFirstname?: string;
-  spouseMiddlename?: string;
-  spouseOccupation?: string;
-  spouseEmployer?: string;
-  spouseBusinessAddress?: string;
-  spouseTelNo?: string;
-  fatherSurname?: string;
-  fatherFirstname?: string;
-  fatherMiddlename?: string;
-  motherSurname?: string;
-  motherFirstname?: string;
-  motherMiddlename?: string;
-  govIdNumber: string;
-  govIdType: string;
-  govIdDate: string;
-  govIdPlace: string;
-  skillOrHobby?: string;
-  distinction?: string;
-  association?: string;
-  q34a?: string;
-  q34b?: string;
-  q35a?: string;
-  q35b?: string;
-  q36?: string;
-  q37a?: string;
-  q37b?: string;
-  q37c?: string;
-  q38?: string;
-  q39a?: string;
-  q39b?: string;
-  q39c?: string;
-  q34aDetails?: string;
-  q34bDetails?: string;
-  q35aDetails?: string;
-  q35bDetails?: string;
-  q35bDateFiled?: string;
-  q35bStatus?: string;
-  q36Details?: string;
-  q37aDetails?: string;
-  q37bDetails?: string;
-  q37cDetails?: string;
-  q38Details?: string;
-  q39aDetails?: string;
-  q39bDetails?: string;
-  q39cDetails?: string;
-  q42?: boolean;
-};
+import Swal from "sweetalert2";
+import { PersonalDataModel } from "@/lib/types/PersonalData";
 
 type PersonalDataProps = {
   selectedEmployee?: Employee | null;
+  personalData?: PersonalDataModel | null;
 };
 
-export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
-  const [form, setForm] = useState<PersonalData>({
+export default function PersonalData({selectedEmployee, personalData,}: PersonalDataProps) {
+  const [form, setForm] = useState<PersonalDataModel>({
     employeeNo: "",
     biometricNo: "",
     userRole: "",
+    employeeId: "",
     surname: "",
     firstname: "",
     middlename: "",
@@ -163,6 +87,7 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         employeeNo: "",
         biometricNo: "",
         userRole: "",
+        employeeId: "",
         surname: "",
         firstname: "",
         middlename: "",
@@ -268,6 +193,19 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
       setReferences([{ name: "", address: "", tel: "" }]);
     }
   }, [selectedEmployee?.isCleared]);
+
+  // Populate personal data when fetched from backend
+  useEffect(() => {
+    if (personalData) {
+      setForm((prev) => ({
+        ...prev,
+        ...personalData, // map matching fields directly
+        dob: toDateInputValue(personalData.dob),
+        govIdDate: toDateInputValue(personalData.govIdDate),
+        q35bDateFiled: toDateInputValue(personalData.q35bDateFiled || ""),
+      }));
+    }
+  }, [personalData]);
 
   const [isDisabled, setIsDisabled] = useState(true);
 
@@ -376,6 +314,9 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         employeeNo: form.employeeNo,
         biometricNo: form.biometricNo,
         role: form.userRole,
+        lastname: form.surname,
+        firstname: form.firstname,
+        suffix: form.extname,
       };
 
       // Send as JSON
@@ -390,9 +331,12 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         throw new Error(`Failed to save employee identification: ${text}`);
       }
 
+      const employeeData = await resEmployee.json();
+
       const url = `${API_BASE_URL_HRM}/api/create/personal-data`;
       // Prepare JSON data
       const mappedData = {
+        employeeId: employeeData.employeeId,
         surname: form.surname,
         firstname: form.firstname,
         middlename: form.middlename,
@@ -490,10 +434,18 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
       }
 
       setIsDisabled(true);
-      alert("✅ Personal data successfully saved!");
+      Swal.fire({
+        icon: "success",
+        title: "Employee Registered",
+        text: `Employee No: ${employeeData.employeeNo}`,
+      });
     } catch (err) {
-      console.error("❌ Error saving personal data:", err);
-      alert("Failed to save personal data. Please check your inputs.");
+      console.error("❌ Error saving employee:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Failed",
+        text: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   };
 
@@ -533,24 +485,30 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         <h2>I. Employee Identification</h2>
         <div className={styles.grid2}>
           <label>
-            Employee No.{" "}
+            <span>
+              Employee No. <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="text"
               name="employeeNo"
               value={form.employeeNo}
               onChange={handleChange}
               disabled={isDisabled}
+              required
             />
           </label>
 
           <label>
-            Biometric No.{" "}
+            <span>
+              Biometric No. <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="text"
               name="biometricNo"
               value={form.biometricNo}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             />
           </label>
 
@@ -573,33 +531,42 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
         <h2>II. Personal Information</h2>
         <div className={styles.grid2}>
           <label>
-            Surname{" "}
+            <span>
+              Surname <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="text"
               name="surname"
               value={form.surname}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             />
           </label>
           <label>
-            First Name{" "}
+            <span>
+              Surname <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="text"
               name="firstname"
               value={form.firstname}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             />
           </label>
           <label>
-            Middle Name{" "}
+            <span>
+              Middle Name <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="text"
               name="middlename"
               value={form.middlename}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             />
           </label>
           <label>
@@ -613,13 +580,16 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
             />
           </label>
           <label>
-            Date of Birth{" "}
+            <span>
+              Date of Birth <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="date"
               name="dob"
               value={form.dob}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             />
           </label>
           <label>
@@ -633,12 +603,15 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
             />
           </label>
           <label>
-            Sex
+            <span>
+              Sex <span style={{ color: "red" }}>*</span>
+            </span>
             <select
               name="sex_id"
               value={form.sex_id}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             >
               <option value="">--Select--</option>
               <option value="1">Male</option>
@@ -646,12 +619,15 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
             </select>
           </label>
           <label>
-            Civil Status
+            <span>
+              Civil Status <span style={{ color: "red" }}>*</span>
+            </span>
             <select
               name="civilStatus_id"
               value={form.civilStatus_id}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             >
               <option value="">--Select--</option>
               <option value="1">Single</option>
@@ -813,23 +789,29 @@ export default function PersonalData({ selectedEmployee }: PersonalDataProps) {
             />
           </label>
           <label>
-            Mobile No.{" "}
+            <span>
+              Mobile No. <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="text"
               name="mobileNo"
               value={form.mobileNo}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             />
           </label>
           <label>
-            Email Address{" "}
+            <span>
+              Email Address <span style={{ color: "red" }}>*</span>
+            </span>
             <input
               type="email"
               name="email"
               value={form.email}
               onChange={handleChange}
               disabled={isDisabled}
+              required={true}
             />
           </label>
         </div>

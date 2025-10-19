@@ -9,6 +9,9 @@ import Separation from "@/app/hr-management/separation/Separation";
 import modalStyles from "@/styles/Modal.module.scss";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { Employee } from "@/lib/types/Employee";
+import { PersonalDataModel } from "@/lib/types/PersonalData";
+const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 
 export default function EmploymentRecord() {
   const [activeTab, setActiveTab] = useState("personal");
@@ -18,6 +21,7 @@ export default function EmploymentRecord() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
     null
   );
+  const [personalData, setPersonalData] = useState<PersonalDataModel | null>(null);
 
   useEffect(() => {
     const storedEmployees = localStorageUtil.getEmployees();
@@ -34,26 +38,22 @@ export default function EmploymentRecord() {
   // Fetch Employment Record
   const fetchEmploymentRecords = async () => {
     try {
-      const fullname = localStorageUtil.getEmployeeFullname();
-      const empNo = localStorageUtil.getEmployeeNo();
-      if (fullname && empNo) {
-        const emp = {
-          employeeNo: empNo,
-          fullName: fullname,
-          role: userRole,
-          isSearched: true,
-        } as Employee;
-        setSelectedEmployee(emp);
-
-        if (userRole === "1") {
-          setInputValue(`[${emp.employeeNo}] ${emp.fullName}`);
-        }
-      }
-
       if (!selectedEmployee) {
         alert("Please select an employee.");
         return;
       }
+
+      const fetchPersonalDataURL = `${API_BASE_URL_HRM}/api/fetch/personal-data/` + selectedEmployee.employeeId;
+      const personalDataRes = await fetchWithAuth(`${fetchPersonalDataURL}`);
+
+      if (!personalDataRes.ok) {
+        const text = await personalDataRes.text();
+        throw new Error(`Failed to fetch Personal Data: ${text}`);
+      }
+
+      const personalDataJson = await personalDataRes.json();
+      setPersonalData(personalDataJson);
+
     } catch (err) {
       console.log("Error: " + err);
     }
@@ -63,7 +63,7 @@ export default function EmploymentRecord() {
     setSelectedEmployee({ isCleared: true } as Employee);
     setInputValue("");
     setActiveTab("personal");
-  }
+  };
 
   return (
     <div id="employmentecordsModal" className={modalStyles.Modal}>
@@ -163,7 +163,7 @@ export default function EmploymentRecord() {
             {/* Tab Content */}
             <div className={styles.tabContent}>
               {activeTab === "personal" && (
-                <PersonalData selectedEmployee={selectedEmployee} />
+                <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} />
               )}
               {activeTab === "appointment" && <EmployeeAppointment />}
               {activeTab === "service" && <ServiceRecord />}
