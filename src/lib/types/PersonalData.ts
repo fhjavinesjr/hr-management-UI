@@ -29,8 +29,8 @@ export type PersonalDataModel = {
   telNo: string;
   mobileNo: string;
   email: string;
-  employeePicture: File | null;
-  employeeSignature: File | null;
+  employeePicture: File | string | null;
+  employeeSignature: File | string | null;
   spouseSurname?: string;
   spouseFirstname?: string;
   spouseMiddlename?: string;

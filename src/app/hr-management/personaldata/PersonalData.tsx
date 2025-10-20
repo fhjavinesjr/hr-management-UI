@@ -8,13 +8,19 @@ import { toCustomFormat, toDateInputValue } from "@/lib/utils/dateFormatUtils";
 import { Employee } from "@/lib/types/Employee";
 import Swal from "sweetalert2";
 import { PersonalDataModel } from "@/lib/types/PersonalData";
+import Image from "next/image";
 
 type PersonalDataProps = {
   selectedEmployee?: Employee | null;
   personalData?: PersonalDataModel | null;
+  fetchEmploymentRecords: () => Promise<void>;
 };
 
-export default function PersonalData({selectedEmployee, personalData,}: PersonalDataProps) {
+export default function PersonalData({
+  selectedEmployee,
+  personalData,
+  fetchEmploymentRecords,
+}: PersonalDataProps) {
   const [form, setForm] = useState<PersonalDataModel>({
     employeeNo: "",
     biometricNo: "",
@@ -82,7 +88,6 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
 
   useEffect(() => {
     if (selectedEmployee?.isCleared) {
-      console.log("Clearing personal data fields...");
       setForm({
         employeeNo: "",
         biometricNo: "",
@@ -272,7 +277,6 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
   const handleEditToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setIsDisabled((prev) => {
-      console.log("Toggle isDisabled from", prev, "to", !prev);
       return !prev;
     });
   };
@@ -294,22 +298,47 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
   };
 
   // Convert files to Base64 strings
-  const toBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(",")[1]; // remove prefix
-        resolve(base64);
-      };
-      reader.onerror = reject;
-    });
+  const toBase64 = (file?: File | null): Promise<string | null> =>
+  new Promise((resolve, reject) => {
+    // ✅ Handle null or undefined file gracefully
+    if (!file) {
+      resolve(null);
+      return;
+    }
+
+    // ✅ Ensure it's actually a Blob (File is a subclass of Blob)
+    if (!(file instanceof Blob)) {
+      resolve(null);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+
+      // ✅ Safely remove the "data:image/...;base64," prefix
+      const base64Data = result.includes(",") ? result.split(",")[1] : result;
+
+      resolve(base64Data);
+    };
+    reader.onerror = (error) => reject(error);
+  });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    let employeeUrl = `${API_BASE_URL_HRM}/api/employee/register`;
+    let personalDataUrl = `${API_BASE_URL_HRM}/api/create/personal-data`;
+    let submitMethod = "POST";
+    if (selectedEmployee?.isSearched) {
+      // Update existing personal data
+      employeeUrl = `${API_BASE_URL_HRM}/api/employee/update/${selectedEmployee.employeeId}`;
+      personalDataUrl = `${API_BASE_URL_HRM}/api/personal-data/update/${selectedEmployee.employeeId}`;
+      submitMethod = "PUT";
+    }
+
     try {
-      const employeeUrl = `${API_BASE_URL_HRM}/api/employee/register`;
       const employeeMappedData = {
         employeeNo: form.employeeNo,
         biometricNo: form.biometricNo,
@@ -321,7 +350,7 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
 
       // Send as JSON
       const resEmployee = await fetchWithAuth(employeeUrl, {
-        method: "POST",
+        method: submitMethod,
         body: JSON.stringify(employeeMappedData),
         headers: { "Content-Type": "application/json" },
       });
@@ -332,11 +361,10 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
       }
 
       const employeeData = await resEmployee.json();
-
-      const url = `${API_BASE_URL_HRM}/api/create/personal-data`;
+      
       // Prepare JSON data
       const mappedData = {
-        employeeId: employeeData.employeeId,
+        employeeId: employeeData.employeeId !== null ? employeeData.employeeId : selectedEmployee?.employeeId,
         surname: form.surname,
         firstname: form.firstname,
         middlename: form.middlename,
@@ -413,17 +441,24 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
         q39bDetails: form.q39bDetails ?? "",
         q39cDetails: form.q39cDetails ?? "",
         q42: form.q42 ? "true" : "false",
-        employeePicture: form.employeePicture
-          ? await toBase64(form.employeePicture)
-          : null,
-        employeeSignature: form.employeeSignature
-          ? await toBase64(form.employeeSignature)
-          : null,
+        employeePicture:
+          form.employeePicture instanceof File
+            ? await toBase64(form.employeePicture) // Convert new uploads
+            : typeof form.employeePicture === "string"
+            ? form.employeePicture.split(",")[1] // Keep existing base64 (remove prefix)
+            : null,
+
+        employeeSignature:
+          form.employeeSignature instanceof File
+            ? await toBase64(form.employeeSignature)
+            : typeof form.employeeSignature === "string"
+            ? form.employeeSignature.split(",")[1]
+            : null,
       };
 
       // Send as JSON
-      const res = await fetchWithAuth(url, {
-        method: "POST",
+      const res = await fetchWithAuth(personalDataUrl, {
+        method: submitMethod,
         body: JSON.stringify(mappedData),
         headers: { "Content-Type": "application/json" },
       });
@@ -438,9 +473,10 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
         icon: "success",
         title: "Employee Registered",
         text: `Employee No: ${employeeData.employeeNo}`,
+      }).then(async () => {
+        await fetchEmploymentRecords(); // ✅ Re-fetch updated data from parent
       });
     } catch (err) {
-      console.error("❌ Error saving employee:", err);
       Swal.fire({
         icon: "error",
         title: "Failed",
@@ -513,7 +549,9 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
           </label>
 
           <label>
-            Role{" "}
+            <span>
+              Role <span style={{ color: "red" }}>*</span>
+            </span>
             <select
               name="userRole"
               value={form.userRole}
@@ -545,7 +583,7 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
           </label>
           <label>
             <span>
-              Surname <span style={{ color: "red" }}>*</span>
+              First Name <span style={{ color: "red" }}>*</span>
             </span>
             <input
               type="text"
@@ -836,6 +874,27 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
                 disabled={isDisabled}
               />
             </label>
+            {/* ✅ Image preview */}
+            {form.employeePicture && (
+              <div className={styles.previewContainer}>
+                <Image
+                  src={
+                    form.employeePicture instanceof File
+                      ? URL.createObjectURL(form.employeePicture)
+                      : form.employeePicture // base64 data URL
+                  }
+                  alt="Employee Picture"
+                  width={150}
+                  height={150}
+                  style={{
+                    borderRadius: "10px",
+                    objectFit: "cover",
+                    border: "1px solid #ccc",
+                  }}
+                  priority={true}
+                />
+              </div>
+            )}
           </div>
 
           <div className={styles.fileUpload}>
@@ -856,6 +915,27 @@ export default function PersonalData({selectedEmployee, personalData,}: Personal
                 disabled={isDisabled}
               />
             </label>
+            {/* ✅ Signature preview */}
+            {form.employeeSignature && (
+              <div className={styles.previewContainer}>
+                <Image
+                  src={
+                    form.employeeSignature instanceof File
+                      ? URL.createObjectURL(form.employeeSignature)
+                      : form.employeeSignature
+                  }
+                  alt="Employee Signature"
+                  width={150}
+                  height={100}
+                  style={{
+                    borderRadius: "6px",
+                    objectFit: "contain",
+                    border: "1px solid #ccc",
+                    backgroundColor: "#f9f9f9",
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </section>

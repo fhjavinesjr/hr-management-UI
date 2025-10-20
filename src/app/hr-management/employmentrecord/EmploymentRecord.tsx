@@ -12,6 +12,7 @@ import { Employee } from "@/lib/types/Employee";
 import { PersonalDataModel } from "@/lib/types/PersonalData";
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import Swal from "sweetalert2";
 
 export default function EmploymentRecord() {
   const [activeTab, setActiveTab] = useState("personal");
@@ -39,11 +40,15 @@ export default function EmploymentRecord() {
   const fetchEmploymentRecords = async () => {
     try {
       if (!selectedEmployee) {
-        alert("Please select an employee.");
+        Swal.fire({
+          icon: "error",
+          title: "Please select an employee.",
+          text: "",
+        });
         return;
       }
 
-      const fetchPersonalDataURL = `${API_BASE_URL_HRM}/api/fetch/personal-data/` + selectedEmployee.employeeId;
+      const fetchPersonalDataURL = `${API_BASE_URL_HRM}/api/fetch/personal-data/${selectedEmployee.employeeId}`;
       const personalDataRes = await fetchWithAuth(`${fetchPersonalDataURL}`);
 
       if (!personalDataRes.ok) {
@@ -52,17 +57,68 @@ export default function EmploymentRecord() {
       }
 
       const personalDataJson = await personalDataRes.json();
-      setPersonalData(personalDataJson);
+
+      const fetchEmployee = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employee/${selectedEmployee.employeeId}`);
+
+      if (!fetchEmployee.ok) {
+        const text = await fetchEmployee.text();
+        throw new Error(`Failed to fetch Employee: ${text}`);
+      }
+
+      const employeeJson = await fetchEmployee.json();
+
+      // merge employee fields into personal data
+      const mergedData = {
+        ...personalDataJson,
+        employeeNo: employeeJson.employeeNo ?? "",
+        biometricNo: employeeJson.biometricNo ?? "",
+        userRole: employeeJson.role ?? "",
+        employeePicture: personalDataJson.employeePicture
+          ? `data:image/jpeg;base64,${personalDataJson.employeePicture}`
+          : null,
+        employeeSignature: personalDataJson.employeeSignature
+          ? `data:image/png;base64,${personalDataJson.employeeSignature}`
+          : null,
+      };
+
+      setPersonalData(mergedData);
+
+      Swal.fire({
+        icon: "success",
+        title: "Personal Data Loaded",
+        text: `Successfully loaded personal data for ${selectedEmployee.fullName}`,
+      });
+
+      selectedEmployee.isSearched = true;
+      setSelectedEmployee({ ...selectedEmployee });
 
     } catch (err) {
       console.log("Error: " + err);
+      Swal.fire({
+        icon: "error",
+        title: "Employee is not found.",
+        text: "",
+      });
     }
   };
 
   const clearEmploymentRecords = async () => {
-    setSelectedEmployee({ isCleared: true } as Employee);
+    if (!selectedEmployee) {
+      return;
+    }
+      
+    selectedEmployee.isSearched = false;
+    selectedEmployee.isCleared = true;
+    setSelectedEmployee({ ...selectedEmployee });
     setInputValue("");
     setActiveTab("personal");
+    setPersonalData(null);
+
+    Swal.fire({
+      icon: "success",
+      title: "Employment Record Cleared",
+      text: `Cleared employment record for ${selectedEmployee.fullName}`,
+    });
   };
 
   return (
@@ -99,7 +155,14 @@ export default function EmploymentRecord() {
                           `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
                           e.target.value.toLowerCase()
                       );
-                      setSelectedEmployee(selected || null);
+                      if (selected) {
+                        setSelectedEmployee({ ...selected, isSearched: false });
+                      } else {
+                        // if user clears or types something invalid
+                        setSelectedEmployee((prev) =>
+                          prev ? { ...prev, isSearched: false } : null
+                        );
+                      }
                     }
                   }}
                 />
@@ -163,7 +226,7 @@ export default function EmploymentRecord() {
             {/* Tab Content */}
             <div className={styles.tabContent}>
               {activeTab === "personal" && (
-                <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} />
+                <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} />
               )}
               {activeTab === "appointment" && <EmployeeAppointment />}
               {activeTab === "service" && <ServiceRecord />}
