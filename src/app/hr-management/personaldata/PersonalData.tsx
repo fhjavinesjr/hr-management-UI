@@ -13,7 +13,7 @@ import Image from "next/image";
 type PersonalDataProps = {
   selectedEmployee?: Employee | null;
   personalData?: PersonalDataModel | null;
-  fetchEmploymentRecords: () => Promise<void>;
+  fetchEmploymentRecords?: () => Promise<void>;
 };
 
 export default function PersonalData({
@@ -471,10 +471,10 @@ export default function PersonalData({
       setIsDisabled(true);
       Swal.fire({
         icon: "success",
-        title: "Employee Registered",
+        title: selectedEmployee?.isSearched ? "Employee Updated" : "Employee Created",
         text: `Employee No: ${employeeData.employeeNo}`,
       }).then(async () => {
-        await fetchEmploymentRecords(); // ✅ Re-fetch updated data from parent
+        await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
       });
     } catch (err) {
       Swal.fire({

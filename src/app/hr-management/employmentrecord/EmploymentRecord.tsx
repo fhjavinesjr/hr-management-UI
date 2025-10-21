@@ -102,11 +102,11 @@ export default function EmploymentRecord() {
     }
   };
 
-  const clearEmploymentRecords = async () => {
+  const clearEmploymentRecordsWithShowMessage = async () => {
     if (!selectedEmployee) {
       return;
     }
-      
+
     selectedEmployee.isSearched = false;
     selectedEmployee.isCleared = true;
     setSelectedEmployee({ ...selectedEmployee });
@@ -120,6 +120,17 @@ export default function EmploymentRecord() {
       text: `Cleared employment record for ${selectedEmployee.fullName}`,
     });
   };
+
+  const clearEmploymentRecordsWithoutShowMessage = async () => {
+    if (!selectedEmployee) {
+      return;
+    }
+    
+    selectedEmployee.isSearched = false;
+    selectedEmployee.isCleared = true;
+    setSelectedEmployee({ ...selectedEmployee });
+    setPersonalData(null);
+  }
 
   return (
     <div id="employmentecordsModal" className={modalStyles.Modal}>
@@ -160,8 +171,10 @@ export default function EmploymentRecord() {
                       } else {
                         // if user clears or types something invalid
                         setSelectedEmployee((prev) =>
-                          prev ? { ...prev, isSearched: false } : null
+                          prev ? { ...prev, isSearched: false, isCleared: true } : null
                         );
+
+                        clearEmploymentRecordsWithoutShowMessage();
                       }
                     }
                   }}
@@ -187,7 +200,7 @@ export default function EmploymentRecord() {
                   &nbsp;
                   <button
                     className={styles.clearButton}
-                    onClick={clearEmploymentRecords}
+                    onClick={clearEmploymentRecordsWithShowMessage}
                   >
                     Clear
                   </button>
