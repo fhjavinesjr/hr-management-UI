@@ -45,6 +45,21 @@
     .numberField {
       padding: 0.5rem;
     }
+
+    input,
+    select,
+    textarea {
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+
+      &:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+      }
+    }
   }
 
   .submitBtn {
