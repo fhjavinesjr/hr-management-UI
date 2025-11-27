@@ -6,6 +6,7 @@ import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
 import { toCustomFormat } from "@/lib/utils/dateFormatUtils";
 import { formatMoneyInput } from "@/lib/utils/formatMoney";
+import { Employee } from "@/lib/types/Employee";
 
 const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
@@ -22,6 +23,21 @@ export type Appointment = {
   salaryPerAnnum: string;
   salaryPerMonth: string;
   salaryPerDay: string;
+  details: string;
+};
+
+type AppointmentPayload = {
+  employeeId: string | null;
+  appointmentIssuedDate: string | null;
+  assumptionToDutyDate: string | null;
+  natureOfAppointmentId: number | null;
+  plantillaId: number | null;
+  jobPositionId: number | null;
+  salaryGrade: number | null;
+  salaryStep: number | null;
+  salaryPerAnnum: number | null;
+  salaryPerMonth: number | null;
+  salaryPerDay: number | null;
   details: string;
 };
 
@@ -48,17 +64,25 @@ type Props = {
   initialData?: Appointment;
   onCancel?: () => void;
   onSave?: (saved: Appointment) => void;
+  selectedEmployee?: Employee | null;
+  fetchEmploymentRecords?: () => Promise<void>;
 };
 
-export default function EmployeeAppointment({ initialData, onCancel }: Props) {
+// export default function EmployeeAppointment({ initialData, onCancel }: Props) {
+export default function EmployeeAppointment({
+  initialData,
+  onCancel,
+  selectedEmployee,
+  fetchEmploymentRecords,
+}: Props) {
   const [positionList, setPositionList] = useState<JobPositionDTO[]>([]);
   const [plantillaList, setPlantillaList] = useState<PlantillaDTO[]>([]);
   const [natureList, setNatureList] = useState<NatureOfAppointmentDTO[]>([]);
   const [selectedPositionId, setSelectedPositionId] = useState<string>("");
 
-  const [formattedSalaryAnnum, setFormattedSalaryAnnum] = useState("");
-  const [formattedSalaryMonth, setFormattedSalaryMonth] = useState("");
-  const [formattedSalaryDay, setFormattedSalaryDay] = useState("");
+  // const [formattedSalaryAnnum, setFormattedSalaryAnnum] = useState("");
+  // const [formattedSalaryMonth, setFormattedSalaryMonth] = useState("");
+  // const [formattedSalaryDay, setFormattedSalaryDay] = useState("");
 
   const emptyForm: Appointment = {
     appointmentId: "",
@@ -133,9 +157,9 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
       setForm(initialData);
       setInitialFormState(initialData); // Set initial state
 
-      setFormattedSalaryAnnum(initialData.salaryPerAnnum ? formatMoneyInput(String(initialData.salaryPerAnnum)) : "");
-      setFormattedSalaryMonth(initialData.salaryPerMonth ? formatMoneyInput(String(initialData.salaryPerMonth)) : "");
-      setFormattedSalaryDay(initialData.salaryPerDay ? formatMoneyInput(String(initialData.salaryPerDay)) : "");
+      // setFormattedSalaryAnnum(initialData.salaryPerAnnum ? formatMoneyInput(String(initialData.salaryPerAnnum)) : "");
+      // setFormattedSalaryMonth(initialData.salaryPerMonth ? formatMoneyInput(String(initialData.salaryPerMonth)) : "");
+      // setFormattedSalaryDay(initialData.salaryPerDay ? formatMoneyInput(String(initialData.salaryPerDay)) : "");
 
       if (initialData.jobPositionId) {
         setSelectedPositionId(String(initialData.jobPositionId));
@@ -181,9 +205,9 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
         salaryPerMonth: "",
         salaryPerDay: "",
       }));
-      setFormattedSalaryAnnum("");
-      setFormattedSalaryMonth("");
-      setFormattedSalaryDay("");
+      // setFormattedSalaryAnnum("");
+      // setFormattedSalaryMonth("");
+      // setFormattedSalaryDay("");
       setPlantillaList([]);
       return;
     }
@@ -216,25 +240,39 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
             salaryPerMonth: monthly.toString(),
             salaryPerDay: perDay.toString(),
           }));
-          setFormattedSalaryAnnum(formatMoneyInput(perAnnum.toString()));
-          setFormattedSalaryMonth(formatMoneyInput(monthly.toString()));
-          setFormattedSalaryDay(formatMoneyInput(String(perDay)));
+          // setFormattedSalaryAnnum(formatMoneyInput(perAnnum.toString()));
+          // setFormattedSalaryMonth(formatMoneyInput(monthly.toString()));
+          // setFormattedSalaryDay(formatMoneyInput(String(perDay)));
         }
       } catch (err) {
         console.error(err);
         Swal.fire("Error", "Unable to fetch salary schedule", "error");
       }
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        salaryPerAnnum: "0",
+        salaryPerMonth: "0",
+        salaryPerDay: "0",
+      }));
     }
   };
 
   // -------------------- Save or Update API --------------------
   const saveOrUpdate = async () => {
     try {
+
+      if(selectedEmployee === null || selectedEmployee?.employeeId === null || selectedEmployee?.employeeId === "") {
+        Swal.fire("Validation Error", "Please select an Employeee.", "warning");
+        return;
+      }
+
       // Format dates to backend expected pattern using toCustomFormat util
       const appointmentIssuedDateFormatted = form.appointmentIssuedDate ? toCustomFormat(form.appointmentIssuedDate, true) : null;
       const assumptionToDutyDateFormatted = form.assumptionToDutyDate ? toCustomFormat(form.assumptionToDutyDate, true) : null;
 
-      const payload: any = {
+      const payload: AppointmentPayload = {
+        employeeId: selectedEmployee?.employeeId ?? null,
         appointmentIssuedDate: appointmentIssuedDateFormatted,
         assumptionToDutyDate: assumptionToDutyDateFormatted,
         natureOfAppointmentId: form.natureOfAppointmentId === "" ? null : Number(form.natureOfAppointmentId),
@@ -247,6 +285,11 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
         salaryPerDay: form.salaryPerDay ? Number(String(form.salaryPerDay).replace(/,/g, "")) : null,
         details: form.details,
       };
+
+      if(payload.plantillaId === null) {
+        Swal.fire("Validation Error", "Please select a Plantilla.", "warning");
+        return;
+      }
 
       const isUpdate = Boolean(form.appointmentId);
       const url = isUpdate
@@ -265,7 +308,9 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
 
       if (!res.ok) throw new Error(data?.message || "Failed to save appointment");
 
-      Swal.fire("Success", data?.message || "Saved successfully", "success");
+      Swal.fire("Success", data?.message || "Saved successfully", "success").then(async () => {
+        await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
+      });;
 
       // After successful save, update initial state and disable form
       if (initialData) {
@@ -273,9 +318,9 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
       } else {
         // If it was a new record (no initialData), clear the form as well.
         setForm(emptyForm);
-        setFormattedSalaryAnnum("");
-        setFormattedSalaryMonth("");
-        setFormattedSalaryDay("");
+        // setFormattedSalaryAnnum("");
+        // setFormattedSalaryMonth("");
+        // setFormattedSalaryDay("");
         setSelectedPositionId("");
         setPlantillaList([]);
       }
@@ -294,9 +339,9 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
     // Revert to initial state
     setForm(initialFormState);
     setSelectedPositionId(initialFormState.jobPositionId ? String(initialFormState.jobPositionId) : "");
-    setFormattedSalaryAnnum(initialFormState.salaryPerAnnum ? formatMoneyInput(String(initialFormState.salaryPerAnnum)) : "");
-    setFormattedSalaryMonth(initialFormState.salaryPerMonth ? formatMoneyInput(String(initialFormState.salaryPerMonth)) : "");
-    setFormattedSalaryDay(initialFormState.salaryPerDay ? formatMoneyInput(String(initialFormState.salaryPerDay)) : "");
+    // setFormattedSalaryAnnum(initialFormState.salaryPerAnnum ? formatMoneyInput(String(initialFormState.salaryPerAnnum)) : "");
+    // setFormattedSalaryMonth(initialFormState.salaryPerMonth ? formatMoneyInput(String(initialFormState.salaryPerMonth)) : "");
+    // setFormattedSalaryDay(initialFormState.salaryPerDay ? formatMoneyInput(String(initialFormState.salaryPerDay)) : "");
 
     // Disable the form
     setIsDisabled(true);
@@ -344,17 +389,17 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
         {/* Form fields */}
         <div className={styles.formGroup}>
           <label>Appointment Issued</label>
-          <input type="date" name="appointmentIssuedDate" value={form.appointmentIssuedDate} onChange={handleChange} disabled={isDisabled} />
+          <input type="date" name="appointmentIssuedDate" value={form.appointmentIssuedDate} onChange={handleChange} disabled={isDisabled} required />
         </div>
 
         <div className={styles.formGroup}>
           <label>Assumption to Duty</label>
-          <input type="date" name="assumptionToDutyDate" value={form.assumptionToDutyDate} onChange={handleChange} disabled={isDisabled} />
+          <input type="date" name="assumptionToDutyDate" value={form.assumptionToDutyDate} onChange={handleChange} disabled={isDisabled} required />
         </div>
 
         <div className={styles.formGroup}>
           <label>Nature of Appointment</label>
-          <select name="natureOfAppointmentId" value={form.natureOfAppointmentId} onChange={handleChange} disabled={isDisabled}>
+          <select name="natureOfAppointmentId" value={form.natureOfAppointmentId} onChange={handleChange} disabled={isDisabled} required>
             <option value="">-- Select Nature --</option>
             {natureList.map((n) => (
               <option key={n.natureOfAppointmentId} value={n.natureOfAppointmentId}>
@@ -366,7 +411,7 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
 
         <div className={styles.formGroup}>
           <label>Job Position</label>
-          <select name="jobPositionId" value={selectedPositionId} onChange={handlePositionChange} disabled={isDisabled}>
+          <select name="jobPositionId" value={selectedPositionId} onChange={handlePositionChange} disabled={isDisabled} required>
             <option value="">-- Select Position --</option>
             {positionList.map((pos) => (
               <option key={pos.jobPositionId} value={pos.jobPositionId}>
@@ -378,7 +423,7 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
 
         <div className={styles.formGroup}>
           <label>Plantilla</label>
-          <select name="plantillaId" value={form.plantillaId} onChange={handleChange} disabled={isDisabled}>
+          <select name="plantillaId" value={form.plantillaId} onChange={handleChange} disabled={isDisabled} required>
             <option value="">-- Select Plantilla --</option>
             {plantillaList.map((pl) => (
               <option key={pl.plantillaId} value={pl.plantillaId}>
@@ -392,32 +437,32 @@ export default function EmployeeAppointment({ initialData, onCancel }: Props) {
         <div className={styles.salaryGroup}>
           <div>
             <label>Salary Grade</label>
-            <input type="text" name="salaryGrade" value={form.salaryGrade} readOnly />
+            <input type="text" name="salaryGrade" value={form.salaryGrade} onChange={handleChange} />
           </div>
           <div>
             <label>Salary Step</label>
-            <input type="text" name="salaryStep" value={form.salaryStep} readOnly />
+            <input type="text" name="salaryStep" value={form.salaryStep} onChange={handleChange} />
           </div>
         </div>
 
         <div className={styles.salaryGroup}>
           <div>
             <label>Salary (Per Annum)</label>
-            <input type="text" value={formattedSalaryAnnum} readOnly />
+            <input type="text" name="salaryPerAnnum" value={form.salaryPerAnnum} onChange={handleChange} />
           </div>
           <div>
             <label>Salary (Per Month)</label>
-            <input type="text" value={formattedSalaryMonth} readOnly />
+            <input type="text" name="salaryPerMonth" value={form.salaryPerMonth} onChange={handleChange} />
           </div>
           <div>
             <label>Salary (Per Day)</label>
-            <input type="text" value={formattedSalaryDay} readOnly />
+            <input type="text" name="salaryPerDay" value={form.salaryPerDay} onChange={handleChange} />
           </div>
         </div>
 
         <div className={styles.formGroup}>
           <label>Additional Details</label>
-          <textarea name="details" value={form.details} onChange={handleChange} disabled={isDisabled} />
+          <textarea name="details" value={form.details} onChange={handleChange} />
         </div>
 
         {/* Buttons (BOTTOM) */}

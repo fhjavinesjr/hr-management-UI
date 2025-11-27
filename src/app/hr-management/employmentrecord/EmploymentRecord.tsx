@@ -241,7 +241,10 @@ export default function EmploymentRecord() {
               {activeTab === "personal" && (
                 <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} />
               )}
-              {activeTab === "appointment" && <EmployeeAppointment />}
+              {activeTab === "appointment" && (
+                <EmployeeAppointment selectedEmployee={selectedEmployee} fetchEmploymentRecords={fetchEmploymentRecords}
+                />
+              )}
               {activeTab === "service" && <ServiceRecord />}
               {activeTab === "separation" && <Separation />}
             </div>
