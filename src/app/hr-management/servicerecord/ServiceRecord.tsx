@@ -23,7 +23,7 @@ export default function ServiceRecord() {
   // Updated static sample data to match NEW Appointment structure
   const [appointments, setAppointments] = useState<Appointment[]>([
     {
-      appointmentId: "A-001",
+      employeeAppointmentId: "A-001",
       appointmentIssuedDate: "2023-01-15",
       assumptionToDutyDate: "2023-02-01",
       natureOfAppointmentId: 1,
@@ -35,9 +35,10 @@ export default function ServiceRecord() {
       salaryPerMonth: "25000",
       salaryPerDay: "1000",
       details: "First appointment as Teacher I.",
+      active: false,
     },
     {
-      appointmentId: "A-002",
+      employeeAppointmentId: "A-002",
       appointmentIssuedDate: "2024-03-10",
       assumptionToDutyDate: "2024-03-20",
       natureOfAppointmentId: 2,
@@ -49,6 +50,7 @@ export default function ServiceRecord() {
       salaryPerMonth: "26666",
       salaryPerDay: "1066",
       details: "Temporary appointment for Guidance Counselor.",
+      active: false,
     },
   ]);
 

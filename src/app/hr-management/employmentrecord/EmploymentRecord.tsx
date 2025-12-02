@@ -10,6 +10,7 @@ import modalStyles from "@/styles/Modal.module.scss";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { Employee } from "@/lib/types/Employee";
 import { PersonalDataModel } from "@/lib/types/PersonalData";
+import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
@@ -23,6 +24,7 @@ export default function EmploymentRecord() {
     null
   );
   const [personalData, setPersonalData] = useState<PersonalDataModel | null>(null);
+  const [employeeAppointments, setEmployeeAppointments] = useState<EmployeeAppointmentModel[] | null>(null);
 
   useEffect(() => {
     const storedEmployees = localStorageUtil.getEmployees();
@@ -83,10 +85,20 @@ export default function EmploymentRecord() {
 
       setPersonalData(mergedData);
 
+      const fetchAllEmployeeAppointmentByEmployeeId = `${API_BASE_URL_HRM}/api/employeeAppointment/get-all/${selectedEmployee.employeeId}`;
+      const employeeAppointmentsByEmployeeId = await fetchWithAuth(`${fetchAllEmployeeAppointmentByEmployeeId}`);
+
+      if (!employeeAppointmentsByEmployeeId.ok) {
+        const text = await employeeAppointmentsByEmployeeId.text();
+        throw new Error(`Failed to fetch Employee Appointment: ${text}`);
+      }
+      const employeeAppointmentsByEmployeeIdJson = await employeeAppointmentsByEmployeeId.json();
+      setEmployeeAppointments(employeeAppointmentsByEmployeeIdJson);
+
       Swal.fire({
         icon: "success",
-        title: "Personal Data Loaded",
-        text: `Successfully loaded personal data for ${selectedEmployee.fullName}`,
+        title: "Employment Record Loaded",
+        text: `Successfully loaded employment record for ${selectedEmployee.fullName}`,
       });
 
       selectedEmployee.isSearched = true;
@@ -107,18 +119,17 @@ export default function EmploymentRecord() {
       return;
     }
 
-    selectedEmployee.isSearched = false;
-    selectedEmployee.isCleared = true;
-    setSelectedEmployee({ ...selectedEmployee });
-    setInputValue("");
-    setActiveTab("personal");
-    setPersonalData(null);
-
     Swal.fire({
       icon: "success",
       title: "Employment Record Cleared",
       text: `Cleared employment record for ${selectedEmployee.fullName}`,
     });
+
+    setInputValue("");
+    setSelectedEmployee(null);   // triggers PersonalData reset
+    setPersonalData(null);       // also triggers reset
+    setEmployeeAppointments(null);
+    setActiveTab("personal");
   };
 
   const clearEmploymentRecordsWithoutShowMessage = async () => {
@@ -242,7 +253,7 @@ export default function EmploymentRecord() {
                 <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} />
               )}
               {activeTab === "appointment" && (
-                <EmployeeAppointment selectedEmployee={selectedEmployee} fetchEmploymentRecords={fetchEmploymentRecords}
+                <EmployeeAppointment selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords}
                 />
               )}
               {activeTab === "service" && <ServiceRecord />}

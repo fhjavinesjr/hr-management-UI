@@ -1,10 +1,13 @@
 
-export const formatMoneyInput = (value: string) => {
-  // Remove all non-digit characters
-  const numericValue = value.replace(/[^\d]/g, "");
+export const formatMoneyInput = (value: string | null | undefined) => {
+  if (!value) {
+    return "";
+  }
+  const numericValue = String(value).replace(/[^\d]/g, "");
 
-  if (!numericValue) return "";
+  if (!numericValue) {
+    return "";
+  }
 
-  // Format with commas
-  return new Intl.NumberFormat("en-US").format(Number(numericValue));
+  return Number(numericValue).toLocaleString();
 };

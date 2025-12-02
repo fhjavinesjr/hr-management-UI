@@ -85,6 +85,148 @@ export default function PersonalData({
     q39cDetails: "",
     q42: false,
   });
+  
+  const resetAllPersonalDataFields = () => {
+    setForm({
+      employeeNo: "",
+      biometricNo: "",
+      userRole: "",
+      employeeId: "",
+      surname: "",
+      firstname: "",
+      middlename: "",
+      extname: "",
+      dob: "",
+      pob: "",
+      sex_id: 0,
+      civilStatus_id: 0,
+      height: "",
+      weight: "",
+      bloodType: "",
+      gsisId: "",
+      pagibigId: "",
+      philhealthNo: "",
+      sssNo: "",
+      tinNo: "",
+      agencyEmpNo: "",
+      citizenship: "",
+      resAddress: "",
+      resZip: "",
+      permAddress: "",
+      permZip: "",
+      telNo: "",
+      mobileNo: "",
+      email: "",
+      employeePicture: null,
+      employeeSignature: null,
+      govIdNumber: "",
+      govIdType: "",
+      govIdDate: "",
+      govIdPlace: "",
+      q34a: "",
+      q34b: "",
+      q35a: "",
+      q35b: "",
+      q36: "",
+      q37a: "",
+      q37b: "",
+      q37c: "",
+      q38: "",
+      q39a: "",
+      q39b: "",
+      q39c: "",
+      q34aDetails: "",
+      q34bDetails: "",
+      q35aDetails: "",
+      q35bDetails: "",
+      q35bDateFiled: "",
+      q35bStatus: "",
+      q36Details: "",
+      q37aDetails: "",
+      q37bDetails: "",
+      q37cDetails: "",
+      q38Details: "",
+      q39aDetails: "",
+      q39bDetails: "",
+      q39cDetails: "",
+      q42: false,
+    });
+
+    // Arrays must also reset
+    setChildren([{ name: "", dob: "" }]);
+
+    setEducation([
+      {
+        level: "",
+        school: "",
+        course: "",
+        from: "",
+        to: "",
+        units: "",
+        yearGraduated: "",
+        honors: "",
+      },
+    ]);
+
+    setEligibilities([
+      {
+        careerService: "",
+        rating: "",
+        examDate: "",
+        examPlace: "",
+        licenseNumber: "",
+        validity: "",
+      },
+    ]);
+
+    setWorkExperience([
+      {
+        from: "",
+        to: "",
+        position: "",
+        department: "",
+        salary: "",
+        payGrade: "",
+        status: "",
+        govService: "",
+      },
+    ]);
+
+    setVoluntaryWork([
+      {
+        orgName: "",
+        from: "",
+        to: "",
+        hours: "",
+        position: "",
+      },
+    ]);
+
+    setTrainings([
+      {
+        title: "",
+        from: "",
+        to: "",
+        hours: "",
+        type: "",
+        conductedBy: "",
+      },
+    ]);
+
+    setReferences([
+      {
+        name: "",
+        address: "",
+        tel: "",
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    if (personalData === null || selectedEmployee === null) {
+      resetAllPersonalDataFields();
+    }
+  }, [personalData, selectedEmployee]);
 
   useEffect(() => {
     if (selectedEmployee?.isCleared) {

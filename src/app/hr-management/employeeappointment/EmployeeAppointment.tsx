@@ -4,15 +4,16 @@ import React, { useState, useEffect, useCallback } from "react";
 import styles from "@/styles/EmployeeAppointment.module.scss";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
-import { toCustomFormat } from "@/lib/utils/dateFormatUtils";
+import { toCustomFormat, toDateInputValue } from "@/lib/utils/dateFormatUtils";
 import { formatMoneyInput } from "@/lib/utils/formatMoney";
 import { Employee } from "@/lib/types/Employee";
+import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 
 const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 
 export type Appointment = {
-  appointmentId: string;
+  employeeAppointmentId: string;
   appointmentIssuedDate: string; // expected as YYYY-MM-DD from <input type=date>
   assumptionToDutyDate: string;  // expected as YYYY-MM-DD from <input type=date>
   natureOfAppointmentId: number | "";
@@ -24,6 +25,7 @@ export type Appointment = {
   salaryPerMonth: string;
   salaryPerDay: string;
   details: string;
+  active: boolean;
 };
 
 type AppointmentPayload = {
@@ -39,6 +41,7 @@ type AppointmentPayload = {
   salaryPerMonth: number | null;
   salaryPerDay: number | null;
   details: string;
+  active: boolean;
 };
 
 type JobPositionDTO = {
@@ -65,6 +68,7 @@ type Props = {
   onCancel?: () => void;
   onSave?: (saved: Appointment) => void;
   selectedEmployee?: Employee | null;
+  employeeAppointments?: EmployeeAppointmentModel[] | null;
   fetchEmploymentRecords?: () => Promise<void>;
 };
 
@@ -73,6 +77,7 @@ export default function EmployeeAppointment({
   initialData,
   onCancel,
   selectedEmployee,
+  employeeAppointments,
   fetchEmploymentRecords,
 }: Props) {
   const [positionList, setPositionList] = useState<JobPositionDTO[]>([]);
@@ -85,7 +90,7 @@ export default function EmployeeAppointment({
   // const [formattedSalaryDay, setFormattedSalaryDay] = useState("");
 
   const emptyForm: Appointment = {
-    appointmentId: "",
+    employeeAppointmentId: "",
     appointmentIssuedDate: "",
     assumptionToDutyDate: "",
     natureOfAppointmentId: "",
@@ -97,6 +102,7 @@ export default function EmployeeAppointment({
     salaryPerMonth: "",
     salaryPerDay: "",
     details: "",
+    active: true,
   };
 
   const [form, setForm] = useState<Appointment>(initialData || emptyForm);
@@ -104,6 +110,47 @@ export default function EmployeeAppointment({
   // Store the initial state for the Cancel button to reset to
   const [initialFormState, setInitialFormState] = useState<Appointment>(initialData || emptyForm);
   const [isDisabled, setIsDisabled] = useState(!initialData);
+
+  useEffect(() => {
+    if (!initialData && employeeAppointments && employeeAppointments.length > 0) {
+      // Filter out invalid dates
+      const validAppointments = employeeAppointments.filter(
+        (a) => a.assumptionToDutyDate && !isNaN(new Date(a.assumptionToDutyDate).getTime())
+      );
+
+      if (validAppointments.length > 0) {
+        // Find latest by assumptionToDutyDate
+        const latestAppointment = validAppointments.reduce((latest, current) => {
+          return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
+            ? current
+            : latest;
+        });
+
+        // Map the latest appointment to form
+        setForm({
+          employeeAppointmentId: latestAppointment.employeeAppointmentId,
+          appointmentIssuedDate: toDateInputValue(latestAppointment.appointmentIssuedDate),
+          assumptionToDutyDate: toDateInputValue(latestAppointment.assumptionToDutyDate),
+          natureOfAppointmentId: Number(latestAppointment.natureOfAppointmentId),
+          plantillaId: Number(latestAppointment.plantillaId),
+          jobPositionId: Number(latestAppointment.jobPositionId) || "",
+          salaryGrade: latestAppointment.salaryGrade || "",
+          salaryStep: latestAppointment.salaryStep || "",
+          salaryPerAnnum: latestAppointment.salaryPerAnnum || "",
+          salaryPerMonth: latestAppointment.salaryPerMonth || "",
+          salaryPerDay: latestAppointment.salaryPerDay || "",
+          details: latestAppointment.details || "",
+          active: latestAppointment.isActive ?? true,
+        });
+
+        setSelectedPositionId(latestAppointment.jobPositionId ? String(latestAppointment.jobPositionId) : "");
+        if (latestAppointment.jobPositionId) {
+          loadPlantillaByJobPosition(Number(latestAppointment.jobPositionId));
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeAppointments, initialData]);
 
   // -------------------- Load Job Positions --------------------
   const loadJobPositions = useCallback(async () => {
@@ -156,10 +203,6 @@ export default function EmployeeAppointment({
     if (initialData) {
       setForm(initialData);
       setInitialFormState(initialData); // Set initial state
-
-      // setFormattedSalaryAnnum(initialData.salaryPerAnnum ? formatMoneyInput(String(initialData.salaryPerAnnum)) : "");
-      // setFormattedSalaryMonth(initialData.salaryPerMonth ? formatMoneyInput(String(initialData.salaryPerMonth)) : "");
-      // setFormattedSalaryDay(initialData.salaryPerDay ? formatMoneyInput(String(initialData.salaryPerDay)) : "");
 
       if (initialData.jobPositionId) {
         setSelectedPositionId(String(initialData.jobPositionId));
@@ -240,9 +283,6 @@ export default function EmployeeAppointment({
             salaryPerMonth: monthly.toString(),
             salaryPerDay: perDay.toString(),
           }));
-          // setFormattedSalaryAnnum(formatMoneyInput(perAnnum.toString()));
-          // setFormattedSalaryMonth(formatMoneyInput(monthly.toString()));
-          // setFormattedSalaryDay(formatMoneyInput(String(perDay)));
         }
       } catch (err) {
         console.error(err);
@@ -267,6 +307,33 @@ export default function EmployeeAppointment({
         return;
       }
 
+      let latestAppointment = null;
+      if (employeeAppointments && employeeAppointments.length > 0) {
+        // Filter out invalid dates
+        const validAppointments = employeeAppointments.filter(a => a.assumptionToDutyDate && !isNaN(new Date(a.assumptionToDutyDate).getTime()));
+
+        if (validAppointments.length > 0) {
+          // Use reduce to find the latest date
+          latestAppointment = validAppointments.reduce((latest, current) => {
+            return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
+              ? current
+              : latest;
+          });
+        }
+      }
+
+      if(employeeAppointments === null || employeeAppointments?.length === 0) {
+        form.active = true;
+      }
+      let isUpdate = false;
+      if(latestAppointment?.assumptionToDutyDate === toCustomFormat(form.assumptionToDutyDate, true)) {
+        isUpdate = true;
+      }
+      if(latestAppointment?.assumptionToDutyDate && form.assumptionToDutyDate 
+          && new Date(latestAppointment?.assumptionToDutyDate).getTime() < new Date(toCustomFormat(form.assumptionToDutyDate, true)).getTime()) {
+        form.active = false;
+      }
+
       // Format dates to backend expected pattern using toCustomFormat util
       const appointmentIssuedDateFormatted = form.appointmentIssuedDate ? toCustomFormat(form.appointmentIssuedDate, true) : null;
       const assumptionToDutyDateFormatted = form.assumptionToDutyDate ? toCustomFormat(form.assumptionToDutyDate, true) : null;
@@ -284,16 +351,16 @@ export default function EmployeeAppointment({
         salaryPerMonth: form.salaryPerMonth ? Number(String(form.salaryPerMonth).replace(/,/g, "")) : null,
         salaryPerDay: form.salaryPerDay ? Number(String(form.salaryPerDay).replace(/,/g, "")) : null,
         details: form.details,
+        active: form.active,
       };
 
       if(payload.plantillaId === null) {
         Swal.fire("Validation Error", "Please select a Plantilla.", "warning");
         return;
       }
-
-      const isUpdate = Boolean(form.appointmentId);
+      
       const url = isUpdate
-        ? `${API_BASE_URL_HRM}/api/employeeAppointment/update/${form.appointmentId}`
+        ? `${API_BASE_URL_HRM}/api/employeeAppointment/update/${form.employeeAppointmentId}`
         : `${API_BASE_URL_HRM}/api/employeeAppointment/create`;
 
       const method = isUpdate ? "PUT" : "POST";
@@ -336,18 +403,55 @@ export default function EmployeeAppointment({
 
   // -------------------- Handle Cancel --------------------
   const handleCancel = () => {
-    // Revert to initial state
-    setForm(initialFormState);
     setSelectedPositionId(initialFormState.jobPositionId ? String(initialFormState.jobPositionId) : "");
-    // setFormattedSalaryAnnum(initialFormState.salaryPerAnnum ? formatMoneyInput(String(initialFormState.salaryPerAnnum)) : "");
-    // setFormattedSalaryMonth(initialFormState.salaryPerMonth ? formatMoneyInput(String(initialFormState.salaryPerMonth)) : "");
-    // setFormattedSalaryDay(initialFormState.salaryPerDay ? formatMoneyInput(String(initialFormState.salaryPerDay)) : "");
 
     // Disable the form
     setIsDisabled(true);
 
     // Execute external cancel handler
-    if (onCancel) onCancel();
+    if (onCancel) {
+      onCancel();
+    }
+  };
+
+  const handleAssumptionToDutyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value; // "YYYY-MM-DD"
+
+    // Update the form immediately so the UI stays controlled
+    setForm((prev) => ({ ...prev, assumptionToDutyDate: newDate }));
+
+    // Validate only if employeeAppointments exists
+    if (!employeeAppointments || employeeAppointments.length === 0) return;
+
+    // Convert all previous assumptionToDutyDate values to valid dates
+    const previousDates = employeeAppointments
+      .filter(
+        (a) =>
+          a.assumptionToDutyDate &&
+          a.employeeAppointmentId !== form.employeeAppointmentId // exclude current record
+      )
+      .map((a) => new Date(a.assumptionToDutyDate))
+      .filter((d) => !isNaN(d.getTime())); // ignore invalid dates
+
+    if (previousDates.length === 0) return;
+
+    // Find the latest (max) previous date
+    const latestPrevious = new Date(Math.max(...previousDates.map((d) => d.getTime())));
+    const selectedDate = new Date(newDate);
+
+    if (selectedDate.getTime() <= latestPrevious.getTime()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Invalid Assumption to Duty Date",
+        html: `
+          The new Assumption to Duty date must be <b>AFTER</b> the latest recorded date:<br><br>
+          <b>${latestPrevious.toLocaleString()}</b>
+        `,
+      });
+
+      // Reset the value
+      setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
+    }
   };
 
   // -------------------- Handle Submit --------------------
@@ -394,7 +498,7 @@ export default function EmployeeAppointment({
 
         <div className={styles.formGroup}>
           <label>Assumption to Duty</label>
-          <input type="date" name="assumptionToDutyDate" value={form.assumptionToDutyDate} onChange={handleChange} disabled={isDisabled} required />
+          <input type="date" name="assumptionToDutyDate" value={form.assumptionToDutyDate} onChange={handleAssumptionToDutyChange} disabled={isDisabled} required />
         </div>
 
         <div className={styles.formGroup}>
@@ -437,32 +541,32 @@ export default function EmployeeAppointment({
         <div className={styles.salaryGroup}>
           <div>
             <label>Salary Grade</label>
-            <input type="text" name="salaryGrade" value={form.salaryGrade} onChange={handleChange} />
+            <input type="text" name="salaryGrade" value={form.salaryGrade} onChange={handleChange} readOnly />
           </div>
           <div>
             <label>Salary Step</label>
-            <input type="text" name="salaryStep" value={form.salaryStep} onChange={handleChange} />
+            <input type="text" name="salaryStep" value={form.salaryStep} onChange={handleChange} readOnly />
           </div>
         </div>
 
         <div className={styles.salaryGroup}>
           <div>
             <label>Salary (Per Annum)</label>
-            <input type="text" name="salaryPerAnnum" value={form.salaryPerAnnum} onChange={handleChange} />
+            <input type="text" name="salaryPerAnnum" value={formatMoneyInput(form.salaryPerAnnum)} onChange={handleChange} readOnly />
           </div>
           <div>
             <label>Salary (Per Month)</label>
-            <input type="text" name="salaryPerMonth" value={form.salaryPerMonth} onChange={handleChange} />
+            <input type="text" name="salaryPerMonth" value={formatMoneyInput(form.salaryPerMonth)} onChange={handleChange} readOnly />
           </div>
           <div>
             <label>Salary (Per Day)</label>
-            <input type="text" name="salaryPerDay" value={form.salaryPerDay} onChange={handleChange} />
+            <input type="text" name="salaryPerDay" value={formatMoneyInput(form.salaryPerDay)} onChange={handleChange} disabled={isDisabled} />
           </div>
         </div>
 
         <div className={styles.formGroup}>
           <label>Additional Details</label>
-          <textarea name="details" value={form.details} onChange={handleChange} />
+          <textarea name="details" value={form.details} onChange={handleChange} disabled={isDisabled} />
         </div>
 
         {/* Buttons (BOTTOM) */}
