@@ -253,10 +253,11 @@ export default function EmploymentRecord() {
                 <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} />
               )}
               {activeTab === "appointment" && (
-                <EmployeeAppointment selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords}
-                />
+                <EmployeeAppointment mode="edit_add_employee_appointment" selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords}/>
               )}
-              {activeTab === "service" && <ServiceRecord />}
+              {activeTab === "service" && (
+                <ServiceRecord selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} />
+              )}
               {activeTab === "separation" && <Separation />}
             </div>
           </div>

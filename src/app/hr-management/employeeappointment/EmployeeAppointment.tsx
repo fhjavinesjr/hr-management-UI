@@ -8,6 +8,11 @@ import { toCustomFormat, toDateInputValue } from "@/lib/utils/dateFormatUtils";
 import { formatMoneyInput } from "@/lib/utils/formatMoney";
 import { Employee } from "@/lib/types/Employee";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
+import {
+  fetchAllNatureList,
+  fetchPlantillaByJobPosition,
+  fetchAllJobPositions,
+} from "@/lib/services/api";
 
 const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
@@ -25,10 +30,11 @@ export type Appointment = {
   salaryPerMonth: string;
   salaryPerDay: string;
   details: string;
-  active: boolean;
+  activeAppointment: boolean;
 };
 
 type AppointmentPayload = {
+  employeeAppointmentId: string;
   employeeId: string | null;
   appointmentIssuedDate: string | null;
   assumptionToDutyDate: string | null;
@@ -41,7 +47,7 @@ type AppointmentPayload = {
   salaryPerMonth: number | null;
   salaryPerDay: number | null;
   details: string;
-  active: boolean;
+  activeAppointment: boolean;
 };
 
 type JobPositionDTO = {
@@ -65,6 +71,7 @@ type NatureOfAppointmentDTO = {
 
 type Props = {
   initialData?: Appointment;
+  mode?: "edit_add_employee_appointment" | "add_service_record";
   onCancel?: () => void;
   onSave?: (saved: Appointment) => void;
   selectedEmployee?: Employee | null;
@@ -72,9 +79,9 @@ type Props = {
   fetchEmploymentRecords?: () => Promise<void>;
 };
 
-// export default function EmployeeAppointment({ initialData, onCancel }: Props) {
 export default function EmployeeAppointment({
   initialData,
+  mode,
   onCancel,
   selectedEmployee,
   employeeAppointments,
@@ -84,10 +91,6 @@ export default function EmployeeAppointment({
   const [plantillaList, setPlantillaList] = useState<PlantillaDTO[]>([]);
   const [natureList, setNatureList] = useState<NatureOfAppointmentDTO[]>([]);
   const [selectedPositionId, setSelectedPositionId] = useState<string>("");
-
-  // const [formattedSalaryAnnum, setFormattedSalaryAnnum] = useState("");
-  // const [formattedSalaryMonth, setFormattedSalaryMonth] = useState("");
-  // const [formattedSalaryDay, setFormattedSalaryDay] = useState("");
 
   const emptyForm: Appointment = {
     employeeAppointmentId: "",
@@ -102,62 +105,58 @@ export default function EmployeeAppointment({
     salaryPerMonth: "",
     salaryPerDay: "",
     details: "",
-    active: true,
+    activeAppointment: true,
   };
 
   const [form, setForm] = useState<Appointment>(initialData || emptyForm);
-
-  // Store the initial state for the Cancel button to reset to
-  const [initialFormState, setInitialFormState] = useState<Appointment>(initialData || emptyForm);
-  const [isDisabled, setIsDisabled] = useState(!initialData);
+  const [isDisabled, setIsDisabled] = useState(mode === "add_service_record" ? false : !initialData);
 
   useEffect(() => {
-    if (!initialData && employeeAppointments && employeeAppointments.length > 0) {
-      // Filter out invalid dates
-      const validAppointments = employeeAppointments.filter(
-        (a) => a.assumptionToDutyDate && !isNaN(new Date(a.assumptionToDutyDate).getTime())
-      );
+    if(mode === "edit_add_employee_appointment") {
+      if (!initialData && employeeAppointments && employeeAppointments.length > 0) {
+        // Filter out invalid dates
+        const validAppointments = employeeAppointments.filter(
+          (a) => a.assumptionToDutyDate && !isNaN(new Date(a.assumptionToDutyDate).getTime())
+        );
 
-      if (validAppointments.length > 0) {
-        // Find latest by assumptionToDutyDate
-        const latestAppointment = validAppointments.reduce((latest, current) => {
-          return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
-            ? current
-            : latest;
-        });
+        if (validAppointments.length > 0) {
+          // Find latest by assumptionToDutyDate
+          const latestAppointment = validAppointments.reduce((latest, current) => {
+            return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
+              ? current
+              : latest;
+          });
 
-        // Map the latest appointment to form
-        setForm({
-          employeeAppointmentId: latestAppointment.employeeAppointmentId,
-          appointmentIssuedDate: toDateInputValue(latestAppointment.appointmentIssuedDate),
-          assumptionToDutyDate: toDateInputValue(latestAppointment.assumptionToDutyDate),
-          natureOfAppointmentId: Number(latestAppointment.natureOfAppointmentId),
-          plantillaId: Number(latestAppointment.plantillaId),
-          jobPositionId: Number(latestAppointment.jobPositionId) || "",
-          salaryGrade: latestAppointment.salaryGrade || "",
-          salaryStep: latestAppointment.salaryStep || "",
-          salaryPerAnnum: latestAppointment.salaryPerAnnum || "",
-          salaryPerMonth: latestAppointment.salaryPerMonth || "",
-          salaryPerDay: latestAppointment.salaryPerDay || "",
-          details: latestAppointment.details || "",
-          active: latestAppointment.isActive ?? true,
-        });
+          // Map the latest appointment to form
+          setForm({
+            employeeAppointmentId: latestAppointment.employeeAppointmentId,
+            appointmentIssuedDate: toDateInputValue(latestAppointment.appointmentIssuedDate),
+            assumptionToDutyDate: toDateInputValue(latestAppointment.assumptionToDutyDate),
+            natureOfAppointmentId: Number(latestAppointment.natureOfAppointmentId),
+            plantillaId: Number(latestAppointment.plantillaId),
+            jobPositionId: Number(latestAppointment.jobPositionId) || "",
+            salaryGrade: latestAppointment.salaryGrade || "",
+            salaryStep: latestAppointment.salaryStep || "",
+            salaryPerAnnum: latestAppointment.salaryPerAnnum || "",
+            salaryPerMonth: latestAppointment.salaryPerMonth || "",
+            salaryPerDay: latestAppointment.salaryPerDay || "",
+            details: latestAppointment.details || "",
+            activeAppointment: latestAppointment.activeAppointment ?? true,
+          });
 
-        setSelectedPositionId(latestAppointment.jobPositionId ? String(latestAppointment.jobPositionId) : "");
-        if (latestAppointment.jobPositionId) {
-          loadPlantillaByJobPosition(Number(latestAppointment.jobPositionId));
+          setSelectedPositionId(latestAppointment.jobPositionId ? String(latestAppointment.jobPositionId) : "");
+          if (latestAppointment.jobPositionId) {
+            loadPlantillaByJobPosition(Number(latestAppointment.jobPositionId));
+          }
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeAppointments, initialData]);
 
   // -------------------- Load Job Positions --------------------
   const loadJobPositions = useCallback(async () => {
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_ADMINISTRATIVE}/api/job-position/get-all`);
-      if (!res.ok) throw new Error("Failed to load job positions");
-      const data: JobPositionDTO[] = await res.json();
+      const data: JobPositionDTO[] = await fetchAllJobPositions();
       setPositionList(data || []);
     } catch (err) {
       console.error(err);
@@ -172,9 +171,7 @@ export default function EmployeeAppointment({
       return;
     }
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_ADMINISTRATIVE}/api/plantilla/by-job-position/${jobPositionId}`);
-      if (!res.ok) throw new Error("Failed to load plantilla");
-      const data: PlantillaDTO[] = await res.json();
+      const data: PlantillaDTO[] = await fetchPlantillaByJobPosition(jobPositionId);
       setPlantillaList(data || []);
     } catch (err) {
       console.error(err);
@@ -186,9 +183,7 @@ export default function EmployeeAppointment({
   // -------------------- Load Nature of Appointment --------------------
   const loadNatureOfAppointment = useCallback(async () => {
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_ADMINISTRATIVE}/api/natureOfAppointment/get-all`);
-      if (!res.ok) throw new Error("Failed to load nature of appointment");
-      const data: NatureOfAppointmentDTO[] = await res.json();
+      const data: NatureOfAppointmentDTO[] = await fetchAllNatureList();
       setNatureList(data || []);
     } catch (err) {
       console.error(err);
@@ -202,14 +197,12 @@ export default function EmployeeAppointment({
 
     if (initialData) {
       setForm(initialData);
-      setInitialFormState(initialData); // Set initial state
 
       if (initialData.jobPositionId) {
         setSelectedPositionId(String(initialData.jobPositionId));
         loadPlantillaByJobPosition(initialData.jobPositionId);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData]);
 
   // -------------------- Handle form changes --------------------
@@ -248,9 +241,6 @@ export default function EmployeeAppointment({
         salaryPerMonth: "",
         salaryPerDay: "",
       }));
-      // setFormattedSalaryAnnum("");
-      // setFormattedSalaryMonth("");
-      // setFormattedSalaryDay("");
       setPlantillaList([]);
       return;
     }
@@ -323,7 +313,7 @@ export default function EmployeeAppointment({
       }
 
       if(employeeAppointments === null || employeeAppointments?.length === 0) {
-        form.active = true;
+        form.activeAppointment = true;
       }
       let isUpdate = false;
       if(latestAppointment?.assumptionToDutyDate === toCustomFormat(form.assumptionToDutyDate, true)) {
@@ -331,14 +321,17 @@ export default function EmployeeAppointment({
       }
       if(latestAppointment?.assumptionToDutyDate && form.assumptionToDutyDate 
           && new Date(latestAppointment?.assumptionToDutyDate).getTime() < new Date(toCustomFormat(form.assumptionToDutyDate, true)).getTime()) {
-        form.active = false;
+        form.activeAppointment = false;
       }
 
       // Format dates to backend expected pattern using toCustomFormat util
       const appointmentIssuedDateFormatted = form.appointmentIssuedDate ? toCustomFormat(form.appointmentIssuedDate, true) : null;
       const assumptionToDutyDateFormatted = form.assumptionToDutyDate ? toCustomFormat(form.assumptionToDutyDate, true) : null;
 
+      console.log("Employee Appointment ID: " + form.employeeAppointmentId);
+
       const payload: AppointmentPayload = {
+        employeeAppointmentId: form.employeeAppointmentId,
         employeeId: selectedEmployee?.employeeId ?? null,
         appointmentIssuedDate: appointmentIssuedDateFormatted,
         assumptionToDutyDate: assumptionToDutyDateFormatted,
@@ -351,7 +344,7 @@ export default function EmployeeAppointment({
         salaryPerMonth: form.salaryPerMonth ? Number(String(form.salaryPerMonth).replace(/,/g, "")) : null,
         salaryPerDay: form.salaryPerDay ? Number(String(form.salaryPerDay).replace(/,/g, "")) : null,
         details: form.details,
-        active: form.active,
+        activeAppointment: mode === "add_service_record" ? false : form.activeAppointment,
       };
 
       if(payload.plantillaId === null) {
@@ -373,21 +366,25 @@ export default function EmployeeAppointment({
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data?.message || "Failed to save appointment");
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to save appointment");
+      }
 
-      Swal.fire("Success", data?.message || "Saved successfully", "success").then(async () => {
+      let showMessage = "Saved successfully";
+      if(isUpdate === true) {
+        showMessage = "Updated successfully";
+      }
+
+      Swal.fire("Success", showMessage, "success").then(async () => {
         await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
       });;
 
       // After successful save, update initial state and disable form
       if (initialData) {
-        setInitialFormState(form);
+        // setInitialFormState(form);
       } else {
         // If it was a new record (no initialData), clear the form as well.
         setForm(emptyForm);
-        // setFormattedSalaryAnnum("");
-        // setFormattedSalaryMonth("");
-        // setFormattedSalaryDay("");
         setSelectedPositionId("");
         setPlantillaList([]);
       }
@@ -403,8 +400,6 @@ export default function EmployeeAppointment({
 
   // -------------------- Handle Cancel --------------------
   const handleCancel = () => {
-    setSelectedPositionId(initialFormState.jobPositionId ? String(initialFormState.jobPositionId) : "");
-
     // Disable the form
     setIsDisabled(true);
 
@@ -421,36 +416,74 @@ export default function EmployeeAppointment({
     setForm((prev) => ({ ...prev, assumptionToDutyDate: newDate }));
 
     // Validate only if employeeAppointments exists
-    if (!employeeAppointments || employeeAppointments.length === 0) return;
+    if (!employeeAppointments || employeeAppointments.length === 0) {
+      return;
+    }
 
     // Convert all previous assumptionToDutyDate values to valid dates
     const previousDates = employeeAppointments
       .filter(
         (a) =>
-          a.assumptionToDutyDate &&
-          a.employeeAppointmentId !== form.employeeAppointmentId // exclude current record
+          a.assumptionToDutyDate
       )
       .map((a) => new Date(a.assumptionToDutyDate))
       .filter((d) => !isNaN(d.getTime())); // ignore invalid dates
 
-    if (previousDates.length === 0) return;
+    if (previousDates.length === 0) {
+      return;
+    }
 
     // Find the latest (max) previous date
     const latestPrevious = new Date(Math.max(...previousDates.map((d) => d.getTime())));
     const selectedDate = new Date(newDate);
 
-    if (selectedDate.getTime() <= latestPrevious.getTime()) {
+    // ✅ DUPLICATE CHECK (EXACT MATCH)
+    const isDuplicate = previousDates.some(
+      (d) => d.toDateString() === selectedDate.toDateString()
+    );
+
+    if (isDuplicate) {
       Swal.fire({
         icon: "warning",
-        title: "Invalid Assumption to Duty Date",
+        title: "Duplicate Service Record",
         html: `
-          The new Assumption to Duty date must be <b>AFTER</b> the latest recorded date:<br><br>
-          <b>${latestPrevious.toLocaleString()}</b>
+          A Service Record already exists for this date:<br><br>
+          <b>${selectedDate.toLocaleDateString()}</b>
         `,
       });
 
-      // Reset the value
       setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
+      return; // ✅ STOP further validation
+    }
+
+    if(mode === "add_service_record") {
+      if (selectedDate.getTime() >= latestPrevious.getTime()) {
+        Swal.fire({
+          icon: "warning",
+          title: "Invalid Assumption to Duty Date",
+          html: `
+            The new Assumption to Duty date must be <b>BEFORE</b> the latest recorded date:<br><br>
+            <b>${latestPrevious.toLocaleString()}</b>
+          `,
+        });
+
+        // Reset the value
+        setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
+      }
+    } else {
+      if (selectedDate.getTime() <= latestPrevious.getTime()) {
+        Swal.fire({
+          icon: "warning",
+          title: "Invalid Assumption to Duty Date",
+          html: `
+            The new Assumption to Duty date must be <b>AFTER</b> the latest recorded date:<br><br>
+            <b>${latestPrevious.toLocaleString()}</b>
+          `,
+        });
+
+        // Reset the value
+        setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
+      }
     }
   };
 

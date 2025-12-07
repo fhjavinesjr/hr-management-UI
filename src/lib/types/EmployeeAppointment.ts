@@ -13,5 +13,5 @@ export type EmployeeAppointmentModel = {
   salaryPerMonth: string;
   salaryPerDay: string;
   details: string;
-  isActive: boolean;
+  activeAppointment: boolean;
 };
