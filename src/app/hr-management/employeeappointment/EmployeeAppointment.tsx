@@ -14,6 +14,13 @@ import {
   fetchAllJobPositions,
 } from "@/lib/services/api";
 
+import {
+  JobPositionDTO,
+  PlantillaDTO,
+  NatureOfAppointmentDTO,
+} from "@/lib/types/EmployeeAppointment";
+
+
 const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 
@@ -48,25 +55,6 @@ type AppointmentPayload = {
   salaryPerDay: number | null;
   details: string;
   activeAppointment: boolean;
-};
-
-type JobPositionDTO = {
-  jobPositionId: number;
-  jobPositionName: string;
-  salaryGrade: number;
-  salaryStep: number;
-};
-
-type PlantillaDTO = {
-  plantillaId: number;
-  plantillaName: string;
-  jobPositionId: number;
-};
-
-type NatureOfAppointmentDTO = {
-  natureOfAppointmentId: number;
-  code: string;
-  nature: string;
 };
 
 type Props = {
@@ -151,7 +139,7 @@ export default function EmployeeAppointment({
         }
       }
     }
-  }, [employeeAppointments, initialData]);
+  }, [employeeAppointments, initialData, mode]);
 
   // -------------------- Load Job Positions --------------------
   const loadJobPositions = useCallback(async () => {
@@ -203,7 +191,7 @@ export default function EmployeeAppointment({
         loadPlantillaByJobPosition(initialData.jobPositionId);
       }
     }
-  }, [initialData]);
+  }, [initialData, loadJobPositions, loadNatureOfAppointment]);
 
   // -------------------- Handle form changes --------------------
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {

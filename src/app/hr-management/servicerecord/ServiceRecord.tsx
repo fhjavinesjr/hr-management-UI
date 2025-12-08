@@ -14,6 +14,12 @@ import {
   fetchAllPlantillas
 } from "@/lib/services/api";
 
+import {
+  JobPositionDTO,
+  PlantillaDTO,
+  NatureOfAppointmentDTO,
+} from "@/lib/types/EmployeeAppointment";
+
 type Props = {
   selectedEmployee?: Employee | null;
   employeeAppointments?: EmployeeAppointmentModel[] | null;
@@ -25,9 +31,9 @@ export default function ServiceRecord({
   employeeAppointments,
   fetchEmploymentRecords,
 }: Props) {
-  const [natureList, setNatureList] = useState<any[]>([]);
-  const [positionList, setPositionList] = useState<any[]>([]);
-  const [plantillaList, setPlantillaList] = useState<any[]>([]);
+  const [natureList, setNatureList] = useState<NatureOfAppointmentDTO[]>([]);
+  const [positionList, setPositionList] = useState<JobPositionDTO[]>([]);
+  const [plantillaList, setPlantillaList] = useState<PlantillaDTO[]>([]);
 
   const [appointments, setAppointments] = useState<EmployeeAppointmentModel[]>([]);
   const [showForm, setShowForm] = useState(false);
