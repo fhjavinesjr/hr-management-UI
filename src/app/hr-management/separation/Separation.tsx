@@ -1,7 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styles from "@/styles/Separation.module.scss";
+import Swal from "sweetalert2";
+import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+
+const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
 
 // Add the type model for the form fields
 type SeparationForm = {
@@ -12,7 +16,14 @@ type SeparationForm = {
   exitInterviewDate: string;
 };
 
+  type NatureOfSeparationDTO = {
+      natureOfSeparationId: number;
+      code: string;
+      nature: string;
+  };
+
 export default function Separation() {
+  const [natureList, setNatureList] = useState<NatureOfSeparationDTO[]>([]);
   const [isDisabled, setIsDisabled] = useState(true);
   const [formData, setFormData] = useState<SeparationForm>({
     separationDate: "",
@@ -21,6 +32,27 @@ export default function Separation() {
     exitInterviewBy: "",
     exitInterviewDate: "",
   });
+
+  useEffect(() => {
+    fetchNatureList();
+  }, []);
+
+  const fetchNatureList = async () => {
+    try {
+      const res = await fetchWithAuth(
+        `${API_BASE_URL_ADMINISTRATIVE}/api/natureOfSeparation/get-all`
+      );
+
+      if (!res.ok) throw new Error("Failed to fetch list");
+
+      const data = await res.json();
+      setNatureList(data);
+    } catch (error) {
+      console.error("Error fetching nature list:", error);
+      Swal.fire({ icon: "error", title: "Failed to load Nature of Separation" });
+    }
+  };
+
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -37,7 +69,8 @@ export default function Separation() {
     // TODO: send to API
   };
 
-  const handleEditToggle = () => {
+  const handleEditToggle = (e: React.FormEvent) => {
+    e.preventDefault();
     setIsDisabled((prev) => {
       return !prev;
     });
@@ -76,53 +109,6 @@ export default function Separation() {
       
       <div>&nbsp;</div>
 
-      {/* Employee Info (auto-filled) */}
-      <section className={styles.section}>
-        <h3>Employee Info</h3>
-        <div className={styles.grid2}>
-          <label>
-            Name
-            <input
-              type="text"
-              name="employeeName"
-              value="Juan Dela Cruz"
-              onChange={handleChange}
-              disabled
-            />
-          </label>
-          <label>
-            Employee ID
-            <input
-              type="text"
-              name="employeeId"
-              value="EMP12345"
-              onChange={handleChange}
-              disabled
-            />
-          </label>
-          <label>
-            Position
-            <input
-              type="text"
-              name="employeePosition"
-              value="Administrative Officer II"
-              onChange={handleChange}
-              disabled
-            />
-          </label>
-          <label>
-            Office/Unit
-            <input
-              type="text"
-              name="employeeOffice"
-              value="HR Department"
-              onChange={handleChange}
-              disabled
-            />
-          </label>
-        </div>
-      </section>
-
       {/* Separation Details */}
       <section className={styles.section}>
         <h3>Separation Details</h3>
@@ -145,16 +131,17 @@ export default function Separation() {
               value={formData.natureOfSeparation}
               onChange={handleChange}
               disabled={isDisabled}
+              required={!isDisabled}
             >
               <option value="">-- Select --</option>
-              <option value="resignation">Resignation</option>
-              <option value="retirement_compulsory">Retirement (Compulsory)</option>
-              <option value="retirement_optional">Retirement (Optional)</option>
-              <option value="death">Death</option>
-              <option value="dropped_from_rolls">Dropped from Rolls</option>
-              <option value="dismissal">Dismissal/Removal</option>
-              <option value="reorganization">Separation due to Reorganization</option>
-              <option value="others">Others</option>
+              {natureList.map((item) => (
+                <option
+                  key={item.natureOfSeparationId}
+                  value={item.nature}
+                >
+                  {item.code} - {item.nature}
+                </option>
+              ))}
             </select>
           </label>
         </div>
