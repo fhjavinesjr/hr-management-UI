@@ -9,17 +9,19 @@ import { Employee } from "@/lib/types/Employee";
 import Swal from "sweetalert2";
 import { PersonalDataModel } from "@/lib/types/PersonalData";
 import Image from "next/image";
+import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 
 type PersonalDataProps = {
   selectedEmployee?: Employee | null;
   personalData?: PersonalDataModel | null;
   fetchEmploymentRecords?: () => Promise<void>;
+  onEmployeeCreated?: (employee: Employee) => void;
 };
 
 export default function PersonalData({
   selectedEmployee,
   personalData,
-  fetchEmploymentRecords,
+  onEmployeeCreated,
 }: PersonalDataProps) {
   const [form, setForm] = useState<PersonalDataModel>({
     employeeNo: "",
@@ -347,8 +349,11 @@ export default function PersonalData({
       setForm((prev) => ({
         ...prev,
         ...personalData, // map matching fields directly
-        dob: toDateInputValue(personalData.dob),
-        govIdDate: toDateInputValue(personalData.govIdDate),
+        email: personalData.email ?? "",
+        mobileNo: personalData.mobileNo ?? "",
+        employeeNo: personalData.employeeNo ?? "",
+        dob: toDateInputValue(personalData.dob != null ? personalData.dob : ""),
+        govIdDate: toDateInputValue(personalData.govIdDate != null ? personalData.govIdDate : ""),
         q35bDateFiled: toDateInputValue(personalData.q35bDateFiled || ""),
       }));
     }
@@ -481,6 +486,16 @@ export default function PersonalData({
     }
 
     try {
+      if(form.q42 === false) {
+        Swal.fire({
+              icon: "error",
+              title: "Declaration Required",
+              text: `Please tick the 'I declare under oath...' checkbox to confirm the truthfulness and completeness of your Personal Data Sheet before saving.`,
+            });
+
+        return;
+      }
+
       const employeeMappedData = {
         employeeNo: form.employeeNo,
         biometricNo: form.biometricNo,
@@ -515,8 +530,8 @@ export default function PersonalData({
         pob: form.pob,
         sex_id: form.sex_id,
         civilStatus_id: form.civilStatus_id,
-        height: form.height ? Number(form.height) : null,
-        weight: form.weight ? Number(form.weight) : null,
+        height: form.height !== null ? Number(form.height) : 0,
+        weight: form.weight !== null ? Number(form.weight) : 0,
         bloodType: form.bloodType,
         gsisId: form.gsisId,
         pagibigId: form.pagibigId,
@@ -616,7 +631,26 @@ export default function PersonalData({
         title: selectedEmployee?.isSearched ? "Employee Updated" : "Employee Created",
         text: `Employee No: ${employeeData.employeeNo}`,
       }).then(async () => {
-        await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
+        if(submitMethod === "POST") {
+          // Fetch employees
+          const empRes = await fetchWithAuth(
+            `${API_BASE_URL_HRM}/api/employees/basicInfo`
+          );
+    
+          if (!empRes.ok) {
+            throw new Error("Failed to fetch employee list");
+          }
+    
+          const employees: Employee[] = await empRes.json();
+          localStorageUtil.setEmployees(employees); //Store employees list to be used later in other module
+          const createdEmployee = employees.find(emp => emp.employeeNo === form.employeeNo) || null;
+
+          if (createdEmployee && onEmployeeCreated) {
+            onEmployeeCreated(createdEmployee); // 🚀 PASS BACK TO PARENT
+          }
+        }
+
+        // await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
       });
     } catch (err) {
       Swal.fire({

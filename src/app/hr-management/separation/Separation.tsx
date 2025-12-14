@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import styles from "@/styles/Separation.module.scss";
 import Swal from "sweetalert2";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { Employee } from "@/lib/types/Employee";
 
 const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
 
@@ -16,13 +17,27 @@ type SeparationForm = {
   exitInterviewDate: string;
 };
 
-  type NatureOfSeparationDTO = {
-      natureOfSeparationId: number;
-      code: string;
-      nature: string;
-  };
+type NatureOfSeparationDTO = {
+    natureOfSeparationId: number;
+    code: string;
+    nature: string;
+};
 
-export default function Separation() {
+type Props = {
+  employees?: Employee[];
+  userRole?: string | null;
+};
+
+export default function Separation({employees, userRole,}: Props) {
+  const [selectedEmployeeInterviewer, setSelectedEmployeeInterviewer] = useState<Employee | null>(null);
+  const [inputValueEmployeeInterviewer, setInputValueEmployeeInterviewer] = useState("");
+
+  const [selectedProcessedBy, setSelectedProcessedBy] = useState<Employee | null>(null);
+  const [inputValueProcessedBy, setInputValueProcessedBy] = useState("");
+
+  const [selectedApprovedBy, setSelectedApprovedBy] = useState<Employee | null>(null);
+  const [inputValueApprovedBy, setInputValueApprovedBy] = useState("");
+  
   const [natureList, setNatureList] = useState<NatureOfSeparationDTO[]>([]);
   const [isDisabled, setIsDisabled] = useState(true);
   const [formData, setFormData] = useState<SeparationForm>({
@@ -165,12 +180,41 @@ export default function Separation() {
           <label>
             Exit Interview By
             <input
+              id="employeeInterviewerId"
               type="text"
-              name="exitInterviewBy"
-              value={formData.exitInterviewBy}
-              onChange={handleChange}
-              disabled={isDisabled}
+              list={userRole === "1" ? "employee-list" : undefined}
+              placeholder="Employee No / Lastname"
+              value={
+                userRole === "1"
+                  ? inputValueEmployeeInterviewer // ✅ Admin can type freely
+                  : selectedEmployeeInterviewer
+                  ? `[${selectedEmployeeInterviewer.employeeNo}] ${selectedEmployeeInterviewer.fullName}`
+                  : ""
+              }
+              readOnly={userRole !== "1"} // ✅ Non-admin can't edit
+              onChange={(e) => {
+                if (userRole === "1") {
+                  setInputValueEmployeeInterviewer(e.target.value); // ✅ Track admin typing
+
+                  const selected = employees?.find(
+                    (emp) =>
+                      `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
+                      e.target.value.toLowerCase()
+                  );
+                  setSelectedEmployeeInterviewer(selected || null);
+                }
+              }}
             />
+            {userRole === "1" && (
+              <datalist id="employee-list">
+                {employees?.map((emp) => (
+                  <option
+                    key={emp.employeeNo}
+                    value={`[${emp.employeeNo}] ${emp.fullName}`}
+                  />
+                ))}
+              </datalist>
+            )}
           </label>
           <label>
             Exit Interview Date
@@ -192,22 +236,80 @@ export default function Separation() {
           <label>
             Processed By
             <input
+              id="employeeIdProcessingBy"
               type="text"
-              name="processedBy"
-              value="HR Officer (auto-filled)"
-              onChange={handleChange}
-              disabled
+              list={userRole === "1" ? "employee-list" : undefined}
+              placeholder="Employee No / Lastname"
+              value={
+                userRole === "1"
+                  ? inputValueProcessedBy // ✅ Admin can type freely
+                  : selectedProcessedBy
+                  ? `[${selectedProcessedBy.employeeNo}] ${selectedProcessedBy.fullName}`
+                  : ""
+              }
+              readOnly={userRole !== "1"} // ✅ Non-admin can't edit
+              onChange={(e) => {
+                if (userRole === "1") {
+                  setInputValueProcessedBy(e.target.value); // ✅ Track admin typing
+
+                  const selected = employees?.find(
+                    (emp) =>
+                      `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
+                      e.target.value.toLowerCase()
+                  );
+                  setSelectedProcessedBy(selected || null);
+                }
+              }}
             />
+            {userRole === "1" && (
+              <datalist id="employee-list">
+                {employees?.map((emp) => (
+                  <option
+                    key={emp.employeeNo}
+                    value={`[${emp.employeeNo}] ${emp.fullName}`}
+                  />
+                ))}
+              </datalist>
+            )}
           </label>
           <label>
             Approved By
             <input
+              id="approvedById"
               type="text"
-              name="approvedBy"
-              value="Appointing Authority (auto-filled)"
-              onChange={handleChange}
-              disabled
+              list={userRole === "1" ? "employee-list" : undefined}
+              placeholder="Employee No / Lastname"
+              value={
+                userRole === "1"
+                  ? inputValueApprovedBy // ✅ Admin can type freely
+                  : selectedApprovedBy
+                  ? `[${selectedApprovedBy.employeeNo}] ${selectedApprovedBy.fullName}`
+                  : ""
+              }
+              readOnly={userRole !== "1"} // ✅ Non-admin can't edit
+              onChange={(e) => {
+                if (userRole === "1") {
+                  setInputValueApprovedBy(e.target.value); // ✅ Track admin typing
+
+                  const selected = employees?.find(
+                    (emp) =>
+                      `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
+                      e.target.value.toLowerCase()
+                  );
+                  setSelectedApprovedBy(selected || null);
+                }
+              }}
             />
+            {userRole === "1" && (
+              <datalist id="employee-list">
+                {employees?.map((emp) => (
+                  <option
+                    key={emp.employeeNo}
+                    value={`[${emp.employeeNo}] ${emp.fullName}`}
+                  />
+                ))}
+              </datalist>
+            )}
           </label>
         </div>
       </section>

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import styles from "@/styles/EmployeeAppointment.module.scss";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
-import { toCustomFormat, toDateInputValue } from "@/lib/utils/dateFormatUtils";
+import { toCustomFormat, toDateInputValue, formatMMDDYYYY } from "@/lib/utils/dateFormatUtils";
 import { formatMoneyInput } from "@/lib/utils/formatMoney";
 import { Employee } from "@/lib/types/Employee";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
@@ -309,7 +309,7 @@ export default function EmployeeAppointment({
       }
       if(latestAppointment?.assumptionToDutyDate && form.assumptionToDutyDate 
           && new Date(latestAppointment?.assumptionToDutyDate).getTime() < new Date(toCustomFormat(form.assumptionToDutyDate, true)).getTime()) {
-        form.activeAppointment = false;
+        form.activeAppointment = true;
       }
 
       // Format dates to backend expected pattern using toCustomFormat util
@@ -425,26 +425,26 @@ export default function EmployeeAppointment({
     const latestPrevious = new Date(Math.max(...previousDates.map((d) => d.getTime())));
     const selectedDate = new Date(newDate);
 
-    // ✅ DUPLICATE CHECK (EXACT MATCH)
-    const isDuplicate = previousDates.some(
-      (d) => d.toDateString() === selectedDate.toDateString()
-    );
-
-    if (isDuplicate) {
-      Swal.fire({
-        icon: "warning",
-        title: "Duplicate Service Record",
-        html: `
-          A Service Record already exists for this date:<br><br>
-          <b>${selectedDate.toLocaleDateString()}</b>
-        `,
-      });
-
-      setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
-      return; // ✅ STOP further validation
-    }
-
     if(mode === "add_service_record") {
+      // ✅ DUPLICATE CHECK (EXACT MATCH)
+      const isDuplicate = previousDates.some(
+        (d) => d.toDateString() === selectedDate.toDateString()
+      );
+
+      if (isDuplicate) {
+        Swal.fire({
+          icon: "warning",
+          title: "Duplicate Service Record",
+          html: `
+            A Service Record already exists for this date:<br><br>
+            <b>${selectedDate.toLocaleDateString()}</b>
+          `,
+        });
+
+        setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
+        return; // ✅ STOP further validation
+      }
+
       if (selectedDate.getTime() >= latestPrevious.getTime()) {
         Swal.fire({
           icon: "warning",
@@ -456,7 +456,7 @@ export default function EmployeeAppointment({
         });
 
         // Reset the value
-        setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
+        setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }) );
       }
     } else {
       if (selectedDate.getTime() <= latestPrevious.getTime()) {
@@ -470,7 +470,7 @@ export default function EmployeeAppointment({
         });
 
         // Reset the value
-        setForm((prev) => ({ ...prev, assumptionToDutyDate: "" }));
+        setForm((prev) => ({ ...prev, assumptionToDutyDate: formatMMDDYYYY(latestPrevious) }));
       }
     }
   };

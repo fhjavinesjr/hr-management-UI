@@ -38,6 +38,12 @@ export default function EmploymentRecord() {
     setUserRole(role);
   }, []);
 
+  useEffect(() => {
+    if (selectedEmployee?.employeeId) {
+      fetchEmploymentRecords();
+    }
+  }, [selectedEmployee?.employeeId]);
+
   // Fetch Employment Record
   const fetchEmploymentRecords = async () => {
     try {
@@ -202,12 +208,12 @@ export default function EmploymentRecord() {
                 )}
 
                 <div>
-                  <button
+                  {/* <button
                     className={styles.searchButton}
                     onClick={fetchEmploymentRecords}
                   >
                     Search
-                  </button>
+                  </button> */}
                   &nbsp;
                   <button
                     className={styles.clearButton}
@@ -250,7 +256,12 @@ export default function EmploymentRecord() {
             {/* Tab Content */}
             <div className={styles.tabContent}>
               {activeTab === "personal" && (
-                <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} />
+                <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} 
+                  onEmployeeCreated={(employee) => {
+                    setSelectedEmployee(employee);
+                    setInputValue(`[${employee.employeeNo}] ${employee.fullName}`);
+                  }}
+                />
               )}
               {activeTab === "appointment" && (
                 <EmployeeAppointment mode="edit_add_employee_appointment" selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords}/>
@@ -258,7 +269,7 @@ export default function EmploymentRecord() {
               {activeTab === "service" && (
                 <ServiceRecord selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} />
               )}
-              {activeTab === "separation" && <Separation />}
+              {activeTab === "separation" && <Separation employees={employees} userRole={userRole} />}
             </div>
           </div>
         </div>

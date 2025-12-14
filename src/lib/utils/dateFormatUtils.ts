@@ -1,4 +1,14 @@
 
+export const formatMMDDYYYY = (date: Date) => {
+  const d = new Date(date);
+
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const yyyy = d.getFullYear();
+
+  return toDateInputValue(`${mm}-${dd}-${yyyy}`);
+};
+
 /**
  * Converts a date string from "MM-dd-yyyy HH:mm:ss" to "yyyy-MM-dd"
  * (Used to populate HTML date input fields)
