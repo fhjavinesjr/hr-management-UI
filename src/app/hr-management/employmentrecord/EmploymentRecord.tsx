@@ -261,6 +261,9 @@ export default function EmploymentRecord() {
                     setSelectedEmployee(employee);
                     setInputValue(`[${employee.employeeNo}] ${employee.fullName}`);
                   }}
+                  newSetEmployees={(employees) => {
+                    setEmployees(employees);
+                  }}
                 />
               )}
               {activeTab === "appointment" && (

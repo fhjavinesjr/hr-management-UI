@@ -61,7 +61,7 @@ type Props = {
   initialData?: Appointment;
   mode?: "edit_add_employee_appointment" | "add_service_record";
   onCancel?: () => void;
-  onSave?: (saved: Appointment) => void;
+  onSave?: (saved?: Appointment) => Promise<void> | void;
   selectedEmployee?: Employee | null;
   employeeAppointments?: EmployeeAppointmentModel[] | null;
   fetchEmploymentRecords?: () => Promise<void>;
@@ -71,6 +71,7 @@ export default function EmployeeAppointment({
   initialData,
   mode,
   onCancel,
+  onSave,
   selectedEmployee,
   employeeAppointments,
   fetchEmploymentRecords,
@@ -364,22 +365,33 @@ export default function EmployeeAppointment({
       }
 
       Swal.fire("Success", showMessage, "success").then(async () => {
+        // If parent provided an onSave handler, use it (ServiceRecord will handle closing and reloading)
+        if (onSave) {
+          try {
+            await onSave(form);
+          } catch (err) {
+            console.error(err);
+          }
+          return;
+        }
+
+        // Fallback: call fetchEmploymentRecords directly if provided
         await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
-      });;
 
-      // After successful save, update initial state and disable form
-      if (initialData) {
-        // setInitialFormState(form);
-      } else {
-        // If it was a new record (no initialData), clear the form as well.
-        setForm(emptyForm);
-        setSelectedPositionId("");
-        setPlantillaList([]);
-      }
+        // After successful save, update initial state and disable form
+        if (initialData) {
+          // setInitialFormState(form);
+        } else {
+          // If it was a new record (no initialData), clear the form as well.
+          setForm(emptyForm);
+          setSelectedPositionId("");
+          setPlantillaList([]);
+        }
 
-      setIsDisabled(true);
+        setIsDisabled(true);
 
-      if (onCancel) onCancel();
+        if (onCancel) onCancel();
+      });
     } catch (err) {
       console.error(err);
       Swal.fire("Failed to save appointment", (err as Error).message || "An error occurred", "error");

@@ -16,12 +16,14 @@ type PersonalDataProps = {
   personalData?: PersonalDataModel | null;
   fetchEmploymentRecords?: () => Promise<void>;
   onEmployeeCreated?: (employee: Employee) => void;
+  newSetEmployees?: (employees: Employee[]) => void;
 };
 
 export default function PersonalData({
   selectedEmployee,
   personalData,
   onEmployeeCreated,
+  newSetEmployees,
 }: PersonalDataProps) {
   const [form, setForm] = useState<PersonalDataModel>({
     employeeNo: "",
@@ -647,6 +649,7 @@ export default function PersonalData({
 
           if (createdEmployee && onEmployeeCreated) {
             onEmployeeCreated(createdEmployee); // 🚀 PASS BACK TO PARENT
+            newSetEmployees?.(employees); // Update employees in parent component
           }
         }
 
