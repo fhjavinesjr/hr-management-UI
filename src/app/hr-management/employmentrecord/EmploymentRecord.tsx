@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import PersonalData from "@/app/hr-management/personaldata/PersonalData";
 import EmployeeAppointment from "@/app/hr-management/employeeappointment/EmployeeAppointment";
@@ -11,6 +11,8 @@ import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { Employee } from "@/lib/types/Employee";
 import { PersonalDataModel } from "@/lib/types/PersonalData";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
+import { SeparationModel } from "@/lib/types/Separation";
+
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
@@ -25,6 +27,7 @@ export default function EmploymentRecord() {
   );
   const [personalData, setPersonalData] = useState<PersonalDataModel | null>(null);
   const [employeeAppointments, setEmployeeAppointments] = useState<EmployeeAppointmentModel[] | null>(null);
+  const [separations, setSeparations] = useState<SeparationModel[] | null>(null);
 
   useEffect(() => {
     const storedEmployees = localStorageUtil.getEmployees();
@@ -38,16 +41,16 @@ export default function EmploymentRecord() {
     setUserRole(role);
   }, []);
 
-  useEffect(() => {
-    if (selectedEmployee?.employeeId) {
-      fetchEmploymentRecords();
-    }
-  }, [selectedEmployee?.employeeId]);
+  // fetchEmploymentRecords is declared below with useCallback — call it when selected employee changes
+  // The actual trigger useEffect is placed after the function declaration to avoid 'used before its declaration' errors.
 
   // Fetch Employment Record
-  const fetchEmploymentRecords = async () => {
+  const selectedEmployeeId = selectedEmployee?.employeeId;
+  const selectedEmployeeName = selectedEmployee?.fullName;
+
+  const fetchEmploymentRecords = useCallback(async () => {
     try {
-      if (!selectedEmployee) {
+      if (!selectedEmployeeId) {
         Swal.fire({
           icon: "error",
           title: "Please select an employee.",
@@ -56,7 +59,8 @@ export default function EmploymentRecord() {
         return;
       }
 
-      const fetchPersonalDataURL = `${API_BASE_URL_HRM}/api/fetch/personal-data/${selectedEmployee.employeeId}`;
+      //Personal Data Fetch
+      const fetchPersonalDataURL = `${API_BASE_URL_HRM}/api/fetch/personal-data/${selectedEmployeeId}`;
       const personalDataRes = await fetchWithAuth(`${fetchPersonalDataURL}`);
 
       if (!personalDataRes.ok) {
@@ -66,7 +70,7 @@ export default function EmploymentRecord() {
 
       const personalDataJson = await personalDataRes.json();
 
-      const fetchEmployee = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employee/${selectedEmployee.employeeId}`);
+      const fetchEmployee = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employee/${selectedEmployeeId}`);
 
       if (!fetchEmployee.ok) {
         const text = await fetchEmployee.text();
@@ -91,7 +95,8 @@ export default function EmploymentRecord() {
 
       setPersonalData(mergedData);
 
-      const fetchAllEmployeeAppointmentByEmployeeId = `${API_BASE_URL_HRM}/api/employeeAppointment/get-all/${selectedEmployee.employeeId}`;
+      //Employee Appointment and Service Record Fetch
+      const fetchAllEmployeeAppointmentByEmployeeId = `${API_BASE_URL_HRM}/api/employeeAppointment/get-all/${selectedEmployeeId}`;
       const employeeAppointmentsByEmployeeId = await fetchWithAuth(`${fetchAllEmployeeAppointmentByEmployeeId}`);
 
       if (!employeeAppointmentsByEmployeeId.ok) {
@@ -101,14 +106,24 @@ export default function EmploymentRecord() {
       const employeeAppointmentsByEmployeeIdJson = await employeeAppointmentsByEmployeeId.json();
       setEmployeeAppointments(employeeAppointmentsByEmployeeIdJson);
 
+      // Separation Fetch
+      const fetchAllSeparationByEmployeeId = `${API_BASE_URL_HRM}/api/separation/get-all/${selectedEmployeeId}`;
+      const separationsByEmployeeId = await fetchWithAuth(`${fetchAllSeparationByEmployeeId}`);
+
+      if (!separationsByEmployeeId.ok) {
+        const text = await separationsByEmployeeId.text();
+        throw new Error(`Failed to fetch Separation: ${text}`);
+      }
+      const separationsByEmployeeIdJson = await separationsByEmployeeId.json();
+      setSeparations(separationsByEmployeeIdJson);
+
       Swal.fire({
         icon: "success",
         title: "Employment Record Loaded",
-        text: `Successfully loaded employment record for ${selectedEmployee.fullName}`,
+        text: `Successfully loaded employment record for ${selectedEmployeeName ?? ""}`,
       });
 
-      selectedEmployee.isSearched = true;
-      setSelectedEmployee({ ...selectedEmployee });
+      setSelectedEmployee((prev) => (prev ? { ...prev, isSearched: true } : prev));
 
     } catch (err) {
       console.log("Error: " + err);
@@ -118,7 +133,14 @@ export default function EmploymentRecord() {
         text: "",
       });
     }
-  };
+  }, [selectedEmployeeId, selectedEmployeeName]);
+
+  // trigger fetch when employee id changes
+  useEffect(() => {
+    if (selectedEmployee?.employeeId) {
+      fetchEmploymentRecords();
+    }
+  }, [fetchEmploymentRecords, selectedEmployee?.employeeId]);
 
   const clearEmploymentRecordsWithShowMessage = async () => {
     if (!selectedEmployee) {
@@ -136,6 +158,7 @@ export default function EmploymentRecord() {
     setPersonalData(null);       // also triggers reset
     setEmployeeAppointments(null);
     setActiveTab("personal");
+    setSeparations(null);
   };
 
   const clearEmploymentRecordsWithoutShowMessage = async () => {
@@ -156,7 +179,7 @@ export default function EmploymentRecord() {
           <h2 className={modalStyles.mainTitle}>Employment Record</h2>
         </div>
         <div className={modalStyles.modalBody}>
-          <div className={styles.EmploymentRecord}>
+          <div id="slide-up-target-section" className={styles.EmploymentRecord}>
             {/* Sticky Section */}
             <div className={styles.stickyHeader}>
               <div className={styles.formGroup}>
@@ -272,7 +295,7 @@ export default function EmploymentRecord() {
               {activeTab === "service" && (
                 <ServiceRecord selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} />
               )}
-              {activeTab === "separation" && <Separation employees={employees} userRole={userRole} />}
+              {activeTab === "separation" && <Separation employees={employees} userRole={userRole} selectedEmployee={selectedEmployee} separations={separations} fetchEmploymentRecords={fetchEmploymentRecords} />}
             </div>
           </div>
         </div>

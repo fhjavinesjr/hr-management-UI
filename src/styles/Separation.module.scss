@@ -1,7 +1,13 @@
-
 .Separation {
 
+  /* ===============================
+     SECTION (Animation-ready)
+     =============================== */
   .section {
+    position: relative;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: background-color 380ms ease-out;
 
     h3 {
       font-size: 1.1rem;
@@ -38,6 +44,43 @@
     margin-bottom: 1rem;
   }
 
+  /* ===============================
+     STRONG SLIDE-UP ANIMATION
+     (VERY NOTICEABLE)
+     =============================== */
+  .slideUp {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* ===============================
+     HIGHLIGHT EFFECT
+     =============================== */
+  .highlight {
+    background-color: rgba(255, 233, 98, 0.22);
+    border-radius: 8px;
+  }
+
+  /* Accessibility: Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .slideUp {
+      animation: none;
+    }
+  }
+
+  /* ===============================
+     GRID LAYOUT
+     =============================== */
   .grid2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -45,36 +88,9 @@
     margin-bottom: 1rem;
   }
 
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-
-    .save {
-      background: #27ae60;
-      color: white;
-      border: none;
-      padding: 0.7rem 1.5rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .cancel {
-      background: #e74c3c;
-      color: white;
-      border: none;
-      padding: 0.7rem 1.5rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-  }
-
+  /* ===============================
+     ACTION BUTTONS
+     =============================== */
   .actionBtns {
     display: flex;
     gap: 20px;
@@ -115,6 +131,81 @@
 
       &:hover {
         background: #868e96;
+      }
+    }
+  }
+
+  /* ===============================
+     TABLE STYLES
+     =============================== */
+  .SeparationTable {
+    background-color: #fafafa;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 0.75rem;
+        text-align: center;
+      }
+
+      thead {
+        background-color: #f1f1f1;
+        font-weight: bold;
+      }
+
+      tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+
+      td:nth-child(8) {
+        font-size: 0.9rem;
+        color: #555;
+      }
+    }
+
+    /* ===============================
+       ACTION ICONS
+       =============================== */
+    .actionsCell {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .iconButton {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      transition: transform 0.2s ease, color 0.2s ease;
+
+      &:hover {
+        transform: scale(1.2);
+      }
+    }
+
+    .editIcon {
+      color: #0d6efd;
+
+      &:hover {
+        color: #0a58ca;
+      }
+    }
+
+    .deleteIcon {
+      color: #dc3545;
+
+      &:hover {
+        color: #bb2d3b;
       }
     }
   }

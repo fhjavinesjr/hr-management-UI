@@ -375,21 +375,13 @@ export default function EmployeeAppointment({
           return;
         }
 
-        // Fallback: call fetchEmploymentRecords directly if provided
+        // Fallback: call fetchEmploymentRecords directly if provided and wait for parent to update props
         await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
 
-        // After successful save, update initial state and disable form
-        if (initialData) {
-          // setInitialFormState(form);
-        } else {
-          // If it was a new record (no initialData), clear the form as well.
-          setForm(emptyForm);
-          setSelectedPositionId("");
-          setPlantillaList([]);
-        }
-
+        // After successful save, set form to disabled and let the employeeAppointments prop update the form
         setIsDisabled(true);
 
+        // DO NOT clear the form here — when parent updates employeeAppointments the effect will populate the newly created record into the form
         if (onCancel) onCancel();
       });
     } catch (err) {
