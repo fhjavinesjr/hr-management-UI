@@ -6,8 +6,24 @@ import styles from "@/styles/ServiceRecord.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 
-import EmployeeAppointment from "@/app/hr-management/employeeappointment/EmployeeAppointment";
+import EmployeeAppointment, { Appointment } from "@/app/hr-management/employeeappointment/EmployeeAppointment";
 import Swal from "sweetalert2";
+import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { toDateInputValue } from "@/lib/utils/dateFormatUtils";
+
+// toast mixin for bottom-right notifications
+const Toast = Swal.mixin({
+  toast: true,
+  position: "bottom-end",
+  showConfirmButton: false,
+  timer: 2000,
+  timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.onmouseenter = Swal.stopTimer;
+    toast.onmouseleave = Swal.resumeTimer;
+  },
+});
+
 import {
   fetchAllNatureList,
   fetchAllJobPositions,
@@ -37,6 +53,7 @@ export default function ServiceRecord({
 
   const [appointments, setAppointments] = useState<EmployeeAppointmentModel[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
   const getNatureLabel = (id?: string | null) => {
     if (!id) {
@@ -100,18 +117,27 @@ export default function ServiceRecord({
     }
   }, [employeeAppointments]);
 
-  const handleAddNew = () => setShowForm(true);
+  const handleAddNew = () => {
+    setEditingAppointment(null);
+    setShowForm(true);
+  };
 
   const handleSave = async () => {
     setShowForm(false);
+    setEditingAppointment(null);
 
     // Ask parent to re-fetch records (preferred)
     if (fetchEmploymentRecords) {
       await fetchEmploymentRecords();
     }
+
+    Toast.fire({ icon: "success", title: "Service record saved" });
   };
 
-  const handleCancel = () => setShowForm(false);
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingAppointment(null);
+  };
 
   // Details popup
   const handleShowDetails = (a: EmployeeAppointmentModel) => {
@@ -139,6 +165,67 @@ export default function ServiceRecord({
     });
   };
 
+  // Edit appointment - open the EmployeeAppointment form with initial data
+  const handleEditAppointment = (a: EmployeeAppointmentModel) => {
+    // Map to Appointment type expected by EmployeeAppointment
+    const initialData: Appointment = {
+      employeeAppointmentId: a.employeeAppointmentId,
+      appointmentIssuedDate: a.appointmentIssuedDate ? toDateInputValue(a.appointmentIssuedDate) : "",
+      assumptionToDutyDate: a.assumptionToDutyDate ? toDateInputValue(a.assumptionToDutyDate) : "",
+      natureOfAppointmentId: a.natureOfAppointmentId ? Number(a.natureOfAppointmentId) : 0,
+      plantillaId: a.plantillaId ? Number(a.plantillaId) : 0,
+      jobPositionId: a.jobPositionId ? Number(a.jobPositionId) : 0,
+      // Coerce numeric salary/grade values to strings so "0" is preserved (0 is falsy)
+      salaryGrade: a.salaryGrade !== undefined && a.salaryGrade !== null ? String(a.salaryGrade) : "",
+      salaryStep: a.salaryStep !== undefined && a.salaryStep !== null ? String(a.salaryStep) : "",
+      salaryPerAnnum: a.salaryPerAnnum !== undefined && a.salaryPerAnnum !== null ? String(a.salaryPerAnnum) : "",
+      salaryPerMonth: a.salaryPerMonth !== undefined && a.salaryPerMonth !== null ? String(a.salaryPerMonth) : "",
+      salaryPerDay: a.salaryPerDay !== undefined && a.salaryPerDay !== null ? String(a.salaryPerDay) : "",
+      details: a.details ?? "",
+      activeAppointment: a.activeAppointment ?? false,
+      mode: "edit_service_record"
+    };
+
+    setEditingAppointment(initialData);
+    setShowForm(true);
+  };
+
+  // Delete appointment
+  const handleDeleteAppointment = (id?: string | null) => {
+    if (!id) return;
+
+    Swal.fire({
+      title: "Confirm Deletion",
+      text: "Are you sure you want to delete this service record?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+          const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employeeAppointment/delete/${id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("Failed to delete");
+
+          // Refresh parent data if available
+          if (fetchEmploymentRecords) {
+            await fetchEmploymentRecords();
+          } else {
+            // Fallback: remove locally
+            setAppointments((prev) => prev.filter((x) => x.employeeAppointmentId !== id));
+          }
+
+          Toast.fire({ icon: "success", title: "Record deleted" });
+        } catch (err) {
+          console.error(err);
+          Swal.fire("Error", "Failed to delete record", "error");
+        }
+      }
+    });
+  };
+
   return (
     <div className={styles.ServiceRecord}>
       {/* ADD BUTTON */}
@@ -149,7 +236,8 @@ export default function ServiceRecord({
       {/* FORM */}
       {showForm && (
         <EmployeeAppointment
-          mode="add_service_record"
+          mode="service_record"
+          initialData={editingAppointment ?? undefined}
           onSave={handleSave}
           onCancel={handleCancel}
           selectedEmployee={selectedEmployee}
@@ -174,7 +262,7 @@ export default function ServiceRecord({
               <th>Salary Annum</th>
               <th>Salary Month</th>
               <th>Salary Day</th>
-              <th>View</th>
+              <th>Actions</th>
             </tr>
           </thead>
 
@@ -202,12 +290,34 @@ export default function ServiceRecord({
                   <td>{a.salaryPerMonth}</td>
                   <td>{a.salaryPerDay}</td>
                   <td>
-                    <button
-                      onClick={() => handleShowDetails(a)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      📋 View
-                    </button>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleShowDetails(a)}
+                        style={{ cursor: "pointer" }}
+                        title="View"
+                      >
+                        📋
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleEditAppointment(a)}
+                        style={{ cursor: "pointer" }}
+                        title="Edit"
+                      >
+                        ✏️
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAppointment(a.employeeAppointmentId)}
+                        style={{ cursor: "pointer" }}
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

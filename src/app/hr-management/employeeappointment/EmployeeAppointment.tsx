@@ -38,6 +38,7 @@ export type Appointment = {
   salaryPerDay: string;
   details: string;
   activeAppointment: boolean;
+  mode: string;
 };
 
 type AppointmentPayload = {
@@ -59,7 +60,7 @@ type AppointmentPayload = {
 
 type Props = {
   initialData?: Appointment;
-  mode?: "edit_add_employee_appointment" | "add_service_record";
+  mode?: "edit_add_employee_appointment" | "service_record";
   onCancel?: () => void;
   onSave?: (saved?: Appointment) => Promise<void> | void;
   selectedEmployee?: Employee | null;
@@ -95,10 +96,11 @@ export default function EmployeeAppointment({
     salaryPerDay: "",
     details: "",
     activeAppointment: true,
+    mode: ""
   };
 
   const [form, setForm] = useState<Appointment>(initialData || emptyForm);
-  const [isDisabled, setIsDisabled] = useState(mode === "add_service_record" ? false : !initialData);
+  const [isDisabled, setIsDisabled] = useState(mode === "service_record" ? false : !initialData);
 
   useEffect(() => {
     if(mode === "edit_add_employee_appointment") {
@@ -131,6 +133,7 @@ export default function EmployeeAppointment({
             salaryPerDay: latestAppointment.salaryPerDay || "",
             details: latestAppointment.details || "",
             activeAppointment: latestAppointment.activeAppointment ?? true,
+            mode: ""
           });
 
           setSelectedPositionId(latestAppointment.jobPositionId ? String(latestAppointment.jobPositionId) : "");
@@ -333,12 +336,16 @@ export default function EmployeeAppointment({
         salaryPerMonth: form.salaryPerMonth ? Number(String(form.salaryPerMonth).replace(/,/g, "")) : null,
         salaryPerDay: form.salaryPerDay ? Number(String(form.salaryPerDay).replace(/,/g, "")) : null,
         details: form.details,
-        activeAppointment: mode === "add_service_record" ? false : form.activeAppointment,
+        activeAppointment: mode === "service_record" ? false : form.activeAppointment,
       };
 
       if(payload.plantillaId === null) {
         Swal.fire("Validation Error", "Please select a Plantilla.", "warning");
         return;
+      }
+
+      if(form.mode === "edit_service_record") {
+        isUpdate = true;
       }
       
       const url = isUpdate
@@ -429,7 +436,7 @@ export default function EmployeeAppointment({
     const latestPrevious = new Date(Math.max(...previousDates.map((d) => d.getTime())));
     const selectedDate = new Date(newDate);
 
-    if(mode === "add_service_record") {
+    if(mode === "service_record") {
       // ✅ DUPLICATE CHECK (EXACT MATCH)
       const isDuplicate = previousDates.some(
         (d) => d.toDateString() === selectedDate.toDateString()

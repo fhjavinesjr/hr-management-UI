@@ -17,6 +17,19 @@ const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
 
+// reusable toast mixin for bottom-right toasts
+const Toast = Swal.mixin({
+  toast: true,
+  position: "bottom-end",
+  showConfirmButton: false,
+  timer: 2000,
+  timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.onmouseenter = Swal.stopTimer;
+    toast.onmouseleave = Swal.resumeTimer;
+  },
+});
+
 export default function EmploymentRecord() {
   const [activeTab, setActiveTab] = useState("personal");
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -117,10 +130,9 @@ export default function EmploymentRecord() {
       const separationsByEmployeeIdJson = await separationsByEmployeeId.json();
       setSeparations(separationsByEmployeeIdJson);
 
-      Swal.fire({
+      Toast.fire({
         icon: "success",
-        title: "Employment Record Loaded",
-        text: `Successfully loaded employment record for ${selectedEmployeeName ?? ""}`,
+        title: `Successfully loaded Employment Record for ${selectedEmployeeName ?? ""}`,
       });
 
       setSelectedEmployee((prev) => (prev ? { ...prev, isSearched: true } : prev));
@@ -147,10 +159,9 @@ export default function EmploymentRecord() {
       return;
     }
 
-    Swal.fire({
+    Toast.fire({
       icon: "success",
-      title: "Employment Record Cleared",
-      text: `Cleared employment record for ${selectedEmployee.fullName}`,
+      title: `Cleared Employment Record for ${selectedEmployee.fullName}`,
     });
 
     setInputValue("");
