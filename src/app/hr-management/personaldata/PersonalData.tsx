@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styles from "@/styles/PersonalData.module.scss";
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
@@ -11,6 +11,15 @@ import { PersonalDataModel } from "@/lib/types/PersonalData";
 import { ChildItem } from "@/lib/types/Children";
 import Image from "next/image";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
+
+// Default educational rows shown when the page loads
+const DEFAULT_EDUCATION = [
+  { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "Elementary", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" },
+  { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "Secondary", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" },
+  { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "Vocational/Trade Courses", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" },
+  { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "College", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" },
+  { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "Graduate Studies", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" }
+];
 
 type PersonalDataProps = {
   selectedEmployee?: Employee | null;
@@ -93,7 +102,7 @@ export default function PersonalData({
     q42: false,
   });
   
-  const resetAllPersonalDataFields = () => {
+  const resetAllPersonalDataFields = useCallback(() => {
     setForm({
       personalDataId: "",
       employeeNo: "",
@@ -165,18 +174,7 @@ export default function PersonalData({
     // Clear the queued deletions when fields are reset
     setDeletedChildrenIds([]);
 
-    setEducation([
-      {
-        level: "",
-        school: "",
-        course: "",
-        from: "",
-        to: "",
-        units: "",
-        yearGraduated: "",
-        honors: "",
-      },
-    ]);
+    setEducation(DEFAULT_EDUCATION);
 
     setEligibilities([
       {
@@ -230,13 +228,13 @@ export default function PersonalData({
         tel: "",
       },
     ]);
-  };
+  }, []);
 
   useEffect(() => {
     if (personalData === null || selectedEmployee === null) {
       resetAllPersonalDataFields();
     }
-  }, [personalData, selectedEmployee]);
+  }, [personalData, selectedEmployee, resetAllPersonalDataFields]);
 
   useEffect(() => {
     if (selectedEmployee?.isCleared) {
@@ -310,18 +308,7 @@ export default function PersonalData({
       setChildren([{ childrenId: 0, personalDataId: 0, childFullname: "", dob: "" }]);
       // Clear any pending deletion queue
       setDeletedChildrenIds([]);
-      setEducation([
-        {
-          level: "",
-          school: "",
-          course: "",
-          from: "",
-          to: "",
-          units: "",
-          yearGraduated: "",
-          honors: "",
-        },
-      ]);
+      setEducation(DEFAULT_EDUCATION);
       setEligibilities([
         {
           careerService: "",
@@ -386,62 +373,6 @@ export default function PersonalData({
   }, [personalData]);
 
   // Whenever the parent loads or updates personalData, fetch children for it
-  useEffect(() => {
-    const id = extractPersonalDataId(personalData);
-    if (id) {
-      fetchChildren(id);
-    }
-  }, [personalData]);
-
-  const [isDisabled, setIsDisabled] = useState(true);
-
-  // Dynamic rows for repeating sections
-  const [eligibilities, setEligibilities] = useState([
-    {
-      careerService: "",
-      rating: "",
-      examDate: "",
-      examPlace: "",
-      licenseNumber: "",
-      validity: "",
-    },
-  ]);
-  const [workExperience, setWorkExperience] = useState([
-    {
-      from: "",
-      to: "",
-      position: "",
-      department: "",
-      salary: "",
-      payGrade: "",
-      status: "",
-      govService: "",
-    },
-  ]);
-  const [voluntaryWork, setVoluntaryWork] = useState([
-    { orgName: "", from: "", to: "", hours: "", position: "" },
-  ]);
-  const [trainings, setTrainings] = useState([
-    { title: "", from: "", to: "", hours: "", type: "", conductedBy: "" },
-  ]);
-  const [references, setReferences] = useState([
-    { name: "", address: "", tel: "" },
-  ]);
-  const [education, setEducation] = useState([
-    {
-      level: "",
-      school: "",
-      course: "",
-      from: "",
-      to: "",
-      units: "",
-      yearGraduated: "",
-      honors: "",
-    },
-  ]);
-  const [children, setChildren] = useState<ChildItem[]>([{ childrenId: 0, personalDataId: 0, childFullname: "", dob: "" }]);
-  // Holds IDs of children removed in the UI that need to be deleted on the server when saving
-  const [deletedChildrenIds, setDeletedChildrenIds] = useState<number[]>([]);
 
   type RawChild = {
     childrenId?: number | string;
@@ -456,7 +387,7 @@ export default function PersonalData({
   };
 
   // Fetch children from backend with flexible parsing — returns parsed items
-  const fetchChildren = async (personalDataId: number): Promise<ChildItem[]> => {
+  const fetchChildren = useCallback(async (personalDataId: number): Promise<ChildItem[]> => {
     try {
       const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/children/by/${personalDataId}`);
       if (!res.ok) {
@@ -504,7 +435,55 @@ export default function PersonalData({
       setChildren(fallback);
       return fallback;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) {
+      fetchChildren(id);
+    }
+  }, [personalData, fetchChildren]);
+
+  const [isDisabled, setIsDisabled] = useState(true);
+
+  // Dynamic rows for repeating sections
+  const [eligibilities, setEligibilities] = useState([
+    {
+      careerService: "",
+      rating: "",
+      examDate: "",
+      examPlace: "",
+      licenseNumber: "",
+      validity: "",
+    },
+  ]);
+  const [workExperience, setWorkExperience] = useState([
+    {
+      from: "",
+      to: "",
+      position: "",
+      department: "",
+      salary: "",
+      payGrade: "",
+      status: "",
+      govService: "",
+    },
+  ]);
+  const [voluntaryWork, setVoluntaryWork] = useState([
+    { orgName: "", from: "", to: "", hours: "", position: "" },
+  ]);
+  const [trainings, setTrainings] = useState([
+    { title: "", from: "", to: "", hours: "", type: "", conductedBy: "" },
+  ]);
+  const [references, setReferences] = useState([
+    { name: "", address: "", tel: "" },
+  ]);
+  const [education, setEducation] = useState(DEFAULT_EDUCATION);
+  const [children, setChildren] = useState<ChildItem[]>([{ childrenId: 0, personalDataId: 0, childFullname: "", dob: "" }]);
+  // Holds IDs of children removed in the UI that need to be deleted on the server when saving
+  const [deletedChildrenIds, setDeletedChildrenIds] = useState<number[]>([]);
+
+
 
   // Create or update children for a given personalDataId
   const upsertChildren = async (personalDataId: number) => {
@@ -618,7 +597,223 @@ export default function PersonalData({
       }
       return prev.filter((_, i) => i !== index);
     });
-  }; 
+  };
+
+  // Types for educational background parsing
+  type RawEducation = {
+    educationalBackgroundId?: number | string;
+    educational_background_id?: number | string;
+    id?: number | string;
+    // possible server shapes (old keys and entity keys)
+    level?: string;
+    levelOfEducation?: string;
+    school?: string;
+    nameOfSchool?: string;
+    course?: string;
+    degreeCourse?: string;
+    units?: string;
+    scoreGrade?: string | number;
+    yearGraduated?: string | number;
+    from?: string;
+    fromDate?: string;
+    to?: string;
+    toDate?: string;
+    honors?: string;
+    honorsReceived?: string;
+    educationalBackgrounds?: RawEducation[];
+  };
+
+  // Holds IDs of education rows removed in the UI that need to be deleted on the server when saving
+  const [deletedEducationIds, setDeletedEducationIds] = useState<number[]>([]);
+
+  // Fetch educational background rows for a personalDataId
+  const fetchEducation = useCallback(async (personalDataId: number) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/educationalBackground/by/${personalDataId}`);
+      if (!res.ok) {
+        setEducation(DEFAULT_EDUCATION);
+        return DEFAULT_EDUCATION;
+      }
+
+      const data: unknown = await res.json();
+
+      // normalize shapes: array or single object or wrapper
+      let items: unknown[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else {
+        const maybe = data as RawEducation | undefined;
+        if (maybe && Array.isArray((maybe as any).educationalBackgrounds)) {
+          items = (maybe as any).educationalBackgrounds as unknown[];
+        } else if (
+          maybe && (
+            typeof maybe.level === "string" ||
+            typeof maybe.levelOfEducation === "string" ||
+            typeof maybe.school === "string" ||
+            typeof maybe.nameOfSchool === "string"
+          )
+        ) {
+          items = [maybe];
+        }
+      }
+
+      if (items.length === 0) {
+        setEducation(DEFAULT_EDUCATION);
+        return DEFAULT_EDUCATION;
+      }
+
+      const mapped = items.map((x: unknown) => {
+        const obj = x as RawEducation;
+        return {
+          educationalBackgroundId: Number(obj.educationalBackgroundId ?? obj.educational_background_id ?? obj.id ?? 0),
+          personalDataId,
+          levelOfEducation: String(obj.levelOfEducation ?? obj.level ?? ""),
+          nameOfSchool: String(obj.nameOfSchool ?? obj.school ?? ""),
+          degreeCourse: String(obj.degreeCourse ?? obj.course ?? ""),
+          scoreGrade: String(obj.scoreGrade ?? obj.units ?? ""),
+          yearGraduated: String(obj.yearGraduated ?? ""),
+          fromDate: toDateInputValue(String(obj.fromDate ?? obj.from ?? "")),
+          toDate: toDateInputValue(String(obj.toDate ?? obj.to ?? "")),
+          honorsReceived: String(obj.honorsReceived ?? obj.honors ?? ""),
+        };
+      });
+
+      setEducation(mapped);
+      return mapped;
+    } catch (err) {
+      console.error("Failed to fetch education", err);
+      setEducation(DEFAULT_EDUCATION);
+      return DEFAULT_EDUCATION;
+    }
+  }, []);
+
+  // When personalData changes, fetch education rows as well
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) {
+      fetchEducation(id);
+    } else {
+      setEducation(DEFAULT_EDUCATION);
+    }
+  }, [personalData, fetchEducation]);
+
+  // Remove education row and queue its id for deletion on save
+  // const handleRemoveEducation = (index: number) => {
+  //   setEducation((prev) => {
+  //     const removed = prev[index] as any;
+  //     if (removed && (removed.educationalBackgroundId ?? 0) > 0) {
+  //       setDeletedEducationIds((prevIds) => [...prevIds, Number(removed.educationalBackgroundId)]);
+  //     }
+  //     return prev.filter((_, i) => i !== index);
+  //   });
+  // };
+
+  // Create or update educational background rows for a given personalDataId
+  const upsertEducation = async (personalDataId: number) => {
+    try {
+      // remove empty rows
+      const filtered = education
+        .map((e) => ({ ...e }))
+        .filter((e) => (e.levelOfEducation && e.levelOfEducation.trim()) || (e.nameOfSchool && e.nameOfSchool.trim()) || (e.degreeCourse && e.degreeCourse.trim()));
+
+      let anyDeleted = false;
+      if (deletedEducationIds.length > 0) {
+        for (const id of deletedEducationIds) {
+          try {
+            const delRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/educationalBackground/delete/${id}`, { method: "DELETE" });
+            if (delRes.ok) {
+              anyDeleted = true;
+            } else {
+              console.warn("Failed to delete education id", id, await delRes.text());
+            }
+          } catch (err) {
+            console.error("Error deleting education id", id, err);
+          }
+        }
+        setDeletedEducationIds([]);
+      }
+
+      const toUpdate = filtered.filter((e) => e.educationalBackgroundId && Number(e.educationalBackgroundId) > 0);
+      const toCreate = filtered.filter((e) => !e.educationalBackgroundId || Number(e.educationalBackgroundId) === 0);
+
+      let anyUpdated = false;
+      let anyCreated = false;
+
+      // Attempt updates
+      for (const e of toUpdate) {
+        const payload = {
+          personalDataId,
+          levelOfEducation: e.levelOfEducation,
+          nameOfSchool: e.nameOfSchool,
+          degreeCourse: e.degreeCourse,
+          scoreGrade: e.scoreGrade ? Number(e.scoreGrade) : null,
+          yearGraduated: e.yearGraduated ? Number(e.yearGraduated) : null,
+          fromDate: e.fromDate ? toCustomFormat(e.fromDate, false) : null,
+          toDate: e.toDate ? toCustomFormat(e.toDate, false) : null,
+          honorsReceived: e.honorsReceived,
+        };
+
+        const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/educationalBackground/update/${e.educationalBackgroundId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (updateRes.ok) {
+          try {
+            const json = await updateRes.json();
+            if (json) anyUpdated = true;
+          } catch {
+            // treat empty body as success
+            anyUpdated = true;
+          }
+        } else {
+          // fallback to create
+          toCreate.push(e);
+        }
+      }
+
+      // Creates
+      if (toCreate.length > 0) {
+        for (const e of toCreate) {
+          const payload = {
+            personalDataId,
+            levelOfEducation: e.levelOfEducation,
+            nameOfSchool: e.nameOfSchool,
+            degreeCourse: e.degreeCourse,
+            scoreGrade: e.scoreGrade ? Number(e.scoreGrade) : null,
+            yearGraduated: e.yearGraduated ? Number(e.yearGraduated) : null,
+            fromDate: e.fromDate ? toCustomFormat(e.fromDate, false) : null,
+            toDate: e.toDate ? toCustomFormat(e.toDate, false) : null,
+            honorsReceived: e.honorsReceived,
+          };
+
+          const createRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/create/educationalBackground`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (createRes.ok) {
+            anyCreated = true;
+          } else {
+            console.warn("Failed to create education", await createRes.text());
+          }
+        }
+      }
+
+      if (anyDeleted || anyUpdated || anyCreated) {
+        await fetchEducation(personalDataId);
+        if (anyUpdated && !anyCreated && !anyDeleted) return "isUpdated";
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error("Failed to upsert education", err);
+      return false;
+    }
+  };
 
   const handleCancel = () => {
     setIsDisabled(true); // disable editing again
@@ -828,23 +1023,40 @@ export default function PersonalData({
         throw new Error(`Failed to save personal data: ${text}`);
       }
 
-      //Additionally sync children data after personal data is saved
+      // Additionally sync children and educational background after personal data is saved
       try {
         const personalDataId = Number(form.personalDataId);
         if (form.personalDataId) {
+          // Children
           const upserted = await upsertChildren(personalDataId);
           let titleUpdate = "Children saved";
           if (upserted === "isUpdated") {
-            titleUpdate = "Children updated"; 
+            titleUpdate = "Children updated";
           }
           if (upserted) {
             Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: titleUpdate, showConfirmButton: false, timer: 2000 });
           } else {
             Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save children', showConfirmButton: false, timer: 2000 });
           }
+
+          // Educational Background
+          try {
+            const eduResult = await upsertEducation(personalDataId);
+            let eduTitle = 'Educational Background saved';
+            if (eduResult === 'isUpdated') {
+              eduTitle = 'Educational Background updated';
+            }
+            if (eduResult) {
+              Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: eduTitle, showConfirmButton: false, timer: 2000 });
+            } else {
+              Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save educational background', showConfirmButton: false, timer: 2000 });
+            }
+          } catch (err) {
+            console.warn('Error syncing education:', err);
+          }
         }
       } catch (err) {
-        console.warn('Error syncing children:', err);
+        console.warn('Error syncing children or education:', err);
       }
 
       setIsDisabled(true);
@@ -1534,70 +1746,45 @@ export default function PersonalData({
           <div key={i} className={styles.row}>
             <input
               placeholder="Level (Elem/HS/College/etc.)"
-              name="level"
-              value={row.level}
+              name="levelOfEducation"
+              value={row.levelOfEducation}
               onChange={(e) => {
                 const newEducation = [...education];
-                newEducation[i].level = e.target.value;
+                newEducation[i].levelOfEducation = e.target.value;
                 setEducation(newEducation);
               }}
               disabled={isDisabled}
+              readOnly
             />
             <input
               placeholder="Name of School"
-              name="school"
-              value={row.school}
+              name="nameOfSchool"
+              value={row.nameOfSchool}
               onChange={(e) => {
                 const newEducation = [...education];
-                newEducation[i].school = e.target.value;
+                newEducation[i].nameOfSchool = e.target.value;
                 setEducation(newEducation);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Basic Education/Degree/Course"
-              name="course"
-              value={row.course}
+              name="degreeCourse"
+              value={row.degreeCourse}
               onChange={(e) => {
                 const newEducation = [...education];
-                newEducation[i].course = e.target.value;
+                newEducation[i].degreeCourse = e.target.value;
                 setEducation(newEducation);
               }}
               disabled={isDisabled}
             />
             <input
-              type="date"
-              placeholder="From"
-              title="From Date Educational Background (mm/dd/yyyy)"
-              name="from"
-              value={row.from}
+              placeholder="Score/Grade"
+              name="scoreGrade"
+              value={row.scoreGrade}
               onChange={(e) => {
                 const newEducation = [...education];
-                newEducation[i].from = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="To"
-              title="To Date Educational Background (mm/dd/yyyy)"
-              name="to"
-              value={row.to}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].to = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Highest Level/Units Earned"
-              name="units"
-              value={row.units}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].units = e.target.value;
+                newEducation[i].scoreGrade = e.target.value;
                 setEducation(newEducation);
               }}
               disabled={isDisabled}
@@ -1614,43 +1801,71 @@ export default function PersonalData({
               disabled={isDisabled}
             />
             <input
-              placeholder="Scholarship/Honors"
-              name="honors"
-              value={row.honors}
+              type="date"
+              placeholder="From"
+              title="From Date Educational Background (mm/dd/yyyy)"
+              name="fromDate"
+              value={row.fromDate}
               onChange={(e) => {
                 const newEducation = [...education];
-                newEducation[i].honors = e.target.value;
+                newEducation[i].fromDate = e.target.value;
                 setEducation(newEducation);
               }}
               disabled={isDisabled}
             />
-            <button
+            <input
+              type="date"
+              placeholder="To"
+              title="To Date Educational Background (mm/dd/yyyy)"
+              name="toDate"
+              value={row.toDate}
+              onChange={(e) => {
+                const newEducation = [...education];
+                newEducation[i].toDate = e.target.value;
+                setEducation(newEducation);
+              }}
+              disabled={isDisabled}
+            />
+            <input
+              placeholder="Scholarship/Honors"
+              name="honorsReceived"
+              value={row.honorsReceived}
+              onChange={(e) => {
+                const newEducation = [...education];
+                newEducation[i].honorsReceived = e.target.value;
+                setEducation(newEducation);
+              }}
+              disabled={isDisabled}
+            />
+            {/* <button
               type="button"
-              onClick={() => handleRemove(setEducation, i)}
+              onClick={() => handleRemoveEducation(i)}
               disabled={isDisabled}
             >
               Remove
-            </button>
+            </button> */}
           </div>
         ))}
-        <button
+        {/* <button
           type="button"
           onClick={() =>
             handleAdd(setEducation, {
-              level: "",
-              school: "",
-              course: "",
-              from: "",
-              to: "",
-              units: "",
+              educationalBackgroundId: 0,
+              personalDataId: 0,
+              levelOfEducation: "",
+              nameOfSchool: "",
+              degreeCourse: "",
+              scoreGrade: "",
               yearGraduated: "",
-              honors: "",
+              fromDate: "",
+              toDate: "",
+              honorsReceived: "",
             })
           }
           disabled={isDisabled}
         >
           Add Education
-        </button>
+        </button> */}
       </section>
 
       {/* V. CIVIL SERVICE ELIGIBILITY */}
