@@ -359,7 +359,7 @@ export default function PersonalData({
     if (!pd) {
       return null;
     }
-    const maybe = (pd as any).personalDataId ?? (pd as any).id ?? (pd as any).personalData_id ?? pd.personalDataId ?? null;
+    const maybe = (pd as unknown as Record<string, unknown>)['personalDataId'] ?? (pd as unknown as Record<string, unknown>)['id'] ?? (pd as unknown as Record<string, unknown>)['personalData_id'] ?? pd.personalDataId ?? null;
     if (typeof maybe === "number") {
       return maybe;
     }
@@ -443,6 +443,18 @@ export default function PersonalData({
   // Holds IDs of children removed in the UI that need to be deleted on the server when saving
   const [deletedChildrenIds, setDeletedChildrenIds] = useState<number[]>([]);
 
+  type RawChild = {
+    childrenId?: number | string;
+    children_id?: number | string;
+    childId?: number | string;
+    childFullname?: string;
+    childFullName?: string;
+    name?: string;
+    dob?: string;
+    childDob?: string;
+    children?: RawChild[];
+  };
+
   // Fetch children from backend with flexible parsing — returns parsed items
   const fetchChildren = async (personalDataId: number): Promise<ChildItem[]> => {
     try {
@@ -453,16 +465,19 @@ export default function PersonalData({
         return fallback;
       }
 
-      const data = await res.json();
+      const data: unknown = await res.json();
 
       // flexible handling: backend may return { children: [...] } or an array, or a single dto
       let items: unknown[] = [];
       if (Array.isArray(data)) {
         items = data as unknown[];
-      } else if (data && Array.isArray((data as any).children)) {
-        items = (data as any).children;
-      } else if (data && ((data as any).childFullname || (data as any).dob)) {
-        items = [data];
+      } else {
+        const maybeObj = data as RawChild | undefined;
+        if (maybeObj && Array.isArray(maybeObj.children)) {
+          items = maybeObj.children as unknown[];
+        } else if (maybeObj && (typeof maybeObj.childFullname === "string" || typeof maybeObj.dob === "string")) {
+          items = [maybeObj];
+        }
       }
 
       if (items.length === 0) {
@@ -471,12 +486,15 @@ export default function PersonalData({
         return fallback;
       }
 
-      const mapped: ChildItem[] = items.map((c: any) => ({
-        childrenId: Number(c.childrenId ?? c.children_id ?? c.childId ?? 0),
-        personalDataId: personalDataId,
-        childFullname: String(c.childFullname ?? c.childFullName ?? c.name ?? ""),
-        dob: toDateInputValue(String(c.dob ?? c.childDob ?? "")),
-      }));
+      const mapped: ChildItem[] = items.map((c: unknown) => {
+        const obj = c as RawChild;
+        return {
+          childrenId: Number(obj.childrenId ?? obj.children_id ?? obj.childId ?? 0),
+          personalDataId: personalDataId,
+          childFullname: String(obj.childFullname ?? obj.childFullName ?? obj.name ?? ""),
+          dob: toDateInputValue(String(obj.dob ?? obj.childDob ?? "")),
+        };
+      });
 
       setChildren(mapped);
       return mapped;
@@ -537,7 +555,7 @@ export default function PersonalData({
           try {
             const json = await updateRes.json();
             if (json) anyUpdated = true;
-          } catch (e) {
+          } catch {
             // Some endpoints return empty body with ok status — treat as success
             anyUpdated = true;
           }
