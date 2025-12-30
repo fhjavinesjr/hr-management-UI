@@ -8,6 +8,7 @@ import { toCustomFormat, toDateInputValue } from "@/lib/utils/dateFormatUtils";
 import { Employee } from "@/lib/types/Employee";
 import Swal from "sweetalert2";
 import { PersonalDataModel } from "@/lib/types/PersonalData";
+import { ChildItem } from "@/lib/types/Children";
 import Image from "next/image";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 
@@ -22,10 +23,12 @@ type PersonalDataProps = {
 export default function PersonalData({
   selectedEmployee,
   personalData,
+  fetchEmploymentRecords,
   onEmployeeCreated,
   newSetEmployees,
 }: PersonalDataProps) {
   const [form, setForm] = useState<PersonalDataModel>({
+    personalDataId: "",
     employeeNo: "",
     biometricNo: "",
     userRole: "",
@@ -92,6 +95,7 @@ export default function PersonalData({
   
   const resetAllPersonalDataFields = () => {
     setForm({
+      personalDataId: "",
       employeeNo: "",
       biometricNo: "",
       userRole: "",
@@ -157,7 +161,9 @@ export default function PersonalData({
     });
 
     // Arrays must also reset
-    setChildren([{ name: "", dob: "" }]);
+    setChildren([{ childrenId: 0, personalDataId: 0, childFullname: "", dob: "" }]);
+    // Clear the queued deletions when fields are reset
+    setDeletedChildrenIds([]);
 
     setEducation([
       {
@@ -235,6 +241,7 @@ export default function PersonalData({
   useEffect(() => {
     if (selectedEmployee?.isCleared) {
       setForm({
+        personalDataId: "",
         employeeNo: "",
         biometricNo: "",
         userRole: "",
@@ -300,7 +307,9 @@ export default function PersonalData({
       });
 
       // Also clear repeating sections
-      setChildren([{ name: "", dob: "" }]);
+      setChildren([{ childrenId: 0, personalDataId: 0, childFullname: "", dob: "" }]);
+      // Clear any pending deletion queue
+      setDeletedChildrenIds([]);
       setEducation([
         {
           level: "",
@@ -345,6 +354,21 @@ export default function PersonalData({
     }
   }, [selectedEmployee?.isCleared]);
 
+  // Helper to extract numeric personalDataId from possible shapes
+  const extractPersonalDataId = (pd?: PersonalDataModel | null): number | null => {
+    if (!pd) {
+      return null;
+    }
+    const maybe = (pd as any).personalDataId ?? (pd as any).id ?? (pd as any).personalData_id ?? pd.personalDataId ?? null;
+    if (typeof maybe === "number") {
+      return maybe;
+    }
+    if (typeof maybe === "string" && maybe.trim() !== "" && !Number.isNaN(Number(maybe))) {
+      return Number(maybe);
+    }
+    return null;
+  };
+
   // Populate personal data when fetched from backend
   useEffect(() => {
     if (personalData) {
@@ -358,6 +382,14 @@ export default function PersonalData({
         govIdDate: toDateInputValue(personalData.govIdDate != null ? personalData.govIdDate : ""),
         q35bDateFiled: toDateInputValue(personalData.q35bDateFiled || ""),
       }));
+    }
+  }, [personalData]);
+
+  // Whenever the parent loads or updates personalData, fetch children for it
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) {
+      fetchChildren(id);
     }
   }, [personalData]);
 
@@ -407,7 +439,147 @@ export default function PersonalData({
       honors: "",
     },
   ]);
-  const [children, setChildren] = useState([{ name: "", dob: "" }]);
+  const [children, setChildren] = useState<ChildItem[]>([{ childrenId: 0, personalDataId: 0, childFullname: "", dob: "" }]);
+  // Holds IDs of children removed in the UI that need to be deleted on the server when saving
+  const [deletedChildrenIds, setDeletedChildrenIds] = useState<number[]>([]);
+
+  // Fetch children from backend with flexible parsing — returns parsed items
+  const fetchChildren = async (personalDataId: number): Promise<ChildItem[]> => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/children/by/${personalDataId}`);
+      if (!res.ok) {
+        const fallback = [{ childrenId: 0, personalDataId, childFullname: "", dob: "" }];
+        setChildren(fallback);
+        return fallback;
+      }
+
+      const data = await res.json();
+
+      // flexible handling: backend may return { children: [...] } or an array, or a single dto
+      let items: unknown[] = [];
+      if (Array.isArray(data)) {
+        items = data as unknown[];
+      } else if (data && Array.isArray((data as any).children)) {
+        items = (data as any).children;
+      } else if (data && ((data as any).childFullname || (data as any).dob)) {
+        items = [data];
+      }
+
+      if (items.length === 0) {
+        const fallback = [{ childrenId: 0, personalDataId, childFullname: "", dob: "" }];
+        setChildren(fallback);
+        return fallback;
+      }
+
+      const mapped: ChildItem[] = items.map((c: any) => ({
+        childrenId: Number(c.childrenId ?? c.children_id ?? c.childId ?? 0),
+        personalDataId: personalDataId,
+        childFullname: String(c.childFullname ?? c.childFullName ?? c.name ?? ""),
+        dob: toDateInputValue(String(c.dob ?? c.childDob ?? "")),
+      }));
+
+      setChildren(mapped);
+      return mapped;
+    } catch (err) {
+      console.error("Failed to fetch children", err);
+      const fallback = [{ childrenId: 0, personalDataId, childFullname: "", dob: "" }];
+      setChildren(fallback);
+      return fallback;
+    }
+  };
+
+  // Create or update children for a given personalDataId
+  const upsertChildren = async (personalDataId: number) => {
+    try {
+      // remove empty rows
+      const filtered = children
+        .map((c) => ({ ...c }))
+        .filter((c) => (c.childFullname && c.childFullname.trim()) || (c.dob && c.dob.trim()));
+
+      // Process any removals first (delete by individual child ID)
+      let anyDeleted = false;
+      if (deletedChildrenIds.length > 0) {
+        for (const id of deletedChildrenIds) {
+          try {
+            const delRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/children/delete/${id}`, { method: "DELETE" });
+            if (delRes.ok) {
+              anyDeleted = true;
+            } else {
+              console.warn("Failed to delete child id", id, await delRes.text());
+            }
+          } catch (err) {
+            console.error("Error deleting child id", id, err);
+          }
+        }
+        // Clear the deletion queue regardless — we either deleted or attempted to delete those ids
+        setDeletedChildrenIds([]);
+      }
+
+      // Split into updates vs creates
+      const toUpdate = filtered.filter((c) => c.childrenId && Number(c.childrenId) > 0);
+      const toCreate = filtered.filter((c) => !c.childrenId || Number(c.childrenId) === 0);
+
+      let anyUpdated = false;
+      let anyCreated = false; 
+
+      // Attempt updates
+      for (const c of toUpdate) {
+        const payload = { personalDataId, childFullname: c.childFullname, dob: toCustomFormat(c.dob, false) };
+        console.debug("Updating child payload:", payload, "id:", c.childrenId);
+
+        const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/children/update/${c.childrenId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (updateRes.ok) {
+          try {
+            const json = await updateRes.json();
+            if (json) anyUpdated = true;
+          } catch (e) {
+            // Some endpoints return empty body with ok status — treat as success
+            anyUpdated = true;
+          }
+        } else {
+          // If update failed, fallback to create later
+          toCreate.push(c);
+        }
+      }
+
+      // If there are items to create, delete existing entries once, then create them
+      if (toCreate.length > 0) {
+        for (const c of toCreate) {
+          const payload = { personalDataId, childFullname: c.childFullname, dob: toCustomFormat(c.dob, false) };
+          const createRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/create/children`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (createRes.ok) {
+            anyCreated = true;
+            const txt = await createRes.text();
+            console.debug("Children create response:", createRes.status, txt);
+          } else {
+            console.warn("Failed to create child", await createRes.text());
+          }
+        }
+      }
+
+      // If anything changed (deleted/updated/created), re-fetch children to update UI and return a result
+      if (anyDeleted || anyUpdated || anyCreated) {
+        await fetchChildren(personalDataId);
+        if (anyUpdated && !anyCreated && !anyDeleted) return "isUpdated";
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error("Failed to upsert children", err);
+      return false;
+    }
+  };
 
   // Helpers
   const handleAdd = <T,>(
@@ -418,6 +590,17 @@ export default function PersonalData({
     setter: React.Dispatch<React.SetStateAction<T[]>>,
     index: number
   ) => setter((prev) => prev.filter((_, i) => i !== index));
+
+  // Special remove for children: track deleted IDs so they can be deleted on the server when saving
+  const handleRemoveChild = (index: number) => {
+    setChildren((prev) => {
+      const removed = prev[index];
+      if (removed && removed.childrenId && Number(removed.childrenId) > 0) {
+        setDeletedChildrenIds((prevIds) => [...prevIds, Number(removed.childrenId)]);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }; 
 
   const handleCancel = () => {
     setIsDisabled(true); // disable editing again
@@ -627,12 +810,36 @@ export default function PersonalData({
         throw new Error(`Failed to save personal data: ${text}`);
       }
 
+      //Additionally sync children data after personal data is saved
+      try {
+        const personalDataId = Number(form.personalDataId);
+        if (form.personalDataId) {
+          const upserted = await upsertChildren(personalDataId);
+          let titleUpdate = "Children saved";
+          if (upserted === "isUpdated") {
+            titleUpdate = "Children updated"; 
+          }
+          if (upserted) {
+            Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: titleUpdate, showConfirmButton: false, timer: 2000 });
+          } else {
+            Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save children', showConfirmButton: false, timer: 2000 });
+          }
+        }
+      } catch (err) {
+        console.warn('Error syncing children:', err);
+      }
+
       setIsDisabled(true);
       Swal.fire({
         icon: "success",
         title: selectedEmployee?.isSearched ? "Employee Updated" : "Employee Created",
         text: `Employee No: ${employeeData.employeeNo}`,
       }).then(async () => {
+        // Re-fetch records so parent can refresh personalData
+        if (fetchEmploymentRecords) {
+          await fetchEmploymentRecords();
+        }
+
         if(submitMethod === "POST") {
           // Fetch employees
           const empRes = await fetchWithAuth(
@@ -652,8 +859,6 @@ export default function PersonalData({
             newSetEmployees?.(employees); // Update employees in parent component
           }
         }
-
-        // await fetchEmploymentRecords?.(); // ✅ Re-fetch updated data from parent
       });
     } catch (err) {
       Swal.fire({
@@ -1201,10 +1406,10 @@ export default function PersonalData({
             <input
               placeholder="Name of Child"
               name="childName"
-              value={row.name}
+              value={row.childFullname}
               onChange={(e) => {
                 const newChildren = [...children];
-                newChildren[i].name = e.target.value;
+                newChildren[i].childFullname = e.target.value;
                 setChildren(newChildren);
               }}
               disabled={isDisabled}
@@ -1224,16 +1429,16 @@ export default function PersonalData({
             />
             <button
               type="button"
-              onClick={() => handleRemove(setChildren, i)}
+              onClick={() => handleRemoveChild(i)}
               disabled={isDisabled}
             >
               Remove
-            </button>
+            </button> 
           </div>
         ))}
         <button
           type="button"
-          onClick={() => handleAdd(setChildren, { name: "", dob: "" })}
+          onClick={() => handleAdd(setChildren, { childrenId: 0, personalDataId: 0, childFullname: "", dob: "" })}
           disabled={isDisabled}
         >
           Add Child

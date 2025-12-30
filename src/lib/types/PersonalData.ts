@@ -1,5 +1,6 @@
 
 export type PersonalDataModel = {
+  personalDataId: string;
   employeeNo: string;
   biometricNo: string;
   userRole: string;
