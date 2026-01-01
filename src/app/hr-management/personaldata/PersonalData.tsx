@@ -206,11 +206,13 @@ export default function PersonalData({
 
     setVoluntaryWork([
       {
-        orgName: "",
-        from: "",
-        to: "",
-        hours: "",
-        position: "",
+        voluntaryWorkId: 0,
+        personalDataId: 0,
+        organizationName: "",
+        fromDate: "",
+        toDate: "",
+        voluntaryHrs: null,
+        positionTitle: "",
       },
     ]);
 
@@ -327,18 +329,20 @@ export default function PersonalData({
       ]);
       setWorkExperience([
         {
-          from: "",
-          to: "",
-          position: "",
-          department: "",
-          salary: "",
-          payGrade: "",
-          status: "",
-          govService: "",
+          workExperienceId: 0,
+          personalDataId: 0,
+          fromDate: "",
+          toDate: "",
+          positionTitle: "",
+          agencyName: "",
+          monthlySalary: null,
+          payGrade: null,
+          workStatus: "",
+          boolGovernmentService: "",
         },
       ]);
       setVoluntaryWork([
-        { orgName: "", from: "", to: "", hours: "", position: "" },
+        { voluntaryWorkId: 0, personalDataId: 0, organizationName: "", fromDate: "", toDate: "", voluntaryHrs: null, positionTitle: "" },
       ]);
       setTrainings([
         { title: "", from: "", to: "", hours: "", type: "", conductedBy: "" },
@@ -480,8 +484,40 @@ export default function PersonalData({
       boolGovernmentService: "",
     },
   ]);
-  const [voluntaryWork, setVoluntaryWork] = useState([
-    { orgName: "", from: "", to: "", hours: "", position: "" },
+
+  type RawVoluntaryWork = {
+    voluntaryWorkId?: number | string;
+    id?: number | string;
+    voluntary_work_id?: number | string;
+    personalDataId?: number | string;
+    organizationName?: string;
+    fromDate?: string;
+    toDate?: string;
+    voluntaryHrs?: number | string;
+    positionTitle?: string;
+    voluntaryWorks?: RawVoluntaryWork[];
+  };
+
+  type VoluntaryWorkItem = {
+    voluntaryWorkId: number;
+    personalDataId: number;
+    organizationName: string;
+    fromDate: string;
+    toDate: string;
+    voluntaryHrs: number | null;
+    positionTitle: string;
+  };
+
+  const [voluntaryWork, setVoluntaryWork] = useState<VoluntaryWorkItem[]>([
+    {
+      voluntaryWorkId: 0,
+      personalDataId: 0,
+      organizationName: "",
+      fromDate: "",
+      toDate: "",
+      voluntaryHrs: null,
+      positionTitle: "",
+    },
   ]);
   const [trainings, setTrainings] = useState([
     { title: "", from: "", to: "", hours: "", type: "", conductedBy: "" },
@@ -855,6 +891,7 @@ export default function PersonalData({
 
   const [deletedCivilServiceIds, setDeletedCivilServiceIds] = useState<number[]>([]);
   const [deletedWorkExperienceIds, setDeletedWorkExperienceIds] = useState<number[]>([]);
+  const [deletedVoluntaryWorkIds, setDeletedVoluntaryWorkIds] = useState<number[]>([]);
 
   // Work Experience types
   type RawWorkExperience = {
@@ -1126,11 +1163,80 @@ export default function PersonalData({
     }
   }, [personalData, fetchWorkExperience]);
 
+  // Fetch voluntary work rows for a personalDataId
+  const fetchVoluntaryWork = useCallback(async (personalDataId: number) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/voluntaryWork/by/${personalDataId}`);
+      if (!res.ok) {
+        const fallback: VoluntaryWorkItem[] = [
+          { voluntaryWorkId: 0, personalDataId, organizationName: "", fromDate: "", toDate: "", voluntaryHrs: null, positionTitle: "" },
+        ];
+        setVoluntaryWork(fallback);
+        return fallback;
+      }
+
+      const data: unknown = await res.json();
+      let items: unknown[] = [];
+      if (Array.isArray(data)) items = data;
+      else {
+        const maybe = data as RawVoluntaryWork | undefined;
+        if (maybe && Array.isArray(maybe.voluntaryWorks)) items = maybe.voluntaryWorks as unknown[];
+        else if (maybe && (typeof maybe.organizationName === "string")) items = [maybe];
+      }
+
+      if (items.length === 0) {
+        const fallback: VoluntaryWorkItem[] = [
+          { voluntaryWorkId: 0, personalDataId, organizationName: "", fromDate: "", toDate: "", voluntaryHrs: null, positionTitle: "" },
+        ];
+        setVoluntaryWork(fallback);
+        return fallback;
+      }
+
+      const mapped = items.map((x: unknown) => {
+        const obj = x as RawVoluntaryWork;
+        return {
+          voluntaryWorkId: Number(obj.voluntaryWorkId ?? obj.id ?? obj.voluntary_work_id ?? 0),
+          personalDataId: Number(obj.personalDataId ?? 0),
+          organizationName: String(obj.organizationName ?? ""),
+          fromDate: toDateInputValue(String(obj.fromDate ?? "")),
+          toDate: toDateInputValue(String(obj.toDate ?? "")),
+          voluntaryHrs: obj.voluntaryHrs != null ? Number(obj.voluntaryHrs) : null,
+          positionTitle: String(obj.positionTitle ?? ""),
+        } as VoluntaryWorkItem;
+      });
+
+      setVoluntaryWork(mapped);
+      return mapped;
+    } catch (err) {
+      console.log("Failed to fetch voluntary work", err);
+      const fallback: VoluntaryWorkItem[] = [
+        { voluntaryWorkId: 0, personalDataId, organizationName: "", fromDate: "", toDate: "", voluntaryHrs: null, positionTitle: "" },
+      ];
+      setVoluntaryWork(fallback);
+      return fallback;
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) fetchVoluntaryWork(id);
+  }, [personalData, fetchVoluntaryWork]);
+
   const handleRemoveWorkExperience = (index: number) => {
     setWorkExperience((prev) => {
       const removed = prev[index] as WorkExperienceItem | undefined;
       if (removed && (removed.workExperienceId ?? 0) > 0) {
         setDeletedWorkExperienceIds((prevIds) => [...prevIds, Number(removed.workExperienceId)]);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleRemoveVoluntaryWork = (index: number) => {
+    setVoluntaryWork((prev) => {
+      const removed = prev[index] as VoluntaryWorkItem | undefined;
+      if (removed && (removed.voluntaryWorkId ?? 0) > 0) {
+        setDeletedVoluntaryWorkIds((prevIds) => [...prevIds, Number(removed.voluntaryWorkId)]);
       }
       return prev.filter((_, i) => i !== index);
     });
@@ -1233,6 +1339,98 @@ export default function PersonalData({
       return false;
     } catch (err) {
       console.log("Error syncing work experience", err);
+      return false;
+    }
+  };
+
+  const upsertVoluntaryWork = async (personalDataId: number) => {
+    try {
+      const filtered = voluntaryWork
+        .map((w) => ({ ...w }))
+        .filter((w) => (w.organizationName && w.organizationName.trim()) || (w.positionTitle && w.positionTitle.trim()));
+
+      let anyDeleted = false;
+      if (deletedVoluntaryWorkIds.length > 0) {
+        for (const id of deletedVoluntaryWorkIds) {
+          try {
+            const delRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/voluntaryWork/delete/${id}`, { method: "DELETE" });
+            if (delRes.ok) anyDeleted = true;
+            else console.log("Failed to delete voluntary work id", id, await delRes.text());
+          } catch (err) {
+            console.log("Error deleting voluntary work id", id, err);
+          }
+        }
+        setDeletedVoluntaryWorkIds([]);
+      }
+
+      const toUpdate = filtered.filter((w) => w.voluntaryWorkId && Number(w.voluntaryWorkId) > 0);
+      const toCreate = filtered.filter((w) => !w.voluntaryWorkId || Number(w.voluntaryWorkId) === 0);
+
+      let anyUpdated = false;
+      let anyCreated = false;
+
+      for (const w of toUpdate) {
+        const payload = {
+          personalDataId,
+          organizationName: w.organizationName,
+          fromDate: w.fromDate ? toCustomFormat(w.fromDate, false) : null,
+          toDate: w.toDate ? toCustomFormat(w.toDate, false) : null,
+          voluntaryHrs: Number.isFinite(w.voluntaryHrs as number) ? w.voluntaryHrs : null,
+          positionTitle: w.positionTitle,
+        } as Record<string, unknown>;
+
+        const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/voluntaryWork/update/${w.voluntaryWorkId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (updateRes.ok) {
+          try {
+            const json = await updateRes.json();
+            if (json) anyUpdated = true;
+          } catch {
+            anyUpdated = true;
+          }
+        } else {
+          toCreate.push(w);
+        }
+      }
+
+      if (toCreate.length > 0) {
+        for (const w of toCreate) {
+          const payload = {
+            personalDataId,
+            organizationName: w.organizationName,
+            fromDate: w.fromDate ? toCustomFormat(w.fromDate, false) : null,
+            toDate: w.toDate ? toCustomFormat(w.toDate, false) : null,
+            voluntaryHrs: Number.isFinite(w.voluntaryHrs as number) ? w.voluntaryHrs : null,
+            positionTitle: w.positionTitle,
+          } as Record<string, unknown>;
+
+          const createRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/create/voluntaryWork`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (createRes.ok) {
+            anyCreated = true;
+          } else {
+            console.log("Failed to create voluntary work", await createRes.text());
+          }
+        }
+      }
+
+      if (anyDeleted || anyUpdated || anyCreated) {
+        await fetchVoluntaryWork(personalDataId);
+        if (anyUpdated && !anyCreated && !anyDeleted) return "isUpdated";
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.log("Error syncing voluntary work", err);
       return false;
     }
   };
@@ -1510,6 +1708,20 @@ export default function PersonalData({
             }
           } catch (err) {
             console.log('Error syncing work experience:', err);
+          }
+
+          // Voluntary Work
+          try {
+            const volResult = await upsertVoluntaryWork(personalDataId);
+            let volTitle = 'Voluntary Work saved';
+            if (volResult === 'isUpdated') volTitle = 'Voluntary Work updated';
+            if (volResult) {
+              console.log(volTitle + " successfully.");
+            } else {
+              console.log('Failed to save voluntary work');
+            }
+          } catch (err) {
+            console.log('Error syncing voluntary work:', err);
           }
         }
       } catch (err) {
@@ -2584,7 +2796,7 @@ export default function PersonalData({
               payGrade: null,
               workStatus: "",
               boolGovernmentService: "",
-            })
+            } as WorkExperienceItem)
           }
           disabled={isDisabled}
         >
@@ -2599,11 +2811,11 @@ export default function PersonalData({
           <div key={i} className={styles.row}>
             <input
               placeholder="Organization Name & Address"
-              name="orgName"
-              value={row.orgName}
+              name="organizationName"
+              value={row.organizationName}
               onChange={(e) => {
                 const newVol = [...voluntaryWork];
-                newVol[i].orgName = e.target.value;
+                newVol[i].organizationName = e.target.value;
                 setVoluntaryWork(newVol);
               }}
               disabled={isDisabled}
@@ -2612,11 +2824,11 @@ export default function PersonalData({
               type="date"
               placeholder="From"
               title="From Date Voluntary Experience (mm/dd/yyyy)"
-              name="from"
-              value={row.from}
+              name="fromDate"
+              value={row.fromDate}
               onChange={(e) => {
                 const newVol = [...voluntaryWork];
-                newVol[i].from = e.target.value;
+                newVol[i].fromDate = e.target.value;
                 setVoluntaryWork(newVol);
               }}
               disabled={isDisabled}
@@ -2625,40 +2837,57 @@ export default function PersonalData({
               type="date"
               placeholder="To"
               title="To Date Voluntary Experience (mm/dd/yyyy)"
-              name="to"
-              value={row.to}
+              name="toDate"
+              value={row.toDate}
               onChange={(e) => {
                 const newVol = [...voluntaryWork];
-                newVol[i].to = e.target.value;
+                newVol[i].toDate = e.target.value;
                 setVoluntaryWork(newVol);
               }}
               disabled={isDisabled}
             />
             <input
+              type="number"
+              step="1"
+              min="0"
+              inputMode="numeric"
               placeholder="Hours"
-              name="hours"
-              value={row.hours}
+              name="voluntaryHrs"
+              value={row.voluntaryHrs ?? ""}
+              onKeyDown={(e) => {
+                const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
+                if (allowed.includes(e.key)) return;
+                if (/^[0-9]$/.test(e.key)) return;
+                e.preventDefault();
+              }}
               onChange={(e) => {
                 const newVol = [...voluntaryWork];
-                newVol[i].hours = e.target.value;
+                const input = e.target as HTMLInputElement;
+                if (input.value === "") {
+                  newVol[i].voluntaryHrs = null;
+                } else {
+                  const num = input.valueAsNumber;
+                  if (!Number.isFinite(num)) return;
+                  newVol[i].voluntaryHrs = Math.floor(num);
+                }
                 setVoluntaryWork(newVol);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Position/Nature of Work"
-              name="position"
-              value={row.position}
+              name="positionTitle"
+              value={row.positionTitle}
               onChange={(e) => {
                 const newVol = [...voluntaryWork];
-                newVol[i].position = e.target.value;
+                newVol[i].positionTitle = e.target.value;
                 setVoluntaryWork(newVol);
               }}
               disabled={isDisabled}
             />
             <button
               type="button"
-              onClick={() => handleRemove(setVoluntaryWork, i)}
+              onClick={() => handleRemoveVoluntaryWork(i)}
               disabled={isDisabled}
             >
               Remove
@@ -2669,12 +2898,14 @@ export default function PersonalData({
           type="button"
           onClick={() =>
             handleAdd(setVoluntaryWork, {
-              orgName: "",
-              from: "",
-              to: "",
-              hours: "",
-              position: "",
-            })
+              voluntaryWorkId: 0,
+              personalDataId: 0,
+              organizationName: "",
+              fromDate: "",
+              toDate: "",
+              voluntaryHrs: null,
+              positionTitle: "",
+            } as VoluntaryWorkItem)
           }
           disabled={isDisabled}
         >
