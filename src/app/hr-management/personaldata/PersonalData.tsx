@@ -181,7 +181,7 @@ export default function PersonalData({
         civilServiceEligibilityId: 0,
         personalDataId: 0,
         careerServiceName: "",
-        civilServiceRating: "",
+        civilServiceRating: 0,
         dateOfExamination: "",
         placeOfExamination: "",
         licenseNumber: "",
@@ -316,7 +316,7 @@ export default function PersonalData({
           civilServiceEligibilityId: 0,
           personalDataId: 0,
           careerServiceName: "",
-          civilServiceRating: "",
+          civilServiceRating: 0,
           dateOfExamination: "",
           placeOfExamination: "",
           licenseNumber: "",
@@ -457,7 +457,7 @@ export default function PersonalData({
       civilServiceEligibilityId: 0,
       personalDataId: 0,
       careerServiceName: "",
-      civilServiceRating: "",
+      civilServiceRating: 0,
       dateOfExamination: "",
       placeOfExamination: "",
       licenseNumber: "",
@@ -837,6 +837,18 @@ export default function PersonalData({
     civilServiceEligibilities?: RawCivilService[];
   };
 
+  // Strongly-typed shape used in UI state
+  type CivilServiceItem = {
+    civilServiceEligibilityId: number;
+    personalDataId: number;
+    careerServiceName: string;
+    civilServiceRating: number; // keep as string for inputs
+    dateOfExamination: string;
+    placeOfExamination: string;
+    licenseNumber: string;
+    licenseValidityDate: string;
+  };
+
   const [deletedCivilServiceIds, setDeletedCivilServiceIds] = useState<number[]>([]);
 
   const fetchCivilService = useCallback(async (personalDataId: number) => {
@@ -844,7 +856,7 @@ export default function PersonalData({
       const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/civilServiceEligibility/by/${personalDataId}`);
       if (!res.ok) {
         const fallback = [
-          { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: "", dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
+          { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: 0, dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
         ];
         setCivilServices(fallback);
         return fallback;
@@ -865,7 +877,7 @@ export default function PersonalData({
 
       if (items.length === 0) {
         const fallback = [
-          { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: "", dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
+          { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: 0, dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
         ];
         setCivilServices(fallback);
         return fallback;
@@ -877,7 +889,7 @@ export default function PersonalData({
           civilServiceEligibilityId: Number(obj.civilServiceEligibilityId ?? obj.id ?? obj.civil_service_eligibility_id ?? 0),
           personalDataId,
           careerServiceName: String(obj.careerServiceName ?? ""),
-          civilServiceRating: String(obj.civilServiceRating ?? ""),
+          civilServiceRating: Number(obj.civilServiceRating ?? 0),
           dateOfExamination: toDateInputValue(String(obj.dateOfExamination ?? "")),
           placeOfExamination: String(obj.placeOfExamination ?? ""),
           licenseNumber: String(obj.licenseNumber ?? ""),
@@ -890,7 +902,7 @@ export default function PersonalData({
     } catch (err) {
       console.log("Failed to fetch civil service", err);
       const fallback = [
-        { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: "", dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
+        { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: 0, dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
       ];
       setCivilServices(fallback);
       return fallback;
@@ -906,7 +918,7 @@ export default function PersonalData({
 
   const handleRemoveCivilService = (index: number) => {
     setCivilServices((prev) => {
-      const removed = prev[index] as any;
+      const removed = prev[index] as CivilServiceItem | undefined;
       if (removed && (removed.civilServiceEligibilityId ?? 0) > 0) {
         setDeletedCivilServiceIds((prevIds) => [...prevIds, Number(removed.civilServiceEligibilityId)]);
       }
@@ -947,7 +959,7 @@ export default function PersonalData({
         const payload = {
           personalDataId,
           careerServiceName: c.careerServiceName,
-          civilServiceRating: c.civilServiceRating ? Number(c.civilServiceRating) : null,
+          civilServiceRating: c.civilServiceRating ? Number(c.civilServiceRating) : 0,
           dateOfExamination: c.dateOfExamination ? toCustomFormat(c.dateOfExamination, false) : null,
           placeOfExamination: c.placeOfExamination,
           licenseNumber: c.licenseNumber,
@@ -977,7 +989,7 @@ export default function PersonalData({
           const payload = {
             personalDataId,
             careerServiceName: c.careerServiceName,
-            civilServiceRating: c.civilServiceRating ? Number(c.civilServiceRating) : null,
+            civilServiceRating: Number.isFinite(c.civilServiceRating) ? c.civilServiceRating : null,
             dateOfExamination: c.dateOfExamination ? toCustomFormat(c.dateOfExamination, false) : null,
             placeOfExamination: c.placeOfExamination,
             licenseNumber: c.licenseNumber,
@@ -2102,12 +2114,13 @@ export default function PersonalData({
               disabled={isDisabled}
             />
             <input
+              type="number"
               placeholder="Rating"
               name="civilServiceRating"
               value={row.civilServiceRating}
               onChange={(e) => {
                 const newList = [...civilServices];
-                newList[i].civilServiceRating = e.target.value;
+                newList[i].civilServiceRating = Number(e.target.value);
                 setCivilServices(newList);
               }}
               disabled={isDisabled}
@@ -2175,7 +2188,7 @@ export default function PersonalData({
               civilServiceEligibilityId: 0,
               personalDataId: 0,
               careerServiceName: "",
-              civilServiceRating: "",
+              civilServiceRating: 0,
               dateOfExamination: "",
               placeOfExamination: "",
               licenseNumber: "",
