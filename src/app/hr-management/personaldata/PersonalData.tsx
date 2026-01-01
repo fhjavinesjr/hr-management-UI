@@ -218,11 +218,13 @@ export default function PersonalData({
 
     setTrainings([
       {
-        title: "",
-        from: "",
-        to: "",
-        hours: "",
-        type: "",
+        learningAndDevelopmentId: 0,
+        personalDataId: 0,
+        programName: "",
+        fromDate: "",
+        toDate: "",
+        lndHrs: null,
+        lndType: "",
         conductedBy: "",
       },
     ]);
@@ -345,7 +347,7 @@ export default function PersonalData({
         { voluntaryWorkId: 0, personalDataId: 0, organizationName: "", fromDate: "", toDate: "", voluntaryHrs: null, positionTitle: "" },
       ]);
       setTrainings([
-        { title: "", from: "", to: "", hours: "", type: "", conductedBy: "" },
+        { learningAndDevelopmentId: 0, personalDataId: 0, programName: "", fromDate: "", toDate: "", lndHrs: null, lndType: "", conductedBy: "" },
       ]);
       setReferences([{ name: "", address: "", tel: "" }]);
     }
@@ -519,9 +521,37 @@ export default function PersonalData({
       positionTitle: "",
     },
   ]);
-  const [trainings, setTrainings] = useState([
-    { title: "", from: "", to: "", hours: "", type: "", conductedBy: "" },
+
+  type RawLearningAndDevelopment = {
+    learningAndDevelopmentId?: number | string;
+    id?: number | string;
+    learning_and_development_id?: number | string;
+    personalDataId?: number | string;
+    programName?: string;
+    fromDate?: string;
+    toDate?: string;
+    lndHrs?: number | string;
+    lndType?: string;
+    conductedBy?: string;
+    learningAndDevelopments?: RawLearningAndDevelopment[];
+  };
+
+  type LearningAndDevelopmentItem = {
+    learningAndDevelopmentId: number;
+    personalDataId: number;
+    programName: string;
+    fromDate: string;
+    toDate: string;
+    lndHrs: number | null;
+    lndType: string;
+    conductedBy: string;
+  };
+
+  const [trainings, setTrainings] = useState<LearningAndDevelopmentItem[]>([
+    { learningAndDevelopmentId: 0, personalDataId: 0, programName: "", fromDate: "", toDate: "", lndHrs: null, lndType: "", conductedBy: "" },
   ]);
+  const [deletedLearningAndDevelopmentIds, setDeletedLearningAndDevelopmentIds] = useState<number[]>([]);
+
   const [references, setReferences] = useState([
     { name: "", address: "", tel: "" },
   ]);
@@ -1219,8 +1249,69 @@ export default function PersonalData({
 
   useEffect(() => {
     const id = extractPersonalDataId(personalData);
-    if (id) fetchVoluntaryWork(id);
+    if (id) {
+      fetchVoluntaryWork(id);
+    }
   }, [personalData, fetchVoluntaryWork]);
+
+  const fetchLearningAndDevelopment = useCallback(async (personalDataId: number) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/learningAndDevelopment/by/${personalDataId}`);
+      if (!res.ok) {
+        const fallback: LearningAndDevelopmentItem[] = [
+          { learningAndDevelopmentId: 0, personalDataId, programName: "", fromDate: "", toDate: "", lndHrs: null, lndType: "", conductedBy: "" },
+        ];
+        setTrainings(fallback);
+        return fallback;
+      }
+
+      const data: unknown = await res.json();
+      let items: unknown[] = [];
+      if (Array.isArray(data)) items = data;
+      else {
+        const maybe = data as RawLearningAndDevelopment | undefined;
+        if (maybe && Array.isArray(maybe.learningAndDevelopments)) items = maybe.learningAndDevelopments as unknown[];
+        else if (maybe && (typeof maybe.programName === "string" || typeof maybe.conductedBy === "string")) items = [maybe];
+      }
+
+      if (items.length === 0) {
+        const fallback: LearningAndDevelopmentItem[] = [
+          { learningAndDevelopmentId: 0, personalDataId, programName: "", fromDate: "", toDate: "", lndHrs: null, lndType: "", conductedBy: "" },
+        ];
+        setTrainings(fallback);
+        return fallback;
+      }
+
+      const mapped = items.map((x: unknown) => {
+        const obj = x as RawLearningAndDevelopment;
+        return {
+          learningAndDevelopmentId: Number(obj.learningAndDevelopmentId ?? obj.id ?? obj.learning_and_development_id ?? 0),
+          personalDataId: Number(obj.personalDataId ?? 0),
+          programName: String(obj.programName ?? ""),
+          fromDate: toDateInputValue(String(obj.fromDate ?? "")),
+          toDate: toDateInputValue(String(obj.toDate ?? "")),
+          lndHrs: obj.lndHrs != null ? Number(obj.lndHrs) : null,
+          lndType: String(obj.lndType ?? ""),
+          conductedBy: String(obj.conductedBy ?? ""),
+        } as LearningAndDevelopmentItem;
+      });
+
+      setTrainings(mapped);
+      return mapped;
+    } catch (err) {
+      console.log("Failed to fetch learning and development", err);
+      const fallback: LearningAndDevelopmentItem[] = [
+        { learningAndDevelopmentId: 0, personalDataId, programName: "", fromDate: "", toDate: "", lndHrs: null, lndType: "", conductedBy: "" },
+      ];
+      setTrainings(fallback);
+      return fallback;
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) fetchLearningAndDevelopment(id);
+  }, [personalData, fetchLearningAndDevelopment]);
 
   const handleRemoveWorkExperience = (index: number) => {
     setWorkExperience((prev) => {
@@ -1240,6 +1331,110 @@ export default function PersonalData({
       }
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const handleRemoveTraining = (index: number) => {
+    setTrainings((prev) => {
+      const removed = prev[index] as LearningAndDevelopmentItem | undefined;
+      if (removed && (removed.learningAndDevelopmentId ?? 0) > 0) {
+        setDeletedLearningAndDevelopmentIds((prevIds) => [...prevIds, Number(removed.learningAndDevelopmentId)]);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const upsertLearningAndDevelopment = async (personalDataId: number) => {
+    try {
+      const filtered = trainings
+        .map((t) => ({ ...t }))
+        .filter((t) => (t.programName && t.programName.trim()) || (t.conductedBy && t.conductedBy.trim()));
+
+      let anyDeleted = false;
+      if (deletedLearningAndDevelopmentIds.length > 0) {
+        for (const id of deletedLearningAndDevelopmentIds) {
+          try {
+            const delRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/learningAndDevelopment/delete/${id}`, { method: "DELETE" });
+            if (delRes.ok) anyDeleted = true;
+            else console.log("Failed to delete learning and development id", id, await delRes.text());
+          } catch (err) {
+            console.log("Error deleting learning and development id", id, err);
+          }
+        }
+        setDeletedLearningAndDevelopmentIds([]);
+      }
+
+      const toUpdate = filtered.filter((t) => t.learningAndDevelopmentId && Number(t.learningAndDevelopmentId) > 0);
+      const toCreate = filtered.filter((t) => !t.learningAndDevelopmentId || Number(t.learningAndDevelopmentId) === 0);
+
+      let anyUpdated = false;
+      let anyCreated = false;
+
+      for (const t of toUpdate) {
+        const payload = {
+          personalDataId,
+          programName: t.programName,
+          fromDate: t.fromDate ? toCustomFormat(t.fromDate, false) : null,
+          toDate: t.toDate ? toCustomFormat(t.toDate, false) : null,
+          lndHrs: Number.isFinite(t.lndHrs as number) ? t.lndHrs : null,
+          lndType: t.lndType,
+          conductedBy: t.conductedBy,
+        } as Record<string, unknown>;
+
+        const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/learningAndDevelopment/update/${t.learningAndDevelopmentId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (updateRes.ok) {
+          try {
+            const json = await updateRes.json();
+            if (json) anyUpdated = true;
+          } catch {
+            anyUpdated = true;
+          }
+        } else {
+          toCreate.push(t);
+        }
+      }
+
+      if (toCreate.length > 0) {
+        for (const t of toCreate) {
+          const payload = {
+            personalDataId,
+            programName: t.programName,
+            fromDate: t.fromDate ? toCustomFormat(t.fromDate, false) : null,
+            toDate: t.toDate ? toCustomFormat(t.toDate, false) : null,
+            lndHrs: Number.isFinite(t.lndHrs as number) ? t.lndHrs : null,
+            lndType: t.lndType,
+            conductedBy: t.conductedBy,
+          } as Record<string, unknown>;
+
+          const createRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/create/learningAndDevelopment`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (createRes.ok) {
+            anyCreated = true;
+          } else {
+            console.log("Failed to create learning and development", await createRes.text());
+          }
+        }
+      }
+
+      if (anyDeleted || anyUpdated || anyCreated) {
+        await fetchLearningAndDevelopment(personalDataId);
+        if (anyUpdated && !anyCreated && !anyDeleted) return "isUpdated";
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.log("Error syncing learning and development", err);
+      return false;
+    }
   };
 
   const upsertWorkExperience = async (personalDataId: number) => {
@@ -1722,6 +1917,20 @@ export default function PersonalData({
             }
           } catch (err) {
             console.log('Error syncing voluntary work:', err);
+          }
+
+          // Learning & Development
+          try {
+            const lndResult = await upsertLearningAndDevelopment(personalDataId);
+            let lndTitle = 'Learning & Development saved';
+            if (lndResult === 'isUpdated') lndTitle = 'Learning & Development updated';
+            if (lndResult) {
+              console.log(lndTitle + " successfully.");
+            } else {
+              console.log('Failed to save learning and development');
+            }
+          } catch (err) {
+            console.log('Error syncing learning and development:', err);
           }
         }
       } catch (err) {
@@ -2920,11 +3129,11 @@ export default function PersonalData({
           <div key={i} className={styles.row}>
             <input
               placeholder="Title of Program"
-              name="title"
-              value={row.title}
+              name="programName"
+              value={row.programName}
               onChange={(e) => {
                 const newTrain = [...trainings];
-                newTrain[i].title = e.target.value;
+                newTrain[i].programName = e.target.value;
                 setTrainings(newTrain);
               }}
               disabled={isDisabled}
@@ -2933,11 +3142,11 @@ export default function PersonalData({
               type="date"
               placeholder="From"
               title="From Date Learning & Development (mm/dd/yyyy)"
-              name="from"
-              value={row.from}
+              name="fromDate"
+              value={row.fromDate}
               onChange={(e) => {
                 const newTrain = [...trainings];
-                newTrain[i].from = e.target.value;
+                newTrain[i].fromDate = e.target.value;
                 setTrainings(newTrain);
               }}
               disabled={isDisabled}
@@ -2946,33 +3155,34 @@ export default function PersonalData({
               type="date"
               placeholder="To"
               title="To Date Learning & Development (mm/dd/yyyy)"
-              name="to"
-              value={row.to}
+              name="toDate"
+              value={row.toDate}
               onChange={(e) => {
                 const newTrain = [...trainings];
-                newTrain[i].to = e.target.value;
+                newTrain[i].toDate = e.target.value;
                 setTrainings(newTrain);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Hours"
-              name="hours"
-              value={row.hours}
+              name="lndHrs"
+              type="number"
+              value={row.lndHrs !== null ? String(row.lndHrs) : ""}
               onChange={(e) => {
                 const newTrain = [...trainings];
-                newTrain[i].hours = e.target.value;
+                newTrain[i].lndHrs = e.target.value !== "" ? Number(e.target.value) : null;
                 setTrainings(newTrain);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Type"
-              name="type"
-              value={row.type}
+              name="lndType"
+              value={row.lndType}
               onChange={(e) => {
                 const newTrain = [...trainings];
-                newTrain[i].type = e.target.value;
+                newTrain[i].lndType = e.target.value;
                 setTrainings(newTrain);
               }}
               disabled={isDisabled}
@@ -2990,7 +3200,7 @@ export default function PersonalData({
             />
             <button
               type="button"
-              onClick={() => handleRemove(setTrainings, i)}
+              onClick={() => handleRemoveTraining(i)}
               disabled={isDisabled}
             >
               Remove
@@ -3001,13 +3211,15 @@ export default function PersonalData({
           type="button"
           onClick={() =>
             handleAdd(setTrainings, {
-              title: "",
-              from: "",
-              to: "",
-              hours: "",
-              type: "",
+              learningAndDevelopmentId: 0,
+              personalDataId: 0,
+              programName: "",
+              fromDate: "",
+              toDate: "",
+              lndHrs: null,
+              lndType: "",
               conductedBy: "",
-            })
+            } as LearningAndDevelopmentItem)
           }
           disabled={isDisabled}
         >
