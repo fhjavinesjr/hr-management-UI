@@ -176,14 +176,16 @@ export default function PersonalData({
 
     setEducation(DEFAULT_EDUCATION);
 
-    setEligibilities([
+    setCivilServices([
       {
-        careerService: "",
-        rating: "",
-        examDate: "",
-        examPlace: "",
+        civilServiceEligibilityId: 0,
+        personalDataId: 0,
+        careerServiceName: "",
+        civilServiceRating: "",
+        dateOfExamination: "",
+        placeOfExamination: "",
         licenseNumber: "",
-        validity: "",
+        licenseValidityDate: "",
       },
     ]);
 
@@ -309,14 +311,16 @@ export default function PersonalData({
       // Clear any pending deletion queue
       setDeletedChildrenIds([]);
       setEducation(DEFAULT_EDUCATION);
-      setEligibilities([
+      setCivilServices([
         {
-          careerService: "",
-          rating: "",
-          examDate: "",
-          examPlace: "",
+          civilServiceEligibilityId: 0,
+          personalDataId: 0,
+          careerServiceName: "",
+          civilServiceRating: "",
+          dateOfExamination: "",
+          placeOfExamination: "",
           licenseNumber: "",
-          validity: "",
+          licenseValidityDate: "",
         },
       ]);
       setWorkExperience([
@@ -430,7 +434,7 @@ export default function PersonalData({
       setChildren(mapped);
       return mapped;
     } catch (err) {
-      console.error("Failed to fetch children", err);
+      console.log("Failed to fetch children", err);
       const fallback = [{ childrenId: 0, personalDataId, childFullname: "", dob: "" }];
       setChildren(fallback);
       return fallback;
@@ -447,14 +451,17 @@ export default function PersonalData({
   const [isDisabled, setIsDisabled] = useState(true);
 
   // Dynamic rows for repeating sections
-  const [eligibilities, setEligibilities] = useState([
+  // Civil Service Eligibility rows (mapped to backend entity)
+  const [civilServices, setCivilServices] = useState([
     {
-      careerService: "",
-      rating: "",
-      examDate: "",
-      examPlace: "",
+      civilServiceEligibilityId: 0,
+      personalDataId: 0,
+      careerServiceName: "",
+      civilServiceRating: "",
+      dateOfExamination: "",
+      placeOfExamination: "",
       licenseNumber: "",
-      validity: "",
+      licenseValidityDate: "",
     },
   ]);
   const [workExperience, setWorkExperience] = useState([
@@ -502,10 +509,10 @@ export default function PersonalData({
             if (delRes.ok) {
               anyDeleted = true;
             } else {
-              console.warn("Failed to delete child id", id, await delRes.text());
+              console.log("Failed to delete child id", id, await delRes.text());
             }
           } catch (err) {
-            console.error("Error deleting child id", id, err);
+            console.log("Error deleting child id", id, err);
           }
         }
         // Clear the deletion queue regardless — we either deleted or attempted to delete those ids
@@ -522,7 +529,7 @@ export default function PersonalData({
       // Attempt updates
       for (const c of toUpdate) {
         const payload = { personalDataId, childFullname: c.childFullname, dob: toCustomFormat(c.dob, false) };
-        console.debug("Updating child payload:", payload, "id:", c.childrenId);
+        console.log("Updating child payload:", payload, "id:", c.childrenId);
 
         const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/children/update/${c.childrenId}`, {
           method: "PUT",
@@ -557,9 +564,9 @@ export default function PersonalData({
           if (createRes.ok) {
             anyCreated = true;
             const txt = await createRes.text();
-            console.debug("Children create response:", createRes.status, txt);
+            console.log("Children create response:", createRes.status, txt);
           } else {
-            console.warn("Failed to create child", await createRes.text());
+            console.log("Failed to create child", await createRes.text());
           }
         }
       }
@@ -573,7 +580,7 @@ export default function PersonalData({
 
       return false;
     } catch (err) {
-      console.error("Failed to upsert children", err);
+      console.log("Failed to upsert children", err);
       return false;
     }
   };
@@ -643,8 +650,9 @@ export default function PersonalData({
         items = data;
       } else {
         const maybe = data as RawEducation | undefined;
-        if (maybe && Array.isArray((maybe as any).educationalBackgrounds)) {
-          items = (maybe as any).educationalBackgrounds as unknown[];
+        // Prefer typed checks over `any` for ESLint compliance
+        if (maybe && Array.isArray(maybe.educationalBackgrounds)) {
+          items = maybe.educationalBackgrounds as unknown[];
         } else if (
           maybe && (
             typeof maybe.level === "string" ||
@@ -681,7 +689,7 @@ export default function PersonalData({
       setEducation(mapped);
       return mapped;
     } catch (err) {
-      console.error("Failed to fetch education", err);
+      console.log("Failed to fetch education", err);
       setEducation(DEFAULT_EDUCATION);
       return DEFAULT_EDUCATION;
     }
@@ -724,10 +732,10 @@ export default function PersonalData({
             if (delRes.ok) {
               anyDeleted = true;
             } else {
-              console.warn("Failed to delete education id", id, await delRes.text());
+              console.log("Failed to delete education id", id, await delRes.text());
             }
           } catch (err) {
-            console.error("Error deleting education id", id, err);
+            console.log("Error deleting education id", id, err);
           }
         }
         setDeletedEducationIds([]);
@@ -797,7 +805,7 @@ export default function PersonalData({
           if (createRes.ok) {
             anyCreated = true;
           } else {
-            console.warn("Failed to create education", await createRes.text());
+            console.log("Failed to create education", await createRes.text());
           }
         }
       }
@@ -810,7 +818,195 @@ export default function PersonalData({
 
       return false;
     } catch (err) {
-      console.error("Failed to upsert education", err);
+      console.log("Failed to upsert education", err);
+      return false;
+    }
+  };
+
+  // --- Civil Service Eligibility integration ---
+  type RawCivilService = {
+    civilServiceEligibilityId?: number | string;
+    id?: number | string;
+    civil_service_eligibility_id?: number | string;
+    careerServiceName?: string;
+    civilServiceRating?: number | string;
+    dateOfExamination?: string;
+    placeOfExamination?: string;
+    licenseNumber?: string;
+    licenseValidityDate?: string;
+    civilServiceEligibilities?: RawCivilService[];
+  };
+
+  const [deletedCivilServiceIds, setDeletedCivilServiceIds] = useState<number[]>([]);
+
+  const fetchCivilService = useCallback(async (personalDataId: number) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/civilServiceEligibility/by/${personalDataId}`);
+      if (!res.ok) {
+        const fallback = [
+          { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: "", dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
+        ];
+        setCivilServices(fallback);
+        return fallback;
+      }
+
+      const data: unknown = await res.json();
+      let items: unknown[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else {
+        const maybe = data as RawCivilService | undefined;
+        if (maybe && Array.isArray(maybe.civilServiceEligibilities)) {
+          items = maybe.civilServiceEligibilities as unknown[];
+        } else if (maybe && (typeof maybe.careerServiceName === "string" || typeof maybe.placeOfExamination === "string")) {
+          items = [maybe];
+        }
+      }
+
+      if (items.length === 0) {
+        const fallback = [
+          { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: "", dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
+        ];
+        setCivilServices(fallback);
+        return fallback;
+      }
+
+      const mapped = items.map((x: unknown) => {
+        const obj = x as RawCivilService;
+        return {
+          civilServiceEligibilityId: Number(obj.civilServiceEligibilityId ?? obj.id ?? obj.civil_service_eligibility_id ?? 0),
+          personalDataId,
+          careerServiceName: String(obj.careerServiceName ?? ""),
+          civilServiceRating: String(obj.civilServiceRating ?? ""),
+          dateOfExamination: toDateInputValue(String(obj.dateOfExamination ?? "")),
+          placeOfExamination: String(obj.placeOfExamination ?? ""),
+          licenseNumber: String(obj.licenseNumber ?? ""),
+          licenseValidityDate: toDateInputValue(String(obj.licenseValidityDate ?? "")),
+        };
+      });
+
+      setCivilServices(mapped);
+      return mapped;
+    } catch (err) {
+      console.log("Failed to fetch civil service", err);
+      const fallback = [
+        { civilServiceEligibilityId: 0, personalDataId, careerServiceName: "", civilServiceRating: "", dateOfExamination: "", placeOfExamination: "", licenseNumber: "", licenseValidityDate: "" },
+      ];
+      setCivilServices(fallback);
+      return fallback;
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) {
+      fetchCivilService(id);
+    }
+  }, [personalData, fetchCivilService]);
+
+  const handleRemoveCivilService = (index: number) => {
+    setCivilServices((prev) => {
+      const removed = prev[index] as any;
+      if (removed && (removed.civilServiceEligibilityId ?? 0) > 0) {
+        setDeletedCivilServiceIds((prevIds) => [...prevIds, Number(removed.civilServiceEligibilityId)]);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const upsertCivilService = async (personalDataId: number) => {
+    try {
+      const filtered = civilServices
+        .map((c) => ({ ...c }))
+        .filter((c) => (c.careerServiceName && c.careerServiceName.trim()) || (c.placeOfExamination && c.placeOfExamination.trim()));
+
+      let anyDeleted = false;
+      if (deletedCivilServiceIds.length > 0) {
+        for (const id of deletedCivilServiceIds) {
+          try {
+            const delRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/civilServiceEligibility/delete/${id}`, { method: "DELETE" });
+            if (delRes.ok) {
+              anyDeleted = true;
+            } else {
+              console.log("Failed to delete civil service id", id, await delRes.text());
+            }
+          } catch (err) {
+            console.log("Error deleting civil service id", id, err);
+          }
+        }
+        setDeletedCivilServiceIds([]);
+      }
+
+      const toUpdate = filtered.filter((c) => c.civilServiceEligibilityId && Number(c.civilServiceEligibilityId) > 0);
+      const toCreate = filtered.filter((c) => !c.civilServiceEligibilityId || Number(c.civilServiceEligibilityId) === 0);
+
+      let anyUpdated = false;
+      let anyCreated = false;
+
+      for (const c of toUpdate) {
+        const payload = {
+          personalDataId,
+          careerServiceName: c.careerServiceName,
+          civilServiceRating: c.civilServiceRating ? Number(c.civilServiceRating) : null,
+          dateOfExamination: c.dateOfExamination ? toCustomFormat(c.dateOfExamination, false) : null,
+          placeOfExamination: c.placeOfExamination,
+          licenseNumber: c.licenseNumber,
+          licenseValidityDate: c.licenseValidityDate ? toCustomFormat(c.licenseValidityDate, false) : null,
+        };
+
+        const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/civilServiceEligibility/update/${c.civilServiceEligibilityId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (updateRes.ok) {
+          try {
+            const json = await updateRes.json();
+            if (json) anyUpdated = true;
+          } catch {
+            anyUpdated = true;
+          }
+        } else {
+          toCreate.push(c);
+        }
+      }
+
+      if (toCreate.length > 0) {
+        for (const c of toCreate) {
+          const payload = {
+            personalDataId,
+            careerServiceName: c.careerServiceName,
+            civilServiceRating: c.civilServiceRating ? Number(c.civilServiceRating) : null,
+            dateOfExamination: c.dateOfExamination ? toCustomFormat(c.dateOfExamination, false) : null,
+            placeOfExamination: c.placeOfExamination,
+            licenseNumber: c.licenseNumber,
+            licenseValidityDate: c.licenseValidityDate ? toCustomFormat(c.licenseValidityDate, false) : null,
+          };
+
+          const createRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/create/civilServiceEligibility`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (createRes.ok) {
+            anyCreated = true;
+          } else {
+            console.log("Failed to create civil service", await createRes.text());
+          }
+        }
+      }
+
+      if (anyDeleted || anyUpdated || anyCreated) {
+        await fetchCivilService(personalDataId);
+        if (anyUpdated && !anyCreated && !anyDeleted) return "isUpdated";
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.log("Failed to upsert civil service", err);
       return false;
     }
   };
@@ -1034,9 +1230,11 @@ export default function PersonalData({
             titleUpdate = "Children updated";
           }
           if (upserted) {
-            Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: titleUpdate, showConfirmButton: false, timer: 2000 });
+            console.log(titleUpdate + " successfully.");
+            // Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: titleUpdate, showConfirmButton: false, timer: 2000 });
           } else {
-            Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save children', showConfirmButton: false, timer: 2000 });
+            // Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save children', showConfirmButton: false, timer: 2000 });
+            console.log('Failed to save children');
           }
 
           // Educational Background
@@ -1047,16 +1245,35 @@ export default function PersonalData({
               eduTitle = 'Educational Background updated';
             }
             if (eduResult) {
-              Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: eduTitle, showConfirmButton: false, timer: 2000 });
+              console.log(eduTitle + " successfully.");
+              // Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: eduTitle, showConfirmButton: false, timer: 2000 });
             } else {
-              Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save educational background', showConfirmButton: false, timer: 2000 });
+              // Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save educational background', showConfirmButton: false, timer: 2000 });
+              console.log('Failed to save educational background');
             }
           } catch (err) {
-            console.warn('Error syncing education:', err);
+            console.log('Error syncing education:', err);
+          }
+
+          // Civil Service
+          try {
+            const civilResult = await upsertCivilService(personalDataId);
+            let civilTitle = 'Civil Service Eligibility saved';
+            if (civilResult === 'isUpdated') {
+              civilTitle = 'Civil Service Eligibility updated';
+            }
+            if (civilResult) {
+              console.log(civilTitle + " successfully.");
+            } else {
+              // Swal.fire({ toast: true, position: 'bottom-end', icon: 'error', title: 'Failed to save civil service eligibility', showConfirmButton: false, timer: 2000 });
+              console.log('Failed to save civil service eligibility');
+            }
+          } catch (err) {
+            console.log('Error syncing civil service:', err);
           }
         }
       } catch (err) {
-        console.warn('Error syncing children or education:', err);
+        console.log('Error syncing children or education:', err);
       }
 
       setIsDisabled(true);
@@ -1871,27 +2088,27 @@ export default function PersonalData({
       {/* V. CIVIL SERVICE ELIGIBILITY */}
       <section>
         <h2>V. Civil Service Eligibility</h2>
-        {eligibilities.map((row, i) => (
+        {civilServices.map((row, i) => (
           <div key={i} className={styles.row}>
             <input
               placeholder="Career Service"
-              name="careerService"
-              value={row.careerService}
+              name="careerServiceName"
+              value={row.careerServiceName}
               onChange={(e) => {
-                const newEligibilities = [...eligibilities];
-                newEligibilities[i].careerService = e.target.value;
-                setEligibilities(newEligibilities);
+                const newList = [...civilServices];
+                newList[i].careerServiceName = e.target.value;
+                setCivilServices(newList);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Rating"
-              name="rating"
-              value={row.rating}
+              name="civilServiceRating"
+              value={row.civilServiceRating}
               onChange={(e) => {
-                const newEligibilities = [...eligibilities];
-                newEligibilities[i].rating = e.target.value;
-                setEligibilities(newEligibilities);
+                const newList = [...civilServices];
+                newList[i].civilServiceRating = e.target.value;
+                setCivilServices(newList);
               }}
               disabled={isDisabled}
             />
@@ -1899,23 +2116,23 @@ export default function PersonalData({
               type="date"
               placeholder="Date of Exam"
               title="Date of Exam (mm/dd/yyyy)"
-              name="examDate"
-              value={row.examDate}
+              name="dateOfExamination"
+              value={row.dateOfExamination}
               onChange={(e) => {
-                const newEligibilities = [...eligibilities];
-                newEligibilities[i].examDate = e.target.value;
-                setEligibilities(newEligibilities);
+                const newList = [...civilServices];
+                newList[i].dateOfExamination = e.target.value;
+                setCivilServices(newList);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Place of Exam"
-              name="examPlace"
-              value={row.examPlace}
+              name="placeOfExamination"
+              value={row.placeOfExamination}
               onChange={(e) => {
-                const newEligibilities = [...eligibilities];
-                newEligibilities[i].examPlace = e.target.value;
-                setEligibilities(newEligibilities);
+                const newList = [...civilServices];
+                newList[i].placeOfExamination = e.target.value;
+                setCivilServices(newList);
               }}
               disabled={isDisabled}
             />
@@ -1924,26 +2141,27 @@ export default function PersonalData({
               name="licenseNumber"
               value={row.licenseNumber}
               onChange={(e) => {
-                const newEligibilities = [...eligibilities];
-                newEligibilities[i].licenseNumber = e.target.value;
-                setEligibilities(newEligibilities);
+                const newList = [...civilServices];
+                newList[i].licenseNumber = e.target.value;
+                setCivilServices(newList);
               }}
               disabled={isDisabled}
             />
             <input
+              type="date"
               placeholder="Date of Validity"
-              name="validity"
-              value={row.validity}
+              name="licenseValidityDate"
+              value={row.licenseValidityDate}
               onChange={(e) => {
-                const newEligibilities = [...eligibilities];
-                newEligibilities[i].validity = e.target.value;
-                setEligibilities(newEligibilities);
+                const newList = [...civilServices];
+                newList[i].licenseValidityDate = e.target.value;
+                setCivilServices(newList);
               }}
               disabled={isDisabled}
             />
             <button
               type="button"
-              onClick={() => handleRemove(setEligibilities, i)}
+              onClick={() => handleRemoveCivilService(i)}
               disabled={isDisabled}
             >
               Remove
@@ -1953,13 +2171,15 @@ export default function PersonalData({
         <button
           type="button"
           onClick={() =>
-            handleAdd(setEligibilities, {
-              careerService: "",
-              rating: "",
-              examDate: "",
-              examPlace: "",
+            handleAdd(setCivilServices, {
+              civilServiceEligibilityId: 0,
+              personalDataId: 0,
+              careerServiceName: "",
+              civilServiceRating: "",
+              dateOfExamination: "",
+              placeOfExamination: "",
               licenseNumber: "",
-              validity: "",
+              licenseValidityDate: "",
             })
           }
           disabled={isDisabled}
