@@ -191,14 +191,16 @@ export default function PersonalData({
 
     setWorkExperience([
       {
-        from: "",
-        to: "",
-        position: "",
-        department: "",
-        salary: "",
-        payGrade: "",
-        status: "",
-        govService: "",
+        workExperienceId: 0,
+        personalDataId: 0,
+        fromDate: "",
+        toDate: "",
+        positionTitle: "",
+        agencyName: "",
+        monthlySalary: null,
+        payGrade: null,
+        workStatus: "",
+        boolGovernmentService: "",
       },
     ]);
 
@@ -464,16 +466,18 @@ export default function PersonalData({
       licenseValidityDate: "",
     },
   ]);
-  const [workExperience, setWorkExperience] = useState([
+  const [workExperience, setWorkExperience] = useState<WorkExperienceItem[]>([
     {
-      from: "",
-      to: "",
-      position: "",
-      department: "",
-      salary: "",
-      payGrade: "",
-      status: "",
-      govService: "",
+      workExperienceId: 0,
+      personalDataId: 0,
+      fromDate: "",
+      toDate: "",
+      positionTitle: "",
+      agencyName: "",
+      monthlySalary: null,
+      payGrade: null,
+      workStatus: "",
+      boolGovernmentService: "",
     },
   ]);
   const [voluntaryWork, setVoluntaryWork] = useState([
@@ -842,7 +846,7 @@ export default function PersonalData({
     civilServiceEligibilityId: number;
     personalDataId: number;
     careerServiceName: string;
-    civilServiceRating: number; // keep as string for inputs
+    civilServiceRating: number;
     dateOfExamination: string;
     placeOfExamination: string;
     licenseNumber: string;
@@ -850,6 +854,37 @@ export default function PersonalData({
   };
 
   const [deletedCivilServiceIds, setDeletedCivilServiceIds] = useState<number[]>([]);
+  const [deletedWorkExperienceIds, setDeletedWorkExperienceIds] = useState<number[]>([]);
+
+  // Work Experience types
+  type RawWorkExperience = {
+    workExperienceId?: number | string;
+    id?: number | string;
+    work_experience_id?: number | string;
+    personalDataId?: number | string;
+    fromDate?: string;
+    toDate?: string;
+    positionTitle?: string;
+    agencyName?: string;
+    monthlySalary?: number | string;
+    payGrade?: number | string;
+    workStatus?: string;
+    boolGovernmentService?: string;
+    workExperiences?: RawWorkExperience[];
+  };
+
+  type WorkExperienceItem = {
+    workExperienceId: number;
+    personalDataId: number;
+    fromDate: string;
+    toDate: string;
+    positionTitle: string;
+    agencyName: string;
+    monthlySalary: number | null;
+    payGrade: number | null;
+    workStatus: string;
+    boolGovernmentService: string;
+  };
 
   const fetchCivilService = useCallback(async (personalDataId: number) => {
     try {
@@ -1019,6 +1054,185 @@ export default function PersonalData({
       return false;
     } catch (err) {
       console.log("Failed to upsert civil service", err);
+      return false;
+    }
+  };
+
+  // Fetch work experience rows for a personalDataId
+  const fetchWorkExperience = useCallback(async (personalDataId: number) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/workExperience/by/${personalDataId}`);
+      if (!res.ok) {
+        const fallback = [
+          { workExperienceId: 0, personalDataId, fromDate: "", toDate: "", positionTitle: "", agencyName: "", monthlySalary: null, payGrade: null, workStatus: "", boolGovernmentService: "" },
+        ];
+        setWorkExperience(fallback);
+        return fallback;
+      }
+
+      const data: unknown = await res.json();
+      let items: unknown[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else {
+        const maybe = data as RawWorkExperience | undefined;
+        if (maybe && Array.isArray(maybe.workExperiences)) {
+          items = maybe.workExperiences as unknown[];
+        } else if (maybe && (typeof maybe.positionTitle === "string" || typeof maybe.agencyName === "string")) {
+          items = [maybe];
+        }
+      }
+
+      if (items.length === 0) {
+        const fallback = [
+          { workExperienceId: 0, personalDataId, fromDate: "", toDate: "", positionTitle: "", agencyName: "", monthlySalary: null, payGrade: null, workStatus: "", boolGovernmentService: "" },
+        ];
+        setWorkExperience(fallback);
+        return fallback;
+      }
+
+      const mapped = items.map((x: unknown) => {
+        const obj = x as RawWorkExperience;
+        return {
+          workExperienceId: Number(obj.workExperienceId ?? obj.id ?? obj.work_experience_id ?? 0),
+          personalDataId: Number(obj.personalDataId ?? 0),
+          fromDate: toDateInputValue(String(obj.fromDate ?? "")),
+          toDate: toDateInputValue(String(obj.toDate ?? "")),
+          positionTitle: String(obj.positionTitle ?? ""),
+          agencyName: String(obj.agencyName ?? ""),
+          monthlySalary: obj.monthlySalary != null ? Number(obj.monthlySalary) : null,
+          payGrade: obj.payGrade != null ? Number(obj.payGrade) : null,
+          workStatus: String(obj.workStatus ?? ""),
+          boolGovernmentService: String(obj.boolGovernmentService ?? ""),
+        };
+      });
+
+      setWorkExperience(mapped);
+      return mapped;
+    } catch (err) {
+      console.log("Failed to fetch work experience", err);
+      const fallback = [
+        { workExperienceId: 0, personalDataId, fromDate: "", toDate: "", positionTitle: "", agencyName: "", monthlySalary: null, payGrade: null, workStatus: "", boolGovernmentService: "" },
+      ];
+      setWorkExperience(fallback);
+      return fallback;
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) {
+      fetchWorkExperience(id);
+    }
+  }, [personalData, fetchWorkExperience]);
+
+  const handleRemoveWorkExperience = (index: number) => {
+    setWorkExperience((prev) => {
+      const removed = prev[index] as WorkExperienceItem | undefined;
+      if (removed && (removed.workExperienceId ?? 0) > 0) {
+        setDeletedWorkExperienceIds((prevIds) => [...prevIds, Number(removed.workExperienceId)]);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const upsertWorkExperience = async (personalDataId: number) => {
+    try {
+      const filtered = workExperience
+        .map((w) => ({ ...w }))
+        .filter((w) => (w.positionTitle && w.positionTitle.trim()) || (w.agencyName && w.agencyName.trim()));
+
+      let anyDeleted = false;
+      if (deletedWorkExperienceIds.length > 0) {
+        for (const id of deletedWorkExperienceIds) {
+          try {
+            const delRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/workExperience/delete/${id}`, { method: "DELETE" });
+            if (delRes.ok) {
+              anyDeleted = true;
+            } else {
+              console.log("Failed to delete work experience id", id, await delRes.text());
+            }
+          } catch (err) {
+            console.log("Error deleting work experience id", id, err);
+          }
+        }
+        setDeletedWorkExperienceIds([]);
+      }
+
+      const toUpdate = filtered.filter((w) => w.workExperienceId && Number(w.workExperienceId) > 0);
+      const toCreate = filtered.filter((w) => !w.workExperienceId || Number(w.workExperienceId) === 0);
+
+      let anyUpdated = false;
+      let anyCreated = false;
+
+      for (const w of toUpdate) {
+        const payload = {
+          personalDataId,
+          fromDate: w.fromDate ? toCustomFormat(w.fromDate, false) : null,
+          toDate: w.toDate ? toCustomFormat(w.toDate, false) : null,
+          positionTitle: w.positionTitle,
+          agencyName: w.agencyName,
+          monthlySalary: Number.isFinite(w.monthlySalary as number) ? w.monthlySalary : null,
+          payGrade: Number.isFinite(w.payGrade as number) ? w.payGrade : null,
+          workStatus: w.workStatus,
+          boolGovernmentService: w.boolGovernmentService,
+        };
+
+        const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/workExperience/update/${w.workExperienceId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (updateRes.ok) {
+          try {
+            const json = await updateRes.json();
+            if (json) anyUpdated = true;
+          } catch {
+            anyUpdated = true;
+          }
+        } else {
+          toCreate.push(w);
+        }
+      }
+
+      if (toCreate.length > 0) {
+        for (const w of toCreate) {
+          const payload = {
+            personalDataId,
+            fromDate: w.fromDate ? toCustomFormat(w.fromDate, false) : null,
+            toDate: w.toDate ? toCustomFormat(w.toDate, false) : null,
+            positionTitle: w.positionTitle,
+            agencyName: w.agencyName,
+            monthlySalary: Number.isFinite(w.monthlySalary as number) ? w.monthlySalary : null,
+            payGrade: Number.isFinite(w.payGrade as number) ? w.payGrade : null,
+            workStatus: w.workStatus,
+            boolGovernmentService: w.boolGovernmentService,
+          };
+
+          const createRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/create/workExperience`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (createRes.ok) {
+            anyCreated = true;
+          } else {
+            console.log("Failed to create work experience", await createRes.text());
+          }
+        }
+      }
+
+      if (anyDeleted || anyUpdated || anyCreated) {
+        await fetchWorkExperience(personalDataId);
+        if (anyUpdated && !anyCreated && !anyDeleted) return "isUpdated";
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.log("Error syncing work experience", err);
       return false;
     }
   };
@@ -1282,6 +1496,20 @@ export default function PersonalData({
             }
           } catch (err) {
             console.log('Error syncing civil service:', err);
+          }
+
+          // Work Experience
+          try {
+            const workResult = await upsertWorkExperience(personalDataId);
+            let workTitle = 'Work Experience saved';
+            if (workResult === 'isUpdated') workTitle = 'Work Experience updated';
+            if (workResult) {
+              console.log(workTitle + " successfully.");
+            } else {
+              console.log('Failed to save work experience');
+            }
+          } catch (err) {
+            console.log('Error syncing work experience:', err);
           }
         }
       } catch (err) {
@@ -2162,6 +2390,7 @@ export default function PersonalData({
             />
             <input
               type="date"
+              title="Date of Validity (mm/dd/yyyy)"
               placeholder="Date of Validity"
               name="licenseValidityDate"
               value={row.licenseValidityDate}
@@ -2210,11 +2439,11 @@ export default function PersonalData({
               type="date"
               placeholder="From"
               title="From Date Work Experience (mm/dd/yyyy)"
-              name="from"
-              value={row.from}
+              name="fromDate"
+              value={row.fromDate}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].from = e.target.value;
+                newWork[i].fromDate = e.target.value;
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
@@ -2223,102 +2452,138 @@ export default function PersonalData({
               type="date"
               placeholder="To"
               title="To Date Work Experience (mm/dd/yyyy)"
-              name="to"
-              value={row.to}
+              name="toDate"
+              value={row.toDate}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].to = e.target.value;
+                newWork[i].toDate = e.target.value;
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Position Title"
-              name="position"
-              value={row.position}
+              name="positionTitle"
+              value={row.positionTitle}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].position = e.target.value;
+                newWork[i].positionTitle = e.target.value;
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
             />
             <input
-              placeholder="Department/Agency"
-              name="department"
-              value={row.department}
+              placeholder="Agency Name"
+              name="agencyName"
+              value={row.agencyName}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].department = e.target.value;
+                newWork[i].agencyName = e.target.value;
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
             />
             <input
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
               placeholder="Monthly Salary"
-              name="salary"
-              value={row.salary}
+              name="monthlySalary"
+              value={row.monthlySalary ?? ""}
+              onKeyDown={(e) => {
+                const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
+                if (allowed.includes(e.key)) return;
+                if (/^[0-9.]$/.test(e.key)) return;
+                e.preventDefault();
+              }}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].salary = e.target.value;
+                const input = e.target as HTMLInputElement;
+                if (input.value === "") {
+                  newWork[i].monthlySalary = null;
+                } else {
+                  const num = input.valueAsNumber;
+                  if (!Number.isFinite(num)) return;
+                  newWork[i].monthlySalary = num;
+                }
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
             />
             <input
+              type="number"
+              step="1"
+              min="0"
+              inputMode="numeric"
               placeholder="Pay Grade"
               name="payGrade"
-              value={row.payGrade}
+              value={row.payGrade ?? ""}
+              onKeyDown={(e) => {
+                const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
+                if (allowed.includes(e.key)) return;
+                if (/^[0-9]$/.test(e.key)) return;
+                e.preventDefault();
+              }}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].payGrade = e.target.value;
+                const input = e.target as HTMLInputElement;
+                if (input.value === "") {
+                  newWork[i].payGrade = null;
+                } else {
+                  const num = input.valueAsNumber;
+                  if (!Number.isFinite(num)) return;
+                  newWork[i].payGrade = Math.floor(num);
+                }
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Status"
-              name="status"
-              value={row.status}
+              name="workStatus"
+              value={row.workStatus}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].status = e.target.value;
+                newWork[i].workStatus = e.target.value;
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
             />
             <input
               placeholder="Gov’t Service (Y/N)"
-              name="govService"
-              value={row.govService}
+              name="boolGovernmentService"
+              value={row.boolGovernmentService}
               onChange={(e) => {
                 const newWork = [...workExperience];
-                newWork[i].govService = e.target.value;
+                newWork[i].boolGovernmentService = e.target.value;
                 setWorkExperience(newWork);
               }}
               disabled={isDisabled}
             />
             <button
               type="button"
-              onClick={() => handleRemove(setWorkExperience, i)}
+              onClick={() => handleRemoveWorkExperience(i)}
               disabled={isDisabled}
             >
               Remove
             </button>
           </div>
-        ))}
+        ))} 
         <button
           type="button"
           onClick={() =>
             handleAdd(setWorkExperience, {
-              from: "",
-              to: "",
-              position: "",
-              department: "",
-              salary: "",
-              payGrade: "",
-              status: "",
-              govService: "",
+              workExperienceId: 0,
+              personalDataId: 0,
+              fromDate: "",
+              toDate: "",
+              positionTitle: "",
+              agencyName: "",
+              monthlySalary: null,
+              payGrade: null,
+              workStatus: "",
+              boolGovernmentService: "",
             })
           }
           disabled={isDisabled}
