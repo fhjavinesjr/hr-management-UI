@@ -78,7 +78,7 @@ export default function LoginPage() {
         backdrop: true,
       }).then((result) => {
         if (result.isConfirmed) {
-          router.push("/hr-management/dashboard");
+          router.push("/hr-management/welcomepage");
         }
       });
     } catch (error) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from "@/styles/DashboardSidebar.module.scss";
+import styles from "@/styles/Sidebar.module.scss";
 import { MenuItemProps } from './types';
 import Image from "next/image";
 import Link from "next/link";

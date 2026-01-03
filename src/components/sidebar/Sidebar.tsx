@@ -2,34 +2,13 @@
 
 import React from "react";
 import { MenuItem } from "./MenuItem";
-import styles from "@/styles/DashboardSidebar.module.scss";
+import styles from "@/styles/Sidebar.module.scss";
 import { usePathname } from 'next/navigation';
 // import { usePathname, useRouter } from 'next/navigation';
 
 const menuItems = [
   {
     id: 1,
-    icon: "/dashboard.png",
-    label: "Dashboard",
-    goto: "/hr-management/dashboard",
-    isActive: true,
-  },
-  {
-    id: 2,
-    icon: "/time_keeping.png",
-    label: "Daily Time Record",
-    goto: "/hr-management/dtr",
-    isActive: false,
-  },
-  {
-    id: 3,
-    icon: "/time_shift.png",
-    label: "Work Schedule",
-    goto: "/hr-management/workschedule",
-    isActive: false,
-  },
-  {
-    id: 4,
     icon: "/personal_info.png",
     label: "Employment Record",
     goto: "/hr-management/employmentrecord",
@@ -39,14 +18,14 @@ const menuItems = [
 
 const otherItems = [
   {
-    id: 5,
+    id: 2,
     icon: "/accounts.png",
     label: "Accounts",
     goto: "/hr-management/accounts",
     isActive: false,
   },
   {
-    id: 6,
+    id: 3,
     icon: "/help.png",
     label: "Help",
     goto: "/hr-management",
