@@ -231,9 +231,11 @@ export default function PersonalData({
 
     setReferences([
       {
-        name: "",
+        referencesId: 0,
+        personalDataId: 0,
+        refName: "",
         address: "",
-        tel: "",
+        contactNo: "",
       },
     ]);
   }, []);
@@ -349,7 +351,7 @@ export default function PersonalData({
       setTrainings([
         { learningAndDevelopmentId: 0, personalDataId: 0, programName: "", fromDate: "", toDate: "", lndHrs: null, lndType: "", conductedBy: "" },
       ]);
-      setReferences([{ name: "", address: "", tel: "" }]);
+      setReferences([{ referencesId: 0, personalDataId: 0, refName: "", address: "", contactNo: "" }]);
     }
   }, [selectedEmployee?.isCleared]);
 
@@ -552,9 +554,20 @@ export default function PersonalData({
   ]);
   const [deletedLearningAndDevelopmentIds, setDeletedLearningAndDevelopmentIds] = useState<number[]>([]);
 
-  const [references, setReferences] = useState([
-    { name: "", address: "", tel: "" },
+
+
+  type ReferenceItem = {
+    referencesId: number;
+    personalDataId: number;
+    refName: string;
+    address: string;
+    contactNo: string;
+  };
+
+  const [references, setReferences] = useState<ReferenceItem[]>([
+    { referencesId: 0, personalDataId: 0, refName: "", address: "", contactNo: "" },
   ]);
+  const [deletedReferencesIds, setDeletedReferencesIds] = useState<number[]>([]);
   const [education, setEducation] = useState(DEFAULT_EDUCATION);
   const [children, setChildren] = useState<ChildItem[]>([{ childrenId: 0, personalDataId: 0, childFullname: "", dob: "" }]);
   // Holds IDs of children removed in the UI that need to be deleted on the server when saving
@@ -660,10 +673,6 @@ export default function PersonalData({
     setter: React.Dispatch<React.SetStateAction<T[]>>,
     data: T
   ) => setter((prev) => [...prev, data]);
-  const handleRemove = <T,>(
-    setter: React.Dispatch<React.SetStateAction<T[]>>,
-    index: number
-  ) => setter((prev) => prev.filter((_, i) => i !== index));
 
   // Special remove for children: track deleted IDs so they can be deleted on the server when saving
   const handleRemoveChild = (index: number) => {
@@ -1308,6 +1317,62 @@ export default function PersonalData({
     }
   }, []);
 
+  const fetchReferences = useCallback(async (personalDataId: number) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/fetch/references/by/${personalDataId}`);
+      if (!res.ok) {
+        const fallback: ReferenceItem[] = [
+          { referencesId: 0, personalDataId, refName: "", address: "", contactNo: "" },
+        ];
+        setReferences(fallback);
+        return fallback;
+      }
+
+      const data: unknown = await res.json();
+      let items: unknown[] = [];
+      if (Array.isArray(data)) items = data;
+      else {
+        const maybe = data as unknown as Record<string, unknown>;
+        if (maybe && Array.isArray(maybe.references)) items = (maybe.references as unknown[]);
+        else if (maybe && (typeof maybe.refName === "string" || typeof maybe.address === "string")) items = [maybe];
+      }
+
+      if (items.length === 0) {
+        const fallback: ReferenceItem[] = [
+          { referencesId: 0, personalDataId, refName: "", address: "", contactNo: "" },
+        ];
+        setReferences(fallback);
+        return fallback;
+      }
+
+      const mapped = items.map((x: unknown) => {
+        const obj = x as Record<string, unknown>;
+        return {
+          referencesId: Number(obj.referencesId ?? obj.id ?? 0),
+          personalDataId: Number(obj.personalDataId ?? personalDataId),
+          refName: String(obj.refName ?? obj.name ?? ""),
+          address: String(obj.address ?? ""),
+          contactNo: String(obj.contactNo ?? obj.tel ?? ""),
+        } as ReferenceItem;
+      });
+
+      setReferences(mapped);
+      return mapped;
+    } catch (err) {
+      console.log("Failed to fetch references", err);
+      const fallback: ReferenceItem[] = [
+        { referencesId: 0, personalDataId, refName: "", address: "", contactNo: "" },
+      ];
+      setReferences(fallback);
+      return fallback;
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = extractPersonalDataId(personalData);
+    if (id) fetchReferences(id);
+  }, [personalData, fetchReferences]);
+
   useEffect(() => {
     const id = extractPersonalDataId(personalData);
     if (id) fetchLearningAndDevelopment(id);
@@ -1338,6 +1403,16 @@ export default function PersonalData({
       const removed = prev[index] as LearningAndDevelopmentItem | undefined;
       if (removed && (removed.learningAndDevelopmentId ?? 0) > 0) {
         setDeletedLearningAndDevelopmentIds((prevIds) => [...prevIds, Number(removed.learningAndDevelopmentId)]);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleRemoveReference = (index: number) => {
+    setReferences((prev) => {
+      const removed = prev[index];
+      if (removed && (removed.referencesId ?? 0) > 0) {
+        setDeletedReferencesIds((prevIds) => [...prevIds, Number(removed.referencesId)]);
       }
       return prev.filter((_, i) => i !== index);
     });
@@ -1433,6 +1508,94 @@ export default function PersonalData({
       return false;
     } catch (err) {
       console.log("Error syncing learning and development", err);
+      return false;
+    }
+  };
+
+  const upsertReferences = async (personalDataId: number) => {
+    try {
+      const filtered = references
+        .map((r) => ({ ...r }))
+        .filter((r) => (r.refName && r.refName.trim()) || (r.address && r.address.trim()) || (r.contactNo && r.contactNo.trim()));
+
+      let anyDeleted = false;
+      if (deletedReferencesIds.length > 0) {
+        for (const id of deletedReferencesIds) {
+          try {
+            const delRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/references/delete/${id}`, { method: "DELETE" });
+            if (delRes.ok) anyDeleted = true;
+            else console.log("Failed to delete reference id", id, await delRes.text());
+          } catch (err) {
+            console.log("Error deleting reference id", id, err);
+          }
+        }
+        setDeletedReferencesIds([]);
+      }
+
+      const toUpdate = filtered.filter((r) => r.referencesId && Number(r.referencesId) > 0);
+      const toCreate = filtered.filter((r) => !r.referencesId || Number(r.referencesId) === 0);
+
+      let anyUpdated = false;
+      let anyCreated = false;
+
+      for (const r of toUpdate) {
+        const payload = {
+          personalDataId,
+          refName: r.refName,
+          address: r.address,
+          contactNo: r.contactNo,
+        } as Record<string, unknown>;
+
+        const updateRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/references/update/${r.referencesId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (updateRes.ok) {
+          try {
+            const json = await updateRes.json();
+            if (json) anyUpdated = true;
+          } catch {
+            anyUpdated = true;
+          }
+        } else {
+          toCreate.push(r);
+        }
+      }
+
+      if (toCreate.length > 0) {
+        for (const r of toCreate) {
+          const payload = {
+            personalDataId,
+            refName: r.refName,
+            address: r.address,
+            contactNo: r.contactNo,
+          } as Record<string, unknown>;
+
+          const createRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/create/references`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (createRes.ok) {
+            anyCreated = true;
+          } else {
+            console.log("Failed to create reference", await createRes.text());
+          }
+        }
+      }
+
+      if (anyDeleted || anyUpdated || anyCreated) {
+        await fetchReferences(personalDataId);
+        if (anyUpdated && !anyCreated && !anyDeleted) return "isUpdated";
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.log("Error syncing references", err);
       return false;
     }
   };
@@ -1646,14 +1809,19 @@ export default function PersonalData({
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
-    const { name, value } = e.target;
+    // Normalize target so we can safely access `type`, `checked`, and `value`
+    const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    const name = (target as HTMLInputElement).name || (target as HTMLSelectElement).name || (target as HTMLTextAreaElement).name;
 
-    // Auto-convert numeric fields
+    const isCheckbox = (target as HTMLInputElement).type === "checkbox";
+    const rawValue = isCheckbox ? (target as HTMLInputElement).checked : (target as HTMLInputElement).value;
+
+    // Auto-convert numeric fields (only apply for non-checkbox inputs)
     const numericFields = ["sex_id", "civilStatus_id", "height", "weight"];
 
     setForm((prev) => ({
       ...prev,
-      [name]: numericFields.includes(name) ? Number(value) : value,
+      [name]: !isCheckbox && numericFields.includes(name) ? Number(rawValue) : rawValue,
     }));
   };
 
@@ -1931,6 +2099,20 @@ export default function PersonalData({
             }
           } catch (err) {
             console.log('Error syncing learning and development:', err);
+          }
+
+          // References
+          try {
+            const refResult = await upsertReferences(personalDataId);
+            let refTitle = 'References saved';
+            if (refResult === 'isUpdated') refTitle = 'References updated';
+            if (refResult) {
+              console.log(refTitle + " successfully.");
+            } else {
+              console.log('Failed to save references');
+            }
+          } catch (err) {
+            console.log('Error syncing references:', err);
           }
         }
       } catch (err) {
@@ -3740,10 +3922,10 @@ export default function PersonalData({
             <input
               placeholder="Name"
               name="refName"
-              value={row.name}
+              value={row.refName}
               onChange={(e) => {
                 const newReferences = [...references];
-                newReferences[i].name = e.target.value;
+                newReferences[i].refName = e.target.value;
                 setReferences(newReferences);
               }}
               disabled={isDisabled}
@@ -3762,17 +3944,17 @@ export default function PersonalData({
             <input
               placeholder="Tel No."
               name="refTel"
-              value={row.tel}
+              value={row.contactNo}
               onChange={(e) => {
                 const newReferences = [...references];
-                newReferences[i].tel = e.target.value;
+                newReferences[i].contactNo = e.target.value;
                 setReferences(newReferences);
               }}
               disabled={isDisabled}
             />
             <button
               type="button"
-              onClick={() => handleRemove(setReferences, i)}
+              onClick={() => handleRemoveReference(i)}
               disabled={isDisabled}
             >
               Remove
@@ -3782,7 +3964,7 @@ export default function PersonalData({
         <button
           type="button"
           onClick={() =>
-            handleAdd(setReferences, { name: "", address: "", tel: "" })
+            handleAdd(setReferences, { referencesId: 0, personalDataId: Number(form.personalDataId) || 0, refName: "", address: "", contactNo: "" })
           }
           disabled={isDisabled}
         >
