@@ -4,7 +4,9 @@ import React from "react";
 import { MenuItem } from "./MenuItem";
 import styles from "@/styles/Sidebar.module.scss";
 import { usePathname } from 'next/navigation';
-// import { usePathname, useRouter } from 'next/navigation';
+import { authLogout } from "@/lib/utils/authLogout";
+import { useRouter } from "next/navigation";
+
 
 const menuItems = [
   {
@@ -31,11 +33,17 @@ const otherItems = [
     goto: "/hr-management",
     isActive: false,
   },
+  {
+    id: 4,
+    icon: "/logout.png",
+    label: "Logout",
+    action: "logout",
+  },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname(); // Use usePathname for the current route
-  // const router = useRouter();    // Use useRouter for navigation
+  const router = useRouter();    // Use useRouter for navigation
 
   return (
     <nav className={styles.Sidebar} role="navigation" aria-label="Main navigation">
@@ -57,7 +65,20 @@ export default function Sidebar() {
         <h2 className={styles.menuHeader}>UTILITIES</h2>
         <div role="menu">
           {otherItems.map((item, index) => (
-            <MenuItem key={index} icon={item.icon} label={item.label} goto={item.goto} isActive={pathname === item.goto} onClick={() => {}} />
+            <MenuItem
+              key={index}
+              icon={item.icon}
+              label={item.label}
+              isActive={pathname === item.goto}
+              onClick={() => {
+                if (item.action === "logout") {
+                  authLogout();
+                  router.replace("/time-keeping/login");
+                } else if (item.goto) {
+                  router.push(item.goto);
+                }
+              }}
+            />
           ))}
         </div>
       </div>
