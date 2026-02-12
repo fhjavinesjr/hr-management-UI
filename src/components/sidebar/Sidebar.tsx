@@ -53,7 +53,7 @@ export default function Sidebar() {
       </div>
 
       <div className={styles.menuSection}>
-        <h2 className={styles.menuHeader}>MENU</h2>
+        <h2 className={styles.menuHeader}>HR ACTION CENTER</h2>
         <div role="menu">
           {menuItems.map((item, index) => (
             <MenuItem key={index} icon={item.icon} label={item.label} goto={item.goto} isActive={pathname === item.goto} onClick={() => {}} />
