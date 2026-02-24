@@ -1,5 +1,3 @@
-
-
 .Sidebar {
   background-color: rgb(241, 242, 247);
   align-self: start;
@@ -9,10 +7,11 @@
   flex-direction: column;
   align-items: start;
   padding-left: 20px;
-  font: 400 12px/1 Poppins, sans-serif;
+  font:
+    400 12px/1 Poppins,
+    sans-serif;
   height: 100dvh;
   overflow-y: auto;
-  
 
   .brand {
     display: flex;
@@ -22,7 +21,7 @@
     font-size: 11px;
     font-weight: 700;
   }
-  
+
   .brandIcon {
     background-color: rgb(90, 103, 186);
     border-radius: 50%;
@@ -34,25 +33,25 @@
     justify-content: center;
     margin-top: 25px;
   }
-  
+
   .brandName {
     color: rgb(90, 103, 186);
     letter-spacing: 0.5px;
     margin-top: 25px;
   }
-  
+
   .menuHeader {
     color: rgb(8, 36, 49);
     font-size: 11px;
     letter-spacing: 1px;
     margin: 40px 0 12px 20px;
   }
-  
+
   .menuSection {
     width: 100%;
   }
-  
- .menuItem,
+
+  .menuItem,
   .activeMenuItem {
     display: flex;
     gap: 12px;
@@ -71,14 +70,16 @@
     border: none;
     text-decoration: none;
 
-    transition: background-color 0.25s ease, color 0.25s ease;
+    transition:
+      background-color 0.25s ease,
+      color 0.25s ease;
   }
 
   .menuItem:hover {
     background-color: #e0e7ff;
     color: #5a67d8;
   }
-  
+
   .activeMenuItem {
     background-color: #5a67d8;
     color: #ffffff;
@@ -87,31 +88,35 @@
     text-decoration: none;
   }
 
-  .activeMenuItem .menuIcon {
-    filter: brightness(0) invert(1);
+  .activeMenuItem {
+    background-color: #5a67d8;
+    color: #ffffff;
+    font-weight: 500;
+    width: 80%;
+    text-decoration: none;
   }
-  
+
   .menuIcon {
     width: 18px;
     height: 18px;
     object-fit: contain;
     transition: filter 0.3s;
   }
-  
+
   .menuLabel {
     flex-grow: 1;
   }
-  
+
   @media (max-width: 991px) {
     .sidebar {
       margin-top: -200px;
       padding-bottom: 100px;
     }
-  
+
     .brand {
       margin-left: 10px;
     }
-  
+
     .menuHeader {
       margin-left: 10px;
     }
