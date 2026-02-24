@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
-import LeaveApplication from "@/components/services/LeaveApplication";
+import LeaveApplication from "@/components/selfservices/LeaveApplication";
 import LeaveApplicationTable from "@/components/tables/LeaveApplicationTable";
 import LeaveMonetizationTable from "@/components/tables/LeaveMonetizationTable";
 
@@ -31,7 +31,7 @@ export default function HRLeaveApplicationModule() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState("");
 
-  // static Data for regular Leaves
+ 
   const allLeaves = useMemo<LeaveRecord[]>(() => [
     {
       employee: "Dan Joseph Haban",
@@ -83,7 +83,7 @@ export default function HRLeaveApplicationModule() {
     },
   ], []);
 
-  //  Static data for leave monetization 
+
   const allMonetizations = useMemo<LeaveMonetizationRecord[]>(() => [
     {
       employee: "Dan Joseph Haban",
@@ -123,7 +123,7 @@ export default function HRLeaveApplicationModule() {
     );
   }, [selectedEmployee, allLeaves]);
 
-  // ✅ Monetization filtering - only show when employee is selected
+  
   const filteredMonetizations = useMemo(() => {
     if (selectedEmployee.trim() === "") return [];
     return allMonetizations.filter((item) =>
@@ -141,8 +141,7 @@ export default function HRLeaveApplicationModule() {
   }) => {
     console.log("Leave submitted:", leave);
 
-    // 🔥 Backend call will go here later
-    // await fetch('/api/leave', { method: 'POST', body: JSON.stringify(leave) })
+    
   };
 
   // Toast mixin for small bottom-end toasts

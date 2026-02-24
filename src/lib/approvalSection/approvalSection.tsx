@@ -24,7 +24,7 @@ export default function ApprovalSection() {
           value={recommendationStatus}
           onChange={(e) => setRecommendationStatus(e.target.value)}
         >
-          <option value="">Select</option>
+          <option value="" disabled> Select</option>
           <option value="Pending">Pending</option>
           <option value="Approved">Approved</option>
           <option value="Disapproved">Disapproved</option>
@@ -75,7 +75,7 @@ export default function ApprovalSection() {
             value={approvedStatus}
             onChange={(e) => setApprovedStatus(e.target.value)}
           >
-            <option value="">Select</option>
+            <option value="" disabled> Select</option>
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
             <option value="Disapproved">Disapproved</option>

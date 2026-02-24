@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "@/styles/compensatoryTimeOff.module.scss";
 import leaveStyles from "@/styles/LeaveApplication.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
@@ -24,10 +24,10 @@ interface CompensatoryTimeOffProps {
   }) => void;
 }
 
-export default function CompensatoryTimeOff({
-  employeeName,
-  onSubmitCTO,
-}: CompensatoryTimeOffProps) {
+export default function CompensatoryTimeOff({ employeeName, onSubmitCTO, 
+
+  }: CompensatoryTimeOffProps) {
+
   const initialFormState: CTOFormData = {
     dateFiled: "",
     dateWorked: "",
@@ -36,6 +36,12 @@ export default function CompensatoryTimeOff({
   };
 
   const [form, setForm] = useState<CTOFormData>(initialFormState);
+
+  // Set dateFiled to today's date on component mount
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    setForm((prev) => ({ ...prev, dateFiled: today }));
+  }, []);
 
   const currentBalance = 65.5; // sample value (readonly)
 
@@ -72,11 +78,13 @@ export default function CompensatoryTimeOff({
       status: "Pending",
     });
 
-    setForm(initialFormState);
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...initialFormState, dateFiled: today });
   };
 
   const handleCancel = () => {
-    setForm(initialFormState);
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...initialFormState, dateFiled: today });
   };
 
   return (

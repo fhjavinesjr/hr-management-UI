@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
-import PassSlip from "@/components/services/passSlip";
+import PassSlip from "@/components/selfservices/passSlip";
 import PassSlipTable from "@/components/tables/PassSlipTable";
 
 interface PassSlipRecord {
@@ -23,7 +23,7 @@ export default function HRPassSlipModule() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState("");
 
-  // ✅ Static master data for pass slips (stable reference)
+
   const allPassSlips = useMemo<PassSlipRecord[]>(() => [
     {
       employee: "Dan Joseph Haban",
@@ -86,8 +86,7 @@ export default function HRPassSlipModule() {
   }) => {
     console.log("Pass slip submitted:", passSlip);
 
-    // 🔥 Backend call will go here later
-    // await fetch('/api/pass-slip', { method: 'POST', body: JSON.stringify(passSlip) })
+    
   };
 
   const Toast = Swal.mixin({

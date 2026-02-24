@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
-import CompensatoryTimeOff from "@/components/services/CompensatoryTimeOff";
+import CompensatoryTimeOff from "@/components/selfservices/CompensatoryTimeOff";
 import CompensatoryTimeOffTable from "@/components/tables/CompensatoryTimeOffTable";
 
 interface CTORecord {
@@ -21,7 +21,7 @@ export default function HRCompensatoryTimeOffModule() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState("");
 
-  // ✅ Static master data for compensatory time off (stable reference)
+  
   const allCTOs = useMemo<CTORecord[]>(() => [
     {
       employee: "Dan Joseph Haban",

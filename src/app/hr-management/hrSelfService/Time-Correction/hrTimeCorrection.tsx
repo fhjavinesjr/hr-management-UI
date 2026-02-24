@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
-import TimeCorrection from "@/components/services/TimeCorrection";
+import TimeCorrection from "@/components/selfservices/TimeCorrection";
 import TimeCorrectionTable from "@/components/tables/TimeCorrectionTable";
 
 interface TimeCorrectionRecord {
@@ -25,7 +25,7 @@ export default function HRTimeCorrectionModule() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState("");
 
-  // ✅ Static master data for time corrections (stable reference)
+
   const allTimeCorrections = useMemo<TimeCorrectionRecord[]>(() => [
     {
       employee: "Dan Joseph Haban",

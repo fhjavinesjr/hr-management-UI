@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "@/styles/LeaveApplication.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
 import ApprovalSection from "@/lib/approvalSection/approvalSection";
 
 interface OfficialEngagementFormData {
+  dateFiled: string;
   officialType: string;
   from: string;
   to: string;
@@ -16,6 +17,7 @@ interface OfficialEngagementProps {
   employeeName: string;
   onSubmitEngagement: (engagement: {
     employee: string;
+    dateFiled: string;
     officialType: string;
     from: string;
     to: string;
@@ -28,6 +30,7 @@ export default function OfficialEngagement({
   onSubmitEngagement,
 }: OfficialEngagementProps) {
   const initialFormState: OfficialEngagementFormData = {
+    dateFiled: "",
     officialType: "",
     from: "",
     to: "",
@@ -37,6 +40,12 @@ export default function OfficialEngagement({
   const [form, setForm] = useState<OfficialEngagementFormData>(
     initialFormState
   );
+
+  // Set dateFiled to today's date on component mount
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    setForm((prev) => ({ ...prev, dateFiled: today }));
+  }, []);
 
   const officialTypes = ["Official Business", "Official Time"];
 
@@ -64,22 +73,38 @@ export default function OfficialEngagement({
 
     onSubmitEngagement({
       employee: employeeName,
+      dateFiled: form.dateFiled,
       officialType: form.officialType,
       from: form.from,
       to: form.to,
       status: "Pending",
     });
 
-    setForm(initialFormState);
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...initialFormState, dateFiled: today });
   };
 
   const handleClear = () => {
-    setForm(initialFormState);
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...initialFormState, dateFiled: today });
   };
 
   return (
     <div id="officialEngagementModal" className={modalStyles.Modal}>
       <form className={modalStyles.modalBody} onSubmit={handleSubmit}>
+        {/* Date Filed */}
+        <div className={styles.formGroup}>
+          <label>Date Filed</label>
+          <input
+            type="date"
+            name="dateFiled"
+            value={form.dateFiled}
+            onChange={handleChange}
+            className={styles.inputBase}
+            required
+          />
+        </div>
+
         {/* Official Type */}
         <div className={styles.formGroup}>
           <label>Official Type</label>

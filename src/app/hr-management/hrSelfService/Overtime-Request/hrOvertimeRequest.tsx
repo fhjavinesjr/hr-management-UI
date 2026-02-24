@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
-import OvertimeRequest from "@/components/services/overtimeRequest";
+import OvertimeRequest from "@/components/selfservices/overtimeRequest";
 import OvertimeRequestTable from "@/components/tables/OvertimeRequestTable";
 
 interface OvertimeRecord {
@@ -21,7 +21,7 @@ export default function HROvertimeRequestModule() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState("");
 
-  // ✅ Static master data for overtime requests (stable reference)
+  
   const allOvertimes = useMemo<OvertimeRecord[]>(() => [
     {
       employee: "Dan Joseph Haban",
@@ -76,8 +76,7 @@ export default function HROvertimeRequestModule() {
   }) => {
     console.log("Overtime submitted:", overtime);
 
-    // 🔥 Backend call will go here later
-    // await fetch('/api/overtime', { method: 'POST', body: JSON.stringify(overtime) })
+    
   };
 
   const Toast = Swal.mixin({

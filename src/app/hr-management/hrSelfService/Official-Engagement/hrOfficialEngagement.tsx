@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
-import OfficialEngagement from "@/components/services/OfficialEngagement";
+import OfficialEngagement from "@/components/selfservices/OfficialEngagement";
 import OfficialEngagementTable from "@/components/tables/OfficialEngagementTable";
 
 interface OfficialEngagementRecord {
@@ -22,7 +22,7 @@ export default function HROfficialEngagementModule() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState("");
 
-  // ✅ Static master data for official engagements (stable reference)
+  
   const allEngagements = useMemo<OfficialEngagementRecord[]>(() => [
     {
       employee: "Dan Joseph Haban",
@@ -80,8 +80,7 @@ export default function HROfficialEngagementModule() {
   }) => {
     console.log("Engagement submitted:", engagement);
 
-    // 🔥 Backend call will go here later
-    // await fetch('/api/engagement', { method: 'POST', body: JSON.stringify(engagement) })
+    
   };
 
   const Toast = Swal.mixin({
