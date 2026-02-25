@@ -1,0 +1,367 @@
+/* LeaveApplication.module.scss */
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
+
+  label {
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: #333;
+  }
+
+  input,
+  select,
+  textarea {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+
+    &:focus {
+      border-color: #2f4da1;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(47, 77, 161, 0.15);
+    }
+  }
+
+  textarea {
+    min-height: 120px;
+    resize: none;
+  }
+}
+
+/* Make Details smaller like ApprovalSection */
+.labelDetails {
+  font-weight: 600;
+  margin-bottom: 0.3rem; /* same as ApprovalSection label spacing */
+  color: #333;
+  font-size: 0.95rem;
+}
+
+/* Adjust width to match ApprovalSection */
+.formGroup textarea {
+  width: 100%;          /* full width of parent container */
+  max-width: 600px;     /* match ApprovalSection max-width */
+  min-height: 60px;     /* keep small size */
+  padding: 0.5rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  resize: vertical;
+}
+/* Narrower Inputs/Selects (Date Filed, Leave Type) */
+.inputBase {
+  width: 40%;          /* shrink width to 40% */
+  max-width: 200px;    /* optional max limit */
+  min-width: 120px;    /* optional minimum limit */
+}
+.selectBase{
+  width: 40%;          /* shrink width to 40% */
+  max-width: 400x;    /* optional max limit */
+  min-width: 120px;    /* optional minimum limit */
+}
+
+
+/* Date Range */
+.dateRange {
+  display: flex;
+  gap: 1rem;
+  flex-direction: column;
+
+  input {
+    flex: 1;
+  }
+}
+
+/* Radio Group */
+.radioGroup {
+  display: flex;
+  gap: 2rem;
+  margin-top: 0.3rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  input[type="radio"] {
+    accent-color: #2f4da1;
+    cursor: pointer;
+  }
+}
+
+/* Buttons */
+.submitBtn,
+.clearBtn {
+  width: auto;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.25rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.12s ease;
+  margin-right: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.submitBtn {
+  background-color: #28a745;
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background-color: #218838;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+  }
+
+  &:active:not(:disabled) {
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+  }
+}
+
+.clearBtn {
+  background-color: #f59e0b;
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background-color: #d97706;
+    box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+  }
+
+  &:active:not(:disabled) {
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+  }
+}
+
+// /* Leave Application Table */
+// .leaveapplicationTable {
+//   margin: 1.5rem auto;
+//   width: 95%;
+//   background-color: #fff;
+//   border-radius: 12px;
+//   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+//   overflow: hidden;
+//   padding: 0;
+
+//   .tableTitle {
+//     background-color: #f1f1f1;
+//     color: #212529;
+//     text-align: center;
+//     font-weight: 600;
+//     padding: 0.8rem;
+//     text-transform: uppercase;
+//     letter-spacing: 0.5px;
+//     border-bottom: 1px solid #ced4da;
+//     border-top-left-radius: 12px;
+//     border-top-right-radius: 12px;
+//   }
+
+//   .table {
+//     width: 100%;
+//     border-collapse: collapse;
+//     font-size: 0.95rem;
+
+//     th,
+//     td {
+//       border: 1px solid #ccc;
+//       padding: 0.8rem;
+//       text-align: center;
+//       color: #333;
+//     }
+
+//     th {
+//       background-color: #f1f1f1;
+//     }
+
+//     tbody tr:nth-child(even) {
+//       background-color: #f9f9f9;
+//     }
+
+//     tbody tr:last-child td:first-child {
+//       border-bottom-left-radius: 12px;
+//     }
+
+//     tbody tr:last-child td:last-child {
+//       border-bottom-right-radius: 12px;
+//     }
+//   }
+// }
+
+/* Print & Action Buttons */
+.printBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f0eaff;
+  color: #5b2fb6;
+  border: 1px solid #e6dbff;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.optionBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+  transition: transform 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    transform: scale(1.2);
+  }
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+  display: none;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+/* Detail button */
+.detailButton {
+  background-color: #20c997;
+  border: none;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .table {
+    min-width: 700px;
+  }
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-start;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+/* Date Item */
+.dateItem label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.dateItem input {
+  width: 28%;
+}
+
+.wrapper {
+  width: 95%;
+  margin: 2rem auto;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.searchContainer {
+  margin-bottom: 1rem;
+}
+
+.searchInput {
+  width: 40%;
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  background: white;
+}
+
+.table th,
+.table td {
+  border: 1px solid #cfcfcf; /* Excel-like grid lines */
+  padding: 0.6rem;
+  text-align: center;
+}
+
+.table th {
+  background-color: #f3f3f3; /* Excel header gray */
+  font-weight: 600;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.optionBtn {
+  padding: 4px 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+}
+
+.paginationTop {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.pageInput {
+  width: 60px;
+  margin: 0 5px;
+  padding: 4px;
+}
+
+.leaveTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaveTable th,
+.leaveTable td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.tableTitle {
+  background-color: #2e6da4;
+  color: white;
+  text-align: center;
+  font-weight: bold;
+}

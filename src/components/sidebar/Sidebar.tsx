@@ -16,6 +16,54 @@ const menuItems = [
     goto: "/hr-management/employmentrecord",
     isActive: false,
   },
+
+  {
+  id: 2,
+  icon: "/LeaveApplication.png",
+  label: "Leave Application",
+  goto: "/hr-management/hrSelfService/Leave-Application",
+  isActive: false,
+  },
+
+  {
+    id: 3,
+    icon: "/OvertimeRequest.png",
+    label: "Overtime Request",
+    goto: "/hr-management/hrSelfService/Overtime-Request",
+    isActive: false,
+  },
+
+  {
+    id: 4,
+    icon: "/CompensatoryTimeOff.png",
+    label: "Compensatory Time Off",
+    goto: "/hr-management/hrSelfService/Compensatory-Time-Off",
+    isActive: false,
+  },
+
+  {
+    id: 5,
+    icon: "/OfficialEngagement.png",
+    label: "Official Engagement",
+    goto: "/hr-management/hrSelfService/Official-Engagement",
+    isActive: false,
+  },
+
+  {
+    id: 6,
+    icon: "/PassSlip.png",
+    label: "Pass Slip",
+    goto: "/hr-management/hrSelfService/Pass-Slip",
+    isActive: false,
+  },
+
+  {
+    id: 7,
+    icon: "/TimeCorrection.png",
+    label: "Time Correction",
+    goto: "/hr-management/hrSelfService/Time-Correction",
+    isActive: false,
+  }
 ];
 
 const otherItems = [

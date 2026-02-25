@@ -16,5 +16,5 @@ export const AUTH_CONFIG = {
     "/hr-management/registration",
   ],
 
-  INACTIVITY_LIMIT: 60, // seconds
+  INACTIVITY_LIMIT: 1000, // seconds
 };

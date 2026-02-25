@@ -1,0 +1,219 @@
+/* Centralized table styling for all table components */
+
+/* Pagination Container */
+.paginationContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Left side: Rows per page selector and record info */
+.paginationLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    margin-right: 0.5rem;
+    font-weight: 500;
+  }
+
+  select {
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #ccc;
+    font-size: 0.9rem;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #999;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #0056b3;
+      box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.25);
+    }
+  }
+
+  .recordInfo {
+    margin-left: 1rem;
+    color: #666;
+    font-size: 0.9rem;
+  }
+}
+
+/* Right side: Pagination buttons */
+.paginationRight {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+
+  .pageIndicator {
+    margin: 0 0.5rem;
+    min-width: 100px;
+    text-align: center;
+    font-weight: 500;
+  }
+}
+
+/* Pagination Button Styles */
+.paginationBtn {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background-color: #f5f5f5;
+    border-color: #999;
+  }
+
+  &:disabled {
+    background-color: #f0f0f0;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &:active:not(:disabled) {
+    background-color: #e0e0e0;
+  }
+}
+
+/* Table Base Styles */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  thead {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-right: 1px solid #dee2e6;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #dee2e6;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background-color: #f8f9fa;
+      }
+
+      &:nth-child(even) {
+        background-color: #fafbfc;
+      }
+
+      td {
+        padding: 0.75rem;
+        color: #333;
+        border-right: 1px solid #dee2e6;
+
+        &:last-child {
+          border-right: none;
+        }
+      }
+    }
+  }
+}
+
+/* Status Badge Styles */
+.statusBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+
+  &.approved {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  &.pending {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  &.disapproved {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  &.gray {
+    background-color: #e2e3e5;
+    color: #383d41;
+  }
+}
+
+/* Status Badge Variants */
+.statusApproved {
+  @extend .statusBadge;
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.statusPending {
+  @extend .statusBadge;
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.statusDisapproved {
+  @extend .statusBadge;
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.statusGray {
+  @extend .statusBadge;
+  background-color: #e2e3e5;
+  color: #383d41;
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+  .paginationContainer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .paginationLeft,
+  .paginationRight {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .table {
+    font-size: 0.85rem;
+
+    th,
+    td {
+      padding: 0.5rem;
+    }
+  }
+}
