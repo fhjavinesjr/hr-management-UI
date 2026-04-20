@@ -5,19 +5,24 @@ import styles from "@/styles/LeaveApplication.module.scss";
 import tableStyles from "@/styles/tables.module.scss";
 
 interface LeaveRecord {
+  id: number;
   employee: string;
   dateFiled: string;
   from: string;
   to: string;
   leaveType: string;
   status: string;
+  commutation?: string;
+  details?: string;
 }
 
 interface LeaveApplicationTableProps {
   data: LeaveRecord[];
+  onEdit?: (record: LeaveRecord) => void;
+  onDelete?: (record: LeaveRecord) => void;
 }
 
-export default function LeaveApplicationTable({ data }: LeaveApplicationTableProps) {
+export default function LeaveApplicationTable({ data, onEdit, onDelete }: LeaveApplicationTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
@@ -26,6 +31,7 @@ export default function LeaveApplicationTable({ data }: LeaveApplicationTablePro
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = data.slice(startIndex, endIndex);
+  const safeTotalPages = Math.max(1, totalPages);
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
@@ -68,18 +74,18 @@ export default function LeaveApplicationTable({ data }: LeaveApplicationTablePro
             Previous
           </button>
           <span className={tableStyles.pageIndicator}>
-            Page {currentPage} of {totalPages}
+            Page {currentPage} of {safeTotalPages}
           </span>
           <button
             onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === safeTotalPages}
             className={tableStyles.paginationBtn}
           >
             Next
           </button>
           <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(safeTotalPages)}
+            disabled={currentPage === safeTotalPages}
             className={tableStyles.paginationBtn}
           >
             Last
@@ -95,11 +101,12 @@ export default function LeaveApplicationTable({ data }: LeaveApplicationTablePro
             <th>To</th>
             <th>Leave Type</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {paginatedData.map((record, index) => (
-            <tr key={index}>
+          {paginatedData.map((record) => (
+            <tr key={record.id}>
               <td>{record.employee}</td>
               <td>{record.dateFiled}</td>
               <td>{record.from}</td>
@@ -117,6 +124,20 @@ export default function LeaveApplicationTable({ data }: LeaveApplicationTablePro
                 >
                   {record.status}
                 </span>
+              </td>
+              <td className={tableStyles.actionCell}>
+                <button
+                  className={tableStyles.editBtn}
+                  onClick={() => onEdit?.(record)}
+                >
+                  Edit
+                </button>
+                <button
+                  className={tableStyles.deleteBtn}
+                  onClick={() => onDelete?.(record)}
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}

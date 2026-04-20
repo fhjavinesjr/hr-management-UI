@@ -217,3 +217,40 @@
     }
   }
 }
+
+/* Action column buttons */
+.editBtn {
+  background-color: #2f4da1;
+  color: #fff;
+  border: none;
+  padding: 0.28rem 0.65rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-right: 0.35rem;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background-color: #1e3a8a;
+  }
+}
+
+.deleteBtn {
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+  padding: 0.28rem 0.65rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background-color: #b91c1c;
+  }
+}
+
+.actionCell {
+  white-space: nowrap;
+  text-align: center;
+}

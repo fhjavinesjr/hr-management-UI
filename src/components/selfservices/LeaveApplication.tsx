@@ -1,43 +1,117 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import styles from "@/styles/LeaveApplication.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
-import ApprovalSection from "@/lib/approvalSection/approvalSection";
+import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
+import { Employee } from "@/lib/types/Employee";
+
+interface EditRecord {
+  id?: number;
+  dateFiled?: string;
+  leaveType?: string;
+  from?: string;
+  to?: string;
+  noOfDays?: string | number;
+  commutation?: string;
+  details?: string;
+  status?: string;
+  recommendingApprovalById?: number | null;
+  authorizedOfficialId?: number | null;
+  approvedById?: number | null;
+  recommendationStatus?: string;
+  recommendationMessage?: string;
+  approvedStatus?: string;
+  approvalMessage?: string;
+  dueExigencyService?: boolean;
+}
 
 interface LeaveApplicationProps {
   employeeName: string;
+  editRecord?: EditRecord | null;
   onSubmitLeave: (leave: {
+    id?: number;
     employee: string;
     dateFiled: string;
     from: string;
     to: string;
     leaveType: string;
     status: string;
+    noOfDays?: string;
+    details?: string;
+    commutation?: string;
+    recommendingApprovalById?: number | null;
+    authorizedOfficialId?: number | null;
+    approvedById?: number | null;
+    recommendationStatus?: string;
+    recommendationMessage?: string;
+    approvedStatus?: string;
+    approvalMessage?: string;
+    dueExigencyService?: boolean;
   }) => void;
+  onClear?: () => void;
+  employees?: Employee[];
 }
+
+const initialFormState = {
+  dateFiled: "",
+  leaveType: "",
+  from: "",
+  to: "",
+  commutation: "notRequested",
+  details: "",
+  noOfDays: "",
+};
 
 export default function LeaveApplication({
   employeeName,
+  editRecord,
   onSubmitLeave,
+  onClear,
+  employees,
 }: LeaveApplicationProps) {
-  const initialFormState = {
-    dateFiled: "",
-    leaveType: "",
-    from: "",
-    to: "",
-    commutation: "requested",
-    details: "",
-    noOfDays: "",
-  };
 
   const [form, setForm] = useState(initialFormState);
+  const [approvalData, setApprovalData] = useState<ApprovalSectionData>({
+    recommendingApprovalById: null,
+    authorizedOfficialId: null,
+    approvedById: null,
+    recommendationStatus: "",
+    recommendationMessage: "",
+    approvedStatus: "",
+    approvalMessage: "",
+    dueExigencyService: false,
+  });
 
-  // Set dateFiled to today's date on component mount
+  // Stable reference — only changes when editRecord changes, preventing spurious effect re-fires
+  const approvalInitialValues = useMemo(() => ({
+    recommendingApprovalById: editRecord?.recommendingApprovalById,
+    authorizedOfficialId: editRecord?.authorizedOfficialId,
+    approvedById: editRecord?.approvedById,
+    recommendationStatus: editRecord?.recommendationStatus,
+    recommendationMessage: editRecord?.recommendationMessage,
+    approvedStatus: editRecord?.approvedStatus,
+    approvalMessage: editRecord?.approvalMessage,
+    dueExigencyService: editRecord?.dueExigencyService,
+  }), [editRecord]);
+
+  // Populate form from editRecord when editing, or reset with today's date otherwise
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
-    setForm((prev) => ({ ...prev, dateFiled: today }));
-  }, []);
+    if (editRecord) {
+      setForm({
+        dateFiled: editRecord.dateFiled || today,
+        leaveType: editRecord.leaveType || "",
+        from: editRecord.from || "",
+        to: editRecord.to || "",
+        commutation: editRecord.commutation || "notRequested",
+        details: editRecord.details || "",
+        noOfDays: editRecord.noOfDays != null ? String(editRecord.noOfDays) : "",
+      });
+    } else {
+      setForm({ ...initialFormState, dateFiled: today });
+    }
+  }, [editRecord]);
 
   const leaveTypes = [
     "Vacation Leave",
@@ -81,20 +155,35 @@ export default function LeaveApplication({
 
     // Call the parent component callback with form values
     onSubmitLeave({
+      id: editRecord?.id,
       employee: employeeName,
       dateFiled: form.dateFiled,
       from: isMonetization ? "" : form.from,
       to: isMonetization ? "" : form.to,
       leaveType: form.leaveType,
-      status: "Pending",
+      status: editRecord?.status || "Pending",
+      noOfDays: isMonetization ? form.noOfDays : "",
+      details: form.details,
+      commutation: form.commutation,
+      recommendingApprovalById: approvalData.recommendingApprovalById,
+      authorizedOfficialId: approvalData.authorizedOfficialId,
+      approvedById: approvalData.approvedById,
+      recommendationStatus: approvalData.recommendationStatus,
+      recommendationMessage: approvalData.recommendationMessage,
+      approvedStatus: approvalData.approvedStatus,
+      approvalMessage: approvalData.approvalMessage,
+      dueExigencyService: approvalData.dueExigencyService,
     });
 
-    setForm(initialFormState);
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...initialFormState, dateFiled: today });
   };
 
   const handleClear = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    setForm(initialFormState);
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ ...initialFormState, dateFiled: today });
+    onClear?.();
   };
 
   return (
@@ -228,7 +317,11 @@ export default function LeaveApplication({
 
         {/* Approval Section */}
         <div style={{ marginTop: "2rem" }}>
-          <ApprovalSection />
+          <ApprovalSection
+            employees={employees}
+            onDataChange={setApprovalData}
+            initialValues={approvalInitialValues}
+          />
         </div>
 
         {/* Buttons */}

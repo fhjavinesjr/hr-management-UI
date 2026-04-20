@@ -3,11 +3,14 @@ export const formatMoneyInput = (value: string | null | undefined) => {
   if (!value) {
     return "";
   }
-  const numericValue = String(value).replace(/[^\d]/g, "");
+  const str = String(value);
+  const [intPart, decPart] = str.split(".");
+  const cleanInt = intPart.replace(/[^\d]/g, "");
 
-  if (!numericValue) {
+  if (!cleanInt) {
     return "";
   }
 
-  return Number(numericValue).toLocaleString();
+  const formatted = Number(cleanInt).toLocaleString();
+  return decPart !== undefined ? `${formatted}.${decPart}` : formatted;
 };

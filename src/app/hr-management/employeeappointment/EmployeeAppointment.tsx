@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import styles from "@/styles/EmployeeAppointment.module.scss";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
@@ -101,6 +101,8 @@ export default function EmployeeAppointment({
 
   const [form, setForm] = useState<Appointment>(initialData || emptyForm);
   const [isDisabled, setIsDisabled] = useState(mode === "service_record" ? false : !initialData);
+  // Tracks the plantilla the employee already owns — never changes during editing
+  const originalPlantillaId = useRef<number | "">("");
 
   useEffect(() => {
     if(mode === "edit_add_employee_appointment") {
@@ -111,12 +113,14 @@ export default function EmployeeAppointment({
         );
 
         if (validAppointments.length > 0) {
-          // Find latest by assumptionToDutyDate
-          const latestAppointment = validAppointments.reduce((latest, current) => {
-            return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
-              ? current
-              : latest;
-          });
+          // Find the active appointment first; fall back to latest by assumptionToDutyDate
+          const latestAppointment =
+            validAppointments.find((a) => a.activeAppointment === true) ??
+            validAppointments.reduce((latest, current) => {
+              return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
+                ? current
+                : latest;
+            });
 
           // Map the latest appointment to form
           setForm({
@@ -137,6 +141,7 @@ export default function EmployeeAppointment({
           });
 
           setSelectedPositionId(latestAppointment.jobPositionId ? String(latestAppointment.jobPositionId) : "");
+          originalPlantillaId.current = latestAppointment.plantillaId ? Number(latestAppointment.plantillaId) : "";
           if (latestAppointment.jobPositionId) {
             loadPlantillaByJobPosition(Number(latestAppointment.jobPositionId));
           }
@@ -189,6 +194,7 @@ export default function EmployeeAppointment({
 
     if (initialData) {
       setForm(initialData);
+      originalPlantillaId.current = initialData.plantillaId !== "" ? Number(initialData.plantillaId) : "";
 
       if (initialData.jobPositionId) {
         setSelectedPositionId(String(initialData.jobPositionId));
@@ -198,12 +204,35 @@ export default function EmployeeAppointment({
   }, [initialData, loadJobPositions, loadNatureOfAppointment]);
 
   // -------------------- Handle form changes --------------------
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
     // Convert select IDs to numbers except when empty
     if (name === "natureOfAppointmentId" || name === "plantillaId" || name === "jobPositionId") {
       const val = value === "" ? "" : Number(value);
+
+      // Check if the selected plantilla is already taken by another active appointment
+      if (name === "plantillaId" && val !== "") {
+        if (val !== originalPlantillaId.current) {
+          try {
+            const res = await fetchWithAuth(
+              `${API_BASE_URL_HRM}/api/employeeAppointment/is-plantilla-taken/${val}`
+            );
+            const isTaken: boolean = await res.json();
+            if (isTaken) {
+              Swal.fire({
+                icon: "warning",
+                title: "Plantilla Already Taken",
+                text: "This Plantilla Item No. is already assigned to an active appointment. Each plantilla position can only be held by one employee at a time.",
+              });
+              return; // do not update the form
+            }
+          } catch (err) {
+            console.error("Failed to check plantilla availability", err);
+          }
+        }
+      }
+
       setForm((prev) => ({ ...prev, [name]: val }));
       // keep selectedPositionId in sync for job position selection UI
       if (name === "jobPositionId") setSelectedPositionId(String(value));
@@ -257,7 +286,7 @@ export default function EmployeeAppointment({
         if (data) {
           const monthly = Number(data.monthlySalary);
           const perAnnum = monthly * 12;
-          const perDay = Number((perAnnum / 365).toFixed(2));
+          const perDay = Number((monthly / 22).toFixed(2));
 
           setForm((prev) => ({
             ...prev,
@@ -295,12 +324,14 @@ export default function EmployeeAppointment({
         const validAppointments = employeeAppointments.filter(a => a.assumptionToDutyDate && !isNaN(new Date(a.assumptionToDutyDate).getTime()));
 
         if (validAppointments.length > 0) {
-          // Use reduce to find the latest date
-          latestAppointment = validAppointments.reduce((latest, current) => {
-            return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
-              ? current
-              : latest;
-          });
+          // Find the active appointment first; fall back to latest by assumptionToDutyDate
+          latestAppointment =
+            validAppointments.find((a) => a.activeAppointment === true) ??
+            validAppointments.reduce((latest, current) => {
+              return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
+                ? current
+                : latest;
+            });
         }
       }
 

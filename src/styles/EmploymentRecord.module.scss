@@ -52,24 +52,9 @@
             }
         }
 
-        .clearButton {
-            padding: 0.65rem 1.2rem;
-            background-color: #f59e0b;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-            width: 80px;
-
-            &:hover {
-                background-color: #d97706;
-            }
-        }
     }
 
-    /* Existing styles for tabs */
+    /* Tabs */
     .tabsHeader {
         display: flex;
         border-bottom: 2px solid #ccc;
@@ -83,9 +68,9 @@
             cursor: pointer;
 
             &.active {
-            border-bottom: 3px solid #0056b3;
-            font-weight: bold;
-            color: #0056b3;
+                border-bottom: 3px solid #0056b3;
+                font-weight: bold;
+                color: #0056b3;
             }
         }
     }
@@ -98,7 +83,23 @@
 
 }
 
-/* Search */
+.clearButton {
+    padding: 0.65rem 1.4rem;
+    background-color: #f59e0b;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    width: auto;
+    white-space: nowrap;
+
+    &:hover {
+        background-color: #d97706;
+    }
+}
+
 .searchInput {
   width: auto;
   padding: 0.6rem;

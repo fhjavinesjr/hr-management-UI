@@ -373,15 +373,18 @@ export default function PersonalData({
   // Populate personal data when fetched from backend
   useEffect(() => {
     if (personalData) {
+      // Normalize every null returned by the backend to "" so controlled inputs never receive null
+      const nullsToEmpty = Object.fromEntries(
+        Object.entries(personalData).map(([k, v]) => [k, v === null ? "" : v])
+      );
       setForm((prev) => ({
         ...prev,
-        ...personalData, // map matching fields directly
-        email: personalData.email ?? "",
-        mobileNo: personalData.mobileNo ?? "",
-        employeeNo: personalData.employeeNo ?? "",
-        dob: toDateInputValue(personalData.dob != null ? personalData.dob : ""),
-        govIdDate: toDateInputValue(personalData.govIdDate != null ? personalData.govIdDate : ""),
-        q35bDateFiled: toDateInputValue(personalData.q35bDateFiled || ""),
+        ...nullsToEmpty,
+        dob: toDateInputValue(personalData.dob ?? ""),
+        govIdDate: toDateInputValue(personalData.govIdDate ?? ""),
+        q35bDateFiled: toDateInputValue(personalData.q35bDateFiled ?? ""),
+        // Normalize q42 to a proper boolean — backend may return the string "true"/"false"
+        q42: personalData.q42 === true || (personalData.q42 as unknown) === "true",
       }));
     }
   }, [personalData]);
@@ -1867,7 +1870,34 @@ export default function PersonalData({
     }
 
     try {
-      if(form.q42 === false) {
+      // ── Required field validation ────────────────────────────────────
+      const requiredFields: Array<{ value: unknown; label: string }> = [
+        { value: form.employeeNo,      label: "Employee No." },
+        { value: form.biometricNo,     label: "Biometric No." },
+        { value: form.userRole,        label: "Role" },
+        { value: form.surname,         label: "Surname" },
+        { value: form.firstname,       label: "First Name" },
+        { value: form.middlename,      label: "Middle Name" },
+        { value: form.dob,             label: "Date of Birth" },
+        { value: form.sex_id,          label: "Sex" },
+        { value: form.civilStatus_id,  label: "Civil Status" },
+        { value: form.mobileNo,        label: "Mobile No." },
+        { value: form.email,           label: "Email" },
+      ];
+
+      for (const { value, label } of requiredFields) {
+        // Treat 0, "", null, undefined as empty
+        if (value === "" || value === null || value === undefined || value === 0) {
+          Swal.fire({
+            icon: "error",
+            title: "Required Field",
+            text: `${label} is required. Please fill in all fields marked with *.`,
+          });
+          return;
+        }
+      }
+
+      if(!form.q42) {
         Swal.fire({
               icon: "error",
               title: "Declaration Required",
@@ -1978,7 +2008,7 @@ export default function PersonalData({
         q39aDetails: form.q39aDetails ?? "",
         q39bDetails: form.q39bDetails ?? "",
         q39cDetails: form.q39cDetails ?? "",
-        q42: form.q42 ? "true" : "false",
+        q42: form.q42 === true,
         employeePicture:
           form.employeePicture instanceof File
             ? await toBase64(form.employeePicture) // Convert new uploads
@@ -2004,6 +2034,14 @@ export default function PersonalData({
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`Failed to save personal data: ${text}`);
+      }
+
+      // For updates the backend returns a Boolean — check that it actually succeeded
+      if (submitMethod === "PUT") {
+        const updateSuccess: boolean = await res.json();
+        if (!updateSuccess) {
+          throw new Error("Failed to update personal data. Please check the server logs for details.");
+        }
       }
 
       // Additionally sync children and educational background after personal data is saved

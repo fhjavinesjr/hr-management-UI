@@ -5,18 +5,22 @@ import styles from "@/styles/LeaveApplication.module.scss";
 import tableStyles from "@/styles/tables.module.scss";
 
 interface LeaveMonetizationRecord {
+  id: number;
   employee: string;
   dateFiled: string;
   noOfDays: number;
   leaveType: string;
   status: string;
+  details?: string;
 }
 
 interface LeaveMonetizationTableProps {
   data: LeaveMonetizationRecord[];
+  onEdit?: (record: LeaveMonetizationRecord) => void;
+  onDelete?: (record: LeaveMonetizationRecord) => void;
 }
 
-export default function LeaveMonetizationTable({ data }: LeaveMonetizationTableProps) {
+export default function LeaveMonetizationTable({ data, onEdit, onDelete }: LeaveMonetizationTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
@@ -25,6 +29,7 @@ export default function LeaveMonetizationTable({ data }: LeaveMonetizationTableP
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = data.slice(startIndex, endIndex);
+  const safeTotalPages = Math.max(1, totalPages);
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
@@ -67,18 +72,18 @@ export default function LeaveMonetizationTable({ data }: LeaveMonetizationTableP
             Previous
           </button>
           <span className={tableStyles.pageIndicator}>
-            Page {currentPage} of {totalPages}
+            Page {currentPage} of {safeTotalPages}
           </span>
           <button
             onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === safeTotalPages}
             className={tableStyles.paginationBtn}
           >
             Next
           </button>
           <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(safeTotalPages)}
+            disabled={currentPage === safeTotalPages}
             className={tableStyles.paginationBtn}
           >
             Last
@@ -93,11 +98,12 @@ export default function LeaveMonetizationTable({ data }: LeaveMonetizationTableP
             <th>No. of Days</th>
             <th>Leave Type</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {paginatedData.map((record, index) => (
-            <tr key={index}>
+          {paginatedData.map((record) => (
+            <tr key={record.id}>
               <td>{record.employee}</td>
               <td>{record.dateFiled}</td>
               <td>{record.noOfDays}</td>
@@ -114,6 +120,20 @@ export default function LeaveMonetizationTable({ data }: LeaveMonetizationTableP
                 >
                   {record.status}
                 </span>
+              </td>
+              <td className={tableStyles.actionCell}>
+                <button
+                  className={tableStyles.editBtn}
+                  onClick={() => onEdit?.(record)}
+                >
+                  Edit
+                </button>
+                <button
+                  className={tableStyles.deleteBtn}
+                  onClick={() => onDelete?.(record)}
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
