@@ -50,11 +50,11 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
     return emp ? `[${emp.employeeNo}] ${emp.fullName}` : "";
   };
 
-  const [recommendationStatus, setRecommendationStatus] = useState("");
+  const [recommendationStatus, setRecommendationStatus] = useState("Pending");
   const [recommendationMessage, setRecommendationMessage] = useState("");
   const [recommendingBy, setRecommendingBy] = useState("");
   const [authorizedOfficial, setAuthorizedOfficial] = useState("");
-  const [approvedStatus, setApprovedStatus] = useState("");
+  const [approvedStatus, setApprovedStatus] = useState("Pending");
   const [dueExigencyService, setDueExigencyService] = useState(false);
   const [approvalMessage, setApprovalMessage] = useState("");
   const [approvedBy, setApprovedBy] = useState("");

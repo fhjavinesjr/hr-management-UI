@@ -242,6 +242,22 @@ export default function HRLeaveApplicationModule() {
       return;
     }
 
+    // Overlapping inclusive dates check — skip the current record when editing
+    const isMonetizationCheck = leave.leaveType === "Leave Monetization";
+    if (!isMonetizationCheck && leave.from && leave.to) {
+      const overlap = allLeaves.some(
+        (existing) =>
+          existing.id !== leave.id &&
+          existing.from && existing.to &&
+          leave.from <= existing.to &&
+          leave.to >= existing.from
+      );
+      if (overlap) {
+        Swal.fire("Duplicate", "The inclusive dates overlap with an existing leave application for this employee.", "warning");
+        return;
+      }
+    }
+
     const isMonetization = leave.leaveType === "Leave Monetization";
     const isUpdate = leave.id && leave.id > 0;
 
@@ -380,7 +396,10 @@ export default function HRLeaveApplicationModule() {
     });
   };
 
-  const handleClearForm = () => setEditingRecord(null);
+  const handleClearForm = () => {
+    setEditingRecord(null);
+    setActiveTab("regularLeaves");
+  };
 
   return (
     <div className={modalStyles.Modal}>

@@ -5,6 +5,9 @@ import styles from "@/styles/LeaveApplication.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
 import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 import { Employee } from "@/lib/types/Employee";
+import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+
+const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
 
 interface EditRecord {
   id?: number;
@@ -76,9 +79,9 @@ export default function LeaveApplication({
     recommendingApprovalById: null,
     authorizedOfficialId: null,
     approvedById: null,
-    recommendationStatus: "",
+    recommendationStatus: "Pending",
     recommendationMessage: "",
-    approvedStatus: "",
+    approvedStatus: "Pending",
     approvalMessage: "",
     dueExigencyService: false,
   });
@@ -88,9 +91,9 @@ export default function LeaveApplication({
     recommendingApprovalById: editRecord?.recommendingApprovalById,
     authorizedOfficialId: editRecord?.authorizedOfficialId,
     approvedById: editRecord?.approvedById,
-    recommendationStatus: editRecord?.recommendationStatus,
+    recommendationStatus: editRecord?.recommendationStatus ?? "Pending",
     recommendationMessage: editRecord?.recommendationMessage,
-    approvedStatus: editRecord?.approvedStatus,
+    approvedStatus: editRecord?.approvedStatus ?? "Pending",
     approvalMessage: editRecord?.approvalMessage,
     dueExigencyService: editRecord?.dueExigencyService,
   }), [editRecord]);
@@ -113,26 +116,24 @@ export default function LeaveApplication({
     }
   }, [editRecord]);
 
-  const leaveTypes = [
-    "Vacation Leave",
-    "Sick Leave",
-    "Forced Leave",
-    "Special Privilege Leave",
-    "Study Leave",
-    "Terminal Leave",
-    "Paternity Leave",
-    "Maternity Leave",
-    "Solo Parent Leave",
-    "Adoption Leave",
-    "Rehabilitation Leave",
-    "Gynecological Leave",
-    "COVID-19 Treatment Leave",
-    "10-Day VAWC Leave",
-    "Special Emergency Leave",
-    "Leave Monetization",
-  ];
+  const [leaveTypes, setLeaveTypes] = useState<string[]>([]);
 
-  
+  useEffect(() => {
+    const fetchLeaveTypes = async () => {
+      try {
+        const res = await fetchWithAuth(
+          `${API_BASE_URL_ADMINISTRATIVE}/api/leaveTypes/get-all`
+        );
+        if (!res.ok) throw new Error("Failed to fetch leave types");
+        const data: { leaveTypesId: number; code: string; name: string }[] =
+          await res.json();
+        setLeaveTypes(data.map((lt) => lt.name));
+      } catch (err) {
+        console.error("Error fetching leave types:", err);
+      }
+    };
+    fetchLeaveTypes();
+  }, []);
 
   const isMonetization = form.leaveType === "Leave Monetization";
 
@@ -334,7 +335,7 @@ export default function LeaveApplication({
             onClick={handleClear}
             className={styles.clearBtn}
           >
-            Clear
+            Cancel
           </button>
         </div>
       </form>

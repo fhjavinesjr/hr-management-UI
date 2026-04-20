@@ -18,7 +18,15 @@ const menuItems = [
   },
 
   {
-  id: 2,
+    id: 2,
+    icon: "/LeaveApplication.png",
+    label: "Beginning Balance",
+    goto: "/hr-management/hrSelfService/Beginning-Balance",
+    isActive: false,
+  },
+
+  {
+  id: 3,
   icon: "/LeaveApplication.png",
   label: "Leave Application",
   goto: "/hr-management/hrSelfService/Leave-Application",
@@ -26,7 +34,7 @@ const menuItems = [
   },
 
   {
-    id: 3,
+    id: 4,
     icon: "/OvertimeRequest.png",
     label: "Overtime Request",
     goto: "/hr-management/hrSelfService/Overtime-Request",
@@ -34,7 +42,7 @@ const menuItems = [
   },
 
   {
-    id: 4,
+    id: 5,
     icon: "/CompensatoryTimeOff.png",
     label: "Compensatory Time Off",
     goto: "/hr-management/hrSelfService/Compensatory-Time-Off",
@@ -42,7 +50,7 @@ const menuItems = [
   },
 
   {
-    id: 5,
+    id: 6,
     icon: "/OfficialEngagement.png",
     label: "Official Engagement",
     goto: "/hr-management/hrSelfService/Official-Engagement",
@@ -50,7 +58,7 @@ const menuItems = [
   },
 
   {
-    id: 6,
+    id: 7,
     icon: "/PassSlip.png",
     label: "Pass Slip",
     goto: "/hr-management/hrSelfService/Pass-Slip",
@@ -58,7 +66,7 @@ const menuItems = [
   },
 
   {
-    id: 7,
+    id: 8,
     icon: "/TimeCorrection.png",
     label: "Time Correction",
     goto: "/hr-management/hrSelfService/Time-Correction",
