@@ -71,6 +71,22 @@ const menuItems = [
     label: "Time Correction",
     goto: "/hr-management/hrSelfService/Time-Correction",
     isActive: false,
+  },
+
+  {
+    id: 9,
+    icon: "/CompensatoryTimeOff.png",
+    label: "Compensatory Overtime Credit",
+    goto: "/hr-management/hrSelfService/Compensatory-Overtime-Credit",
+    isActive: false,
+  },
+
+  {
+    id: 10,
+    icon: "/LeaveApplication.png",
+    label: "Leave Information",
+    goto: "/hr-management/Leave-Information",
+    isActive: false,
   }
 ];
 

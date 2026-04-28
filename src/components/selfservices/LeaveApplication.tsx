@@ -162,7 +162,7 @@ export default function LeaveApplication({
       from: isMonetization ? "" : form.from,
       to: isMonetization ? "" : form.to,
       leaveType: form.leaveType,
-      status: editRecord?.status || "Pending",
+      status: approvalData.approvedStatus || editRecord?.status || "Pending",
       noOfDays: isMonetization ? form.noOfDays : "",
       details: form.details,
       commutation: form.commutation,

@@ -10,8 +10,10 @@ import LeaveMonetizationTable from "@/components/tables/LeaveMonetizationTable";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import useSalaryPeriodRange from "@/lib/utils/useSalaryPeriodRange";
 
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE ?? "";
 
 interface LeaveRecord {
   id: number;
@@ -84,8 +86,16 @@ export default function HRLeaveApplicationModule() {
   const [editingRecord, setEditingRecord] = useState<EditRecord | null>(null);
   const [rawDtos, setRawDtos] = useState<ApiLeaveDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { fromDate: periodFrom, toDate: periodTo } =
+    useSalaryPeriodRange(API_BASE_URL_ADMINISTRATIVE, "LEAVE");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  // Sync salary period dates into the date filter once resolved
+  useEffect(() => {
+    if (periodFrom) setDateFrom(periodFrom);
+    if (periodTo) setDateTo(periodTo);
+  }, [periodFrom, periodTo]);
 
   const [allLeaves, setAllLeaves] = useState<LeaveRecord[]>([]);
   const [allMonetizations, setAllMonetizations] = useState<LeaveMonetizationRecord[]>([]);
@@ -288,7 +298,7 @@ export default function HRLeaveApplicationModule() {
       const method = isUpdate ? "PUT" : "POST";
 
       const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error("API request failed");
+      if (!res.ok) throw new Error(await res.text());
 
       Toast.fire({ icon: "success", title: isUpdate ? "Record updated!" : "Record saved!" });
       setEditingRecord(null);
@@ -296,7 +306,7 @@ export default function HRLeaveApplicationModule() {
       await fetchLeaveRecords(selectedEmployee);
     } catch (err) {
       console.error("Error saving leave application:", err);
-      Swal.fire("Error", "Failed to save leave application. Please try again.", "error");
+      Swal.fire("Error", err instanceof Error ? err.message : "Failed to save leave application. Please try again.", "error");
     }
   };
 

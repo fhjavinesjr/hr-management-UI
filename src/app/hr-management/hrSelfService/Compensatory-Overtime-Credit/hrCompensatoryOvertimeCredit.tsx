@@ -7,37 +7,30 @@ import modalStyles from "@/styles/Modal.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
-import to12HourFormat from "@/lib/utils/convert24To12HrFormat";
-import Tstyle from "@/styles/TimeCorrection.module.scss";
 
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 
-interface TimeCorrectionDTO {
-  timeCorrectionId?: number;
+interface CocDTO {
+  cocId?: number;
   employeeId: number;
   dateFiled: string;
-  workDate: string;
-  correctedTimeIn: string;
-  correctedBreakOut?: string | null;
-  correctedBreakIn?: string | null;
-  correctedTimeOut: string;
+  dateWorked: string;
+  hoursWorked: number;
   reason: string;
+  workType: string;
   status: string;
   approvedById?: number | null;
   approvedAt?: string | null;
   approvalRemarks?: string | null;
+  currentBalance?: number;
 }
-
-type TimeField = { hour: string; minute: string };
 
 interface FormState {
   dateFiled: string;
-  workDate: string;
-  correctedTimeIn: TimeField;
-  correctedBreakOut: TimeField;
-  correctedBreakIn: TimeField;
-  correctedTimeOut: TimeField;
+  dateWorked: string;
+  hoursWorked: string;
   reason: string;
+  workType: string;
 }
 
 const Toast = Swal.mixin({
@@ -48,65 +41,26 @@ const Toast = Swal.mixin({
   timerProgressBar: true,
 });
 
-export default function HRTimeCorrectionModule() {
+export default function HRCompensatoryOvertimeCreditModule() {
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [records, setRecords] = useState<TimeCorrectionDTO[]>([]);
+  const [records, setRecords] = useState<CocDTO[]>([]);
+  const [availableBalance, setAvailableBalance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState<FormState>({
     dateFiled: today,
-    workDate: today,
-    correctedTimeIn: { hour: "08", minute: "00" },
-    correctedBreakOut: { hour: "", minute: "" },
-    correctedBreakIn: { hour: "", minute: "" },
-    correctedTimeOut: { hour: "17", minute: "00" },
+    dateWorked: today,
+    hoursWorked: "8",
     reason: "",
+    workType: "HOLIDAY_DUTY",
   });
 
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
-  const toTimeString = (t: TimeField) =>
-    t.hour && t.minute ? `${t.hour}:${t.minute}:00` : null;
-  const to12 = (t: TimeField) =>
-    t.hour && t.minute ? to12HourFormat(`${t.hour}:${t.minute}`) : "";
-
-  const renderTimeSelect = (
-    field: "correctedTimeIn" | "correctedBreakOut" | "correctedBreakIn" | "correctedTimeOut"
-  ) => {
-    const val = form[field] as TimeField;
-    return (
-      <div>
-        <div className={Tstyle.timeGroup}>
-          <select
-            className={Tstyle.timeSelect}
-            value={val.hour}
-            onChange={(e) => setForm({ ...form, [field]: { ...val, hour: e.target.value } })}
-          >
-            <option value="">--</option>
-            {hours.map((h) => <option key={h} value={h}>{h}</option>)}
-          </select>
-          <span className={Tstyle.timeColon}>:</span>
-          <select
-            className={Tstyle.timeSelect}
-            value={val.minute}
-            onChange={(e) => setForm({ ...form, [field]: { ...val, minute: e.target.value } })}
-          >
-            <option value="">--</option>
-            {minutes.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-        {val.hour && val.minute && (
-          <span className={Tstyle.time12Label}>{to12(val)}</span>
-        )}
-      </div>
-    );
-  };
-
+  // Load employees from localStorage
   useEffect(() => {
     const stored = localStorageUtil.getEmployees();
     if (stored && stored.length > 0) setEmployees(stored);
@@ -121,26 +75,40 @@ export default function HRTimeCorrectionModule() {
     );
   }, [search, employees]);
 
+  const fetchBalance = useCallback(async (empId: string | number) => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/balance/${empId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setAvailableBalance(data.availableHours ?? 0);
+    } catch {
+      setAvailableBalance(null);
+    }
+  }, []);
+
   const fetchRecords = useCallback(async (emp: Employee) => {
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/time-correction/get-all/${emp.employeeId}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch records");
-      const data: TimeCorrectionDTO[] = await res.json();
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/get-all/${emp.employeeId}`);
+      if (!res.ok) throw new Error("Failed to fetch COC records");
+      const data: CocDTO[] = await res.json();
       setRecords(data);
     } catch {
-      Toast.fire({ icon: "error", title: "Could not load time correction records" });
+      Toast.fire({ icon: "error", title: "Could not load COC records" });
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selectedEmployee) fetchRecords(selectedEmployee);
-    else setRecords([]);
-  }, [selectedEmployee, fetchRecords]);
+    if (selectedEmployee) {
+      fetchRecords(selectedEmployee);
+      fetchBalance(selectedEmployee.employeeId);
+    } else {
+      setRecords([]);
+      setAvailableBalance(null);
+    }
+  }, [selectedEmployee, fetchRecords, fetchBalance]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,74 +116,67 @@ export default function HRTimeCorrectionModule() {
       Swal.fire({ icon: "warning", title: "No employee selected" });
       return;
     }
-    if (!form.reason.trim()) {
-      Swal.fire({ icon: "warning", title: "Please provide a reason for the correction" });
+    const hrs = parseFloat(form.hoursWorked);
+    if (isNaN(hrs) || hrs <= 0) {
+      Swal.fire({ icon: "warning", title: "Enter valid hours worked" });
       return;
     }
     setIsSubmitting(true);
     try {
-      const payload: TimeCorrectionDTO = {
+      const payload: CocDTO = {
         employeeId: Number(selectedEmployee.employeeId),
         dateFiled: form.dateFiled,
-        workDate: form.workDate,
-        correctedTimeIn: toTimeString(form.correctedTimeIn)!,
-        correctedBreakOut: toTimeString(form.correctedBreakOut) ?? null,
-        correctedBreakIn: toTimeString(form.correctedBreakIn) ?? null,
-        correctedTimeOut: toTimeString(form.correctedTimeOut)!,
+        dateWorked: form.dateWorked,
+        hoursWorked: hrs,
         reason: form.reason,
+        workType: form.workType,
         status: "Pending",
       };
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/time-correction/create`, {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/create`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Time correction filed successfully" });
-      setForm({
-        dateFiled: today,
-        workDate: today,
-        correctedTimeIn: { hour: "08", minute: "00" },
-        correctedBreakOut: { hour: "", minute: "" },
-        correctedBreakIn: { hour: "", minute: "" },
-        correctedTimeOut: { hour: "17", minute: "00" },
-        reason: "",
-      });
+      Toast.fire({ icon: "success", title: "COC application filed successfully" });
+      setForm({ dateFiled: today, dateWorked: today, hoursWorked: "8", reason: "", workType: "HOLIDAY_DUTY" });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
+      fetchBalance(selectedEmployee.employeeId);
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed to file time correction", text: err instanceof Error ? err.message : String(err) });
+      Swal.fire({ icon: "error", title: "Failed to file COC application", text: String(err) });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleApprove = async (id: number) => {
+  const handleApprove = async (cocId: number) => {
     const approvedById = localStorageUtil.getEmployeeId();
     const { value: remarks } = await Swal.fire({
-      title: "Approve Time Correction",
+      title: "Approve COC Application",
       input: "text",
       inputLabel: "Remarks (optional)",
       showCancelButton: true,
       confirmButtonText: "Approve",
+      confirmButtonColor: "#16a34a",
     });
     if (remarks === undefined) return;
     try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/time-correction/approve/${id}`,
-        { method: "PUT", body: JSON.stringify({ approvedById, remarks: remarks ?? "" }) }
-      );
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/approve/${cocId}`, {
+        method: "PUT",
+        body: JSON.stringify({ approvedById, remarks: remarks ?? "" }),
+      });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Time correction approved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
+      Toast.fire({ icon: "success", title: "COC approved — balance updated" });
+      if (selectedEmployee) { fetchRecords(selectedEmployee); fetchBalance(selectedEmployee.employeeId); }
     } catch (err) {
       Swal.fire({ icon: "error", title: "Approval failed", text: String(err) });
     }
   };
 
-  const handleDisapprove = async (id: number) => {
+  const handleDisapprove = async (cocId: number) => {
     const approvedById = localStorageUtil.getEmployeeId();
     const { value: remarks } = await Swal.fire({
-      title: "Disapprove Time Correction",
+      title: "Disapprove COC Application",
       input: "text",
       inputLabel: "Reason for disapproval",
       inputValidator: (v) => (!v ? "Please provide a reason" : null),
@@ -225,21 +186,21 @@ export default function HRTimeCorrectionModule() {
     });
     if (remarks === undefined) return;
     try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/time-correction/disapprove/${id}`,
-        { method: "PUT", body: JSON.stringify({ approvedById, remarks }) }
-      );
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/disapprove/${cocId}`, {
+        method: "PUT",
+        body: JSON.stringify({ approvedById, remarks }),
+      });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Time correction disapproved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
+      Toast.fire({ icon: "success", title: "COC disapproved" });
+      if (selectedEmployee) { fetchRecords(selectedEmployee); fetchBalance(selectedEmployee.employeeId); }
     } catch (err) {
       Swal.fire({ icon: "error", title: "Failed", text: String(err) });
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (cocId: number) => {
     const confirm = await Swal.fire({
-      title: "Delete this record?",
+      title: "Delete this COC record?",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Delete",
@@ -247,13 +208,10 @@ export default function HRTimeCorrectionModule() {
     });
     if (!confirm.isConfirmed) return;
     try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/time-correction/delete/${id}`,
-        { method: "DELETE" }
-      );
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/delete/${cocId}`, { method: "DELETE" });
       if (!res.ok) throw new Error(await res.text());
       Toast.fire({ icon: "success", title: "Record deleted" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
+      if (selectedEmployee) { fetchRecords(selectedEmployee); fetchBalance(selectedEmployee.employeeId); }
     } catch (err) {
       Swal.fire({ icon: "error", title: "Delete failed", text: String(err) });
     }
@@ -263,6 +221,7 @@ export default function HRTimeCorrectionModule() {
     setSearch("");
     setSelectedEmployee(null);
     setRecords([]);
+    setAvailableBalance(null);
     setShowSuggestions(false);
     setActiveTab("table");
   };
@@ -278,12 +237,13 @@ export default function HRTimeCorrectionModule() {
     <div className={modalStyles.Modal}>
       <div className={modalStyles.modalContent}>
         <div className={modalStyles.modalHeader}>
-          <h2 className={modalStyles.mainTitle}>Time Correction</h2>
+          <h2 className={modalStyles.mainTitle}>Compensatory Overtime Credit (COC)</h2>
         </div>
 
         <div className={modalStyles.modalBody}>
           <div className={styles.EmploymentRecord}>
             <div className={styles.stickyHeader}>
+              {/* Employee search */}
               <div className={styles.formGroup} style={{ position: "relative" }}>
                 <label>Search Employee</label>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -314,57 +274,62 @@ export default function HRTimeCorrectionModule() {
                       </ul>
                     )}
                   </div>
-                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     <button onClick={handleClear} className={styles.clearButton}>Clear</button>
+                    {availableBalance !== null && (
+                      <span style={{ fontWeight: 700, color: "#2563eb", fontSize: "0.9rem" }}>
+                        Available COC Balance: {availableBalance.toFixed(2)} hrs
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
+              {/* Tabs */}
               <div className={styles.tabsHeader}>
-                <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => setActiveTab("apply")}>File TC</button>
+                <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>Records</button>
+                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => setActiveTab("apply")}>File COC</button>
               </div>
             </div>
 
+            {/* Tab Content */}
             <div className={styles.tabContent}>
               {activeTab === "table" && (
                 <>
-                  <h3>{selectedEmployee ? `Time Corrections — ${selectedEmployee.fullName}` : "Search and select an employee"}</h3>
+                  <h3>{selectedEmployee ? `COC Records — ${selectedEmployee.fullName}` : "Search and select an employee"}</h3>
                   {isLoading && <p>Loading...</p>}
-                  {!isLoading && selectedEmployee && records.length === 0 && <p>No records found.</p>}
+                  {!isLoading && selectedEmployee && records.length === 0 && <p>No COC records found.</p>}
                   {!isLoading && records.length > 0 && (
                     <div style={{ overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                         <thead>
                           <tr style={{ background: "#f1f5f9" }}>
                             <th style={th}>Date Filed</th>
-                            <th style={th}>Work Date</th>
-                            <th style={th}>Corrected Time In</th>
-                            <th style={th}>Break Out</th>
-                            <th style={th}>Break In</th>
-                            <th style={th}>Corrected Time Out</th>
+                            <th style={th}>Date Worked</th>
+                            <th style={th}>Hours</th>
+                            <th style={th}>Type</th>
                             <th style={th}>Reason</th>
                             <th style={th}>Status</th>
+                            <th style={th}>Remarks</th>
                             <th style={th}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {records.map((r) => (
-                            <tr key={r.timeCorrectionId} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <tr key={r.cocId} style={{ borderBottom: "1px solid #e2e8f0" }}>
                               <td style={td}>{r.dateFiled}</td>
-                              <td style={td}>{r.workDate}</td>
-                              <td style={td}>{r.correctedTimeIn}</td>
-                              <td style={td}>{r.correctedBreakOut ?? "—"}</td>
-                              <td style={td}>{r.correctedBreakIn ?? "—"}</td>
-                              <td style={td}>{r.correctedTimeOut}</td>
+                              <td style={td}>{r.dateWorked}</td>
+                              <td style={td}>{r.hoursWorked}</td>
+                              <td style={td}>{r.workType === "HOLIDAY_DUTY" ? "Holiday Duty" : "Overtime"}</td>
                               <td style={td}>{r.reason}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
+                              <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
                                 {r.status === "Pending" && (
                                   <div style={{ display: "flex", gap: "0.4rem" }}>
-                                    <button onClick={() => handleApprove(r.timeCorrectionId!)} style={btnApprove}>Approve</button>
-                                    <button onClick={() => handleDisapprove(r.timeCorrectionId!)} style={btnDisapprove}>Disapprove</button>
-                                    <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>
+                                    <button onClick={() => handleApprove(r.cocId!)} style={btnApprove}>Approve</button>
+                                    <button onClick={() => handleDisapprove(r.cocId!)} style={btnDisapprove}>Disapprove</button>
+                                    <button onClick={() => handleDelete(r.cocId!)} style={btnDelete}>Delete</button>
                                   </div>
                                 )}
                               </td>
@@ -379,40 +344,35 @@ export default function HRTimeCorrectionModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File Time Correction{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}</h3>
+                  <h3>File COC Application{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
                   {selectedEmployee && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
-                        <input type="date" value={form.dateFiled} readOnly className={styles.inputField} />
+                        <input type="date" value={form.dateFiled} onChange={(e) => setForm({ ...form, dateFiled: e.target.value })} className={styles.inputField} required />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Work Date (Date to Correct)</label>
-                        <input type="date" value={form.workDate} onChange={(e) => setForm({ ...form, workDate: e.target.value })} className={styles.inputField} required />
+                        <label>Date Worked (Holiday / Overtime Date)</label>
+                        <input type="date" value={form.dateWorked} onChange={(e) => setForm({ ...form, dateWorked: e.target.value })} className={styles.inputField} required />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Corrected Time In</label>
-                        {renderTimeSelect("correctedTimeIn")}
+                        <label>Hours Worked</label>
+                        <input type="number" step="0.5" min="0.5" max="24" value={form.hoursWorked} onChange={(e) => setForm({ ...form, hoursWorked: e.target.value })} className={styles.inputField} required />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Break Out <span style={{ fontWeight: 400, fontSize: "0.82rem", color: "#6b7280" }}>(optional)</span></label>
-                        {renderTimeSelect("correctedBreakOut")}
+                        <label>Work Type</label>
+                        <select value={form.workType} onChange={(e) => setForm({ ...form, workType: e.target.value })} className={styles.inputField}>
+                          <option value="HOLIDAY_DUTY">Holiday Duty</option>
+                          <option value="OVERTIME">Overtime</option>
+                        </select>
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Break In <span style={{ fontWeight: 400, fontSize: "0.82rem", color: "#6b7280" }}>(optional)</span></label>
-                        {renderTimeSelect("correctedBreakIn")}
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>Corrected Time Out</label>
-                        {renderTimeSelect("correctedTimeOut")}
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>Reason for Correction</label>
+                        <label>Reason / Justification</label>
                         <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={styles.inputField} rows={3} required />
                       </div>
                       <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
-                        {isSubmitting ? "Submitting..." : "Submit Time Correction"}
+                        {isSubmitting ? "Submitting..." : "File COC Application"}
                       </button>
                     </form>
                   )}
