@@ -127,7 +127,8 @@ export default function LeaveApplication({
         if (!res.ok) throw new Error("Failed to fetch leave types");
         const data: { leaveTypesId: number; code: string; name: string }[] =
           await res.json();
-        setLeaveTypes(data.map((lt) => lt.name));
+        // Leave Monetization is handled via its own dedicated form — exclude it here
+        setLeaveTypes(data.map((lt) => lt.name).filter((name) => name !== "Leave Monetization"));
       } catch (err) {
         console.error("Error fetching leave types:", err);
       }

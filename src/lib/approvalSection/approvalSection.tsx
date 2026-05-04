@@ -20,9 +20,11 @@ interface ApprovalSectionProps {
   employees?: Employee[];
   initialValues?: Partial<ApprovalSectionData>;
   onDataChange?: (data: ApprovalSectionData) => void;
+  showAuthorizedOfficial?: boolean;
+  showDueExigency?: boolean;
 }
 
-export default function ApprovalSection({ employees: propEmployees, initialValues, onDataChange }: ApprovalSectionProps = {}) {
+export default function ApprovalSection({ employees: propEmployees, initialValues, onDataChange, showAuthorizedOfficial = true, showDueExigency = true }: ApprovalSectionProps = {}) {
   const [employees, setEmployees] = useState<Employee[]>(propEmployees ?? []);
 
   // Fall back to localStorage if no employees were passed as prop
@@ -165,33 +167,35 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
         </datalist>
       </div>
 
-      <div className={styles.section}>
-        <label>
-          Authorized Official{" "}
-          <span className={styles.guide}>(Last Name, First Name or ID No.)</span>
-        </label>
-        <input
-          type="text"
-          list="authorized-official-list"
-          value={authorizedOfficial}
-          onChange={(e) => {
-            setAuthorizedOfficial(e.target.value);
-            const id = resolveEmployeeId(e.target.value);
-            const updated = { ...officerIds, authorizedOfficialId: id };
-            setOfficerIds(updated);
-            fireChange({ authorizedOfficialId: id });
-          }}
-          placeholder="Search employee name or ID"
-        />
-        <datalist id="authorized-official-list">
-          {employees.map((emp) => (
-            <option
-              key={emp.employeeNo}
-              value={`[${emp.employeeNo}] ${emp.fullName}`}
-            />
-          ))}
-        </datalist>
-      </div>
+      {showAuthorizedOfficial && (
+        <div className={styles.section}>
+          <label>
+            Authorized Official{" "}
+            <span className={styles.guide}>(Last Name, First Name or ID No.)</span>
+          </label>
+          <input
+            type="text"
+            list="authorized-official-list"
+            value={authorizedOfficial}
+            onChange={(e) => {
+              setAuthorizedOfficial(e.target.value);
+              const id = resolveEmployeeId(e.target.value);
+              const updated = { ...officerIds, authorizedOfficialId: id };
+              setOfficerIds(updated);
+              fireChange({ authorizedOfficialId: id });
+            }}
+            placeholder="Search employee name or ID"
+          />
+          <datalist id="authorized-official-list">
+            {employees.map((emp) => (
+              <option
+                key={emp.employeeNo}
+                value={`[${emp.employeeNo}] ${emp.fullName}`}
+              />
+            ))}
+          </datalist>
+        </div>
+      )}
 
       {/* Approval Section */}
       <div className={styles.sectionInline}>
@@ -211,19 +215,21 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
             <option value="Cancel">Cancel</option>
           </select>
         </div>
-        <div className={styles.inlineRight}>
-          <label>
-            <input
-              type="checkbox"
-              checked={dueExigencyService}
-              onChange={(e) => {
-                setDueExigencyService(e.target.checked);
-                fireChange({ dueExigencyService: e.target.checked });
-              }}
-            />
-            Due Exigency Service
-          </label>
-        </div>
+        {showDueExigency && (
+          <div className={styles.inlineRight}>
+            <label>
+              <input
+                type="checkbox"
+                checked={dueExigencyService}
+                onChange={(e) => {
+                  setDueExigencyService(e.target.checked);
+                  fireChange({ dueExigencyService: e.target.checked });
+                }}
+              />
+              Due Exigency of Service
+            </label>
+          </div>
+        )}
       </div>
 
       <div className={styles.section}>

@@ -7,6 +7,7 @@ import modalStyles from "@/styles/Modal.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 import to12HourFormat from "@/lib/utils/convert24To12HrFormat";
 import Tstyle from "@/styles/TimeCorrection.module.scss";
 
@@ -26,6 +27,9 @@ interface TimeCorrectionDTO {
   approvedById?: number | null;
   approvedAt?: string | null;
   approvalRemarks?: string | null;
+  recommendationStatus?: string | null;
+  recommendedById?: number | null;
+  recommendationRemarks?: string | null;
 }
 
 type TimeField = { hour: string; minute: string };
@@ -57,6 +61,18 @@ export default function HRTimeCorrectionModule() {
   const [records, setRecords] = useState<TimeCorrectionDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [approvalData, setApprovalData] = useState<ApprovalSectionData>({
+    recommendationStatus: "Pending",
+    recommendationMessage: "",
+    recommendingApprovalById: null,
+    authorizedOfficialId: null,
+    approvedById: null,
+    approvedStatus: "Pending",
+    approvalMessage: "",
+    dueExigencyService: false,
+  });
+  const [approvalInitialValues, setApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState<FormState>({
     dateFiled: today,
@@ -163,23 +179,25 @@ export default function HRTimeCorrectionModule() {
         correctedBreakIn: toTimeString(form.correctedBreakIn) ?? null,
         correctedTimeOut: toTimeString(form.correctedTimeOut)!,
         reason: form.reason,
-        status: "Pending",
+        status: approvalData.approvedStatus || "Pending",
+        approvedById: approvalData.approvedById,
+        approvalRemarks: approvalData.approvalMessage,
+        recommendationStatus: approvalData.recommendationStatus || "Pending",
+        recommendedById: approvalData.recommendingApprovalById,
+        recommendationRemarks: approvalData.recommendationMessage,
       };
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/time-correction/create`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const isUpdate = editingId !== null;
+      const url = isUpdate
+        ? `${API_BASE_URL_HRM}/api/time-correction/update/${editingId}`
+        : `${API_BASE_URL_HRM}/api/time-correction/create`;
+      const method = isUpdate ? "PUT" : "POST";
+      const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Time correction filed successfully" });
-      setForm({
-        dateFiled: today,
-        workDate: today,
-        correctedTimeIn: { hour: "08", minute: "00" },
-        correctedBreakOut: { hour: "", minute: "" },
-        correctedBreakIn: { hour: "", minute: "" },
-        correctedTimeOut: { hour: "17", minute: "00" },
-        reason: "",
-      });
+      Toast.fire({ icon: "success", title: isUpdate ? "Time correction updated" : "Time correction filed successfully" });
+      setForm({ dateFiled: today, workDate: today, correctedTimeIn: { hour: "08", minute: "00" }, correctedBreakOut: { hour: "", minute: "" }, correctedBreakIn: { hour: "", minute: "" }, correctedTimeOut: { hour: "17", minute: "00" }, reason: "" });
+      setEditingId(null);
+      setApprovalInitialValues(undefined);
+      setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
     } catch (err) {
@@ -189,52 +207,36 @@ export default function HRTimeCorrectionModule() {
     }
   };
 
-  const handleApprove = async (id: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Approve Time Correction",
-      input: "text",
-      inputLabel: "Remarks (optional)",
-      showCancelButton: true,
-      confirmButtonText: "Approve",
-    });
-    if (remarks === undefined) return;
-    try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/time-correction/approve/${id}`,
-        { method: "PUT", body: JSON.stringify({ approvedById, remarks: remarks ?? "" }) }
-      );
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Time correction approved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Approval failed", text: String(err) });
-    }
+  const parseTime = (t: string | null | undefined): TimeField => {
+    if (!t) return { hour: "", minute: "" };
+    const parts = t.split(":");
+    return { hour: parts[0] ?? "", minute: parts[1] ?? "" };
   };
 
-  const handleDisapprove = async (id: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Disapprove Time Correction",
-      input: "text",
-      inputLabel: "Reason for disapproval",
-      inputValidator: (v) => (!v ? "Please provide a reason" : null),
-      showCancelButton: true,
-      confirmButtonText: "Disapprove",
-      confirmButtonColor: "#d33",
+  const handleEdit = (r: TimeCorrectionDTO) => {
+    setForm({
+      dateFiled: r.dateFiled ?? today,
+      workDate: r.workDate ?? today,
+      correctedTimeIn: parseTime(r.correctedTimeIn as unknown as string),
+      correctedBreakOut: parseTime(r.correctedBreakOut as unknown as string),
+      correctedBreakIn: parseTime(r.correctedBreakIn as unknown as string),
+      correctedTimeOut: parseTime(r.correctedTimeOut as unknown as string),
+      reason: r.reason ?? "",
     });
-    if (remarks === undefined) return;
-    try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/time-correction/disapprove/${id}`,
-        { method: "PUT", body: JSON.stringify({ approvedById, remarks }) }
-      );
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Time correction disapproved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed", text: String(err) });
-    }
+    const initVals: Partial<ApprovalSectionData> = {
+      approvedStatus: r.status ?? "Pending",
+      approvalMessage: r.approvalRemarks ?? "",
+      approvedById: r.approvedById ?? null,
+      recommendationStatus: r.recommendationStatus ?? "Pending",
+      recommendationMessage: r.recommendationRemarks ?? "",
+      recommendingApprovalById: r.recommendedById ?? null,
+      authorizedOfficialId: null,
+      dueExigencyService: false,
+    };
+    setApprovalInitialValues(initVals);
+    setApprovalData(prev => ({ ...prev, ...initVals }));
+    setEditingId(r.timeCorrectionId!);
+    setActiveTab("apply");
   };
 
   const handleDelete = async (id: number) => {
@@ -264,6 +266,9 @@ export default function HRTimeCorrectionModule() {
     setSelectedEmployee(null);
     setRecords([]);
     setShowSuggestions(false);
+    setEditingId(null);
+    setApprovalInitialValues(undefined);
+    setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
     setActiveTab("table");
   };
 
@@ -322,7 +327,7 @@ export default function HRTimeCorrectionModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => setActiveTab("apply")}>File TC</button>
+                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File TC</button>
               </div>
             </div>
 
@@ -359,14 +364,7 @@ export default function HRTimeCorrectionModule() {
                               <td style={td}>{r.correctedTimeOut}</td>
                               <td style={td}>{r.reason}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
-                              <td style={td}>
-                                {r.status === "Pending" && (
-                                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                                    <button onClick={() => handleApprove(r.timeCorrectionId!)} style={btnApprove}>Approve</button>
-                                    <button onClick={() => handleDisapprove(r.timeCorrectionId!)} style={btnDisapprove}>Disapprove</button>
-                                    <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>
-                                  </div>
-                                )}
+                              <td style={td}>                                  <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>                                <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>
                               </td>
                             </tr>
                           ))}
@@ -379,7 +377,7 @@ export default function HRTimeCorrectionModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File Time Correction{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}</h3>
+                  <h3>File Time Correction{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
                   {selectedEmployee && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
@@ -411,8 +409,9 @@ export default function HRTimeCorrectionModule() {
                         <label>Reason for Correction</label>
                         <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={styles.inputField} rows={3} required />
                       </div>
+                      <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
                       <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
-                        {isSubmitting ? "Submitting..." : "Submit Time Correction"}
+                        {isSubmitting ? "Submitting..." : editingId ? "Update Time Correction" : "Submit Time Correction"}
                       </button>
                     </form>
                   )}
@@ -428,6 +427,5 @@ export default function HRTimeCorrectionModule() {
 
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
-const btnApprove: React.CSSProperties = { padding: "3px 8px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
-const btnDisapprove: React.CSSProperties = { ...btnApprove, background: "#dc2626" };
-const btnDelete: React.CSSProperties = { ...btnApprove, background: "#6b7280" };
+const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
+const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };

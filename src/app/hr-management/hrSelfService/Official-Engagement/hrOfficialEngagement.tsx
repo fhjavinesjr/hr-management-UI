@@ -7,6 +7,7 @@ import modalStyles from "@/styles/Modal.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 
@@ -24,6 +25,9 @@ interface OfficialEngagementApplicationDTO {
   approvedById?: number | null;
   approvedAt?: string | null;
   approvalRemarks?: string | null;
+  recommendationStatus?: string | null;
+  recommendedById?: number | null;
+  recommendationRemarks?: string | null;
 }
 
 interface FormState {
@@ -53,6 +57,18 @@ export default function HROfficialEngagementModule() {
   const [records, setRecords] = useState<OfficialEngagementApplicationDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [approvalData, setApprovalData] = useState<ApprovalSectionData>({
+    recommendationStatus: "Pending",
+    recommendationMessage: "",
+    recommendingApprovalById: null,
+    authorizedOfficialId: null,
+    approvedById: null,
+    approvedStatus: "Pending",
+    approvalMessage: "",
+    dueExigencyService: false,
+  });
+  const [approvalInitialValues, setApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState<FormState>({
     dateFiled: today,
@@ -116,27 +132,29 @@ export default function HROfficialEngagementModule() {
         dateFiled: form.dateFiled,
         officialType: form.officialType,
         startDate: form.startDate,
-        startTime: form.startTime,
+        startTime: form.startTime.length === 5 ? form.startTime + ":00" : form.startTime,
         endDate: form.endDate,
-        endTime: form.endTime,
+        endTime: form.endTime.length === 5 ? form.endTime + ":00" : form.endTime,
         details: form.details,
-        status: "Pending",
+        status: approvalData.approvedStatus || "Pending",
+        approvedById: approvalData.approvedById,
+        approvalRemarks: approvalData.approvalMessage,
+        recommendationStatus: approvalData.recommendationStatus || "Pending",
+        recommendedById: approvalData.recommendingApprovalById,
+        recommendationRemarks: approvalData.recommendationMessage,
       };
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/official-engagement/create`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const isUpdate = editingId !== null;
+      const url = isUpdate
+        ? `${API_BASE_URL_HRM}/api/official-engagement/update/${editingId}`
+        : `${API_BASE_URL_HRM}/api/official-engagement/create`;
+      const method = isUpdate ? "PUT" : "POST";
+      const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Official engagement filed successfully" });
-      setForm({
-        dateFiled: today,
-        officialType: "Official Business",
-        startDate: today,
-        startTime: "08:00",
-        endDate: today,
-        endTime: "17:00",
-        details: "",
-      });
+      Toast.fire({ icon: "success", title: isUpdate ? "Official engagement updated" : "Official engagement filed successfully" });
+      setForm({ dateFiled: today, officialType: "Official Business", startDate: today, startTime: "08:00", endDate: today, endTime: "17:00", details: "" });
+      setEditingId(null);
+      setApprovalInitialValues(undefined);
+      setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
     } catch (err) {
@@ -146,52 +164,30 @@ export default function HROfficialEngagementModule() {
     }
   };
 
-  const handleApprove = async (id: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Approve Official Engagement",
-      input: "text",
-      inputLabel: "Remarks (optional)",
-      showCancelButton: true,
-      confirmButtonText: "Approve",
+  const handleEdit = (r: OfficialEngagementApplicationDTO) => {
+    setForm({
+      dateFiled: r.dateFiled ?? today,
+      officialType: r.officialType ?? "Official Business",
+      startDate: r.startDate ?? today,
+      startTime: r.startTime?.substring(0, 5) ?? "08:00",
+      endDate: r.endDate ?? today,
+      endTime: r.endTime?.substring(0, 5) ?? "17:00",
+      details: r.details ?? "",
     });
-    if (remarks === undefined) return;
-    try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/official-engagement/approve/${id}`,
-        { method: "PUT", body: JSON.stringify({ approvedById, remarks: remarks ?? "" }) }
-      );
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Official engagement approved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Approval failed", text: String(err) });
-    }
-  };
-
-  const handleDisapprove = async (id: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Disapprove Official Engagement",
-      input: "text",
-      inputLabel: "Reason for disapproval",
-      inputValidator: (v) => (!v ? "Please provide a reason" : null),
-      showCancelButton: true,
-      confirmButtonText: "Disapprove",
-      confirmButtonColor: "#d33",
-    });
-    if (remarks === undefined) return;
-    try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/official-engagement/disapprove/${id}`,
-        { method: "PUT", body: JSON.stringify({ approvedById, remarks }) }
-      );
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Official engagement disapproved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed", text: String(err) });
-    }
+    const initVals: Partial<ApprovalSectionData> = {
+      approvedStatus: r.status ?? "Pending",
+      approvalMessage: r.approvalRemarks ?? "",
+      approvedById: r.approvedById ?? null,
+      recommendationStatus: r.recommendationStatus ?? "Pending",
+      recommendationMessage: r.recommendationRemarks ?? "",
+      recommendingApprovalById: r.recommendedById ?? null,
+      authorizedOfficialId: null,
+      dueExigencyService: false,
+    };
+    setApprovalInitialValues(initVals);
+    setApprovalData(prev => ({ ...prev, ...initVals }));
+    setEditingId(r.officialEngagementApplicationId!);
+    setActiveTab("apply");
   };
 
   const handleDelete = async (id: number) => {
@@ -221,6 +217,9 @@ export default function HROfficialEngagementModule() {
     setSelectedEmployee(null);
     setRecords([]);
     setShowSuggestions(false);
+    setEditingId(null);
+    setApprovalInitialValues(undefined);
+    setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
     setActiveTab("table");
   };
 
@@ -279,7 +278,7 @@ export default function HROfficialEngagementModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => setActiveTab("apply")}>File OE</button>
+                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File OE</button>
               </div>
             </div>
 
@@ -316,14 +315,7 @@ export default function HROfficialEngagementModule() {
                               <td style={td}>{r.endTime}</td>
                               <td style={td}>{r.details}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
-                              <td style={td}>
-                                {r.status === "Pending" && (
-                                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                                    <button onClick={() => handleApprove(r.officialEngagementApplicationId!)} style={btnApprove}>Approve</button>
-                                    <button onClick={() => handleDisapprove(r.officialEngagementApplicationId!)} style={btnDisapprove}>Disapprove</button>
-                                    <button onClick={() => handleDelete(r.officialEngagementApplicationId!)} style={btnDelete}>Delete</button>
-                                  </div>
-                                )}
+                              <td style={td}>                                  <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>                                <button onClick={() => handleDelete(r.officialEngagementApplicationId!)} style={btnDelete}>Delete</button>
                               </td>
                             </tr>
                           ))}
@@ -336,7 +328,7 @@ export default function HROfficialEngagementModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File Official Engagement{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}</h3>
+                  <h3>File Official Engagement{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
                   {selectedEmployee && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
@@ -371,8 +363,9 @@ export default function HROfficialEngagementModule() {
                         <label>Details / Purpose</label>
                         <textarea value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} className={styles.inputField} rows={3} />
                       </div>
+                      <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
                       <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
-                        {isSubmitting ? "Submitting..." : "Submit Official Engagement"}
+                        {isSubmitting ? "Submitting..." : editingId ? "Update Official Engagement" : "Submit Official Engagement"}
                       </button>
                     </form>
                   )}
@@ -388,6 +381,5 @@ export default function HROfficialEngagementModule() {
 
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
-const btnApprove: React.CSSProperties = { padding: "3px 8px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
-const btnDisapprove: React.CSSProperties = { ...btnApprove, background: "#dc2626" };
-const btnDelete: React.CSSProperties = { ...btnApprove, background: "#6b7280" };
+const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
+const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };

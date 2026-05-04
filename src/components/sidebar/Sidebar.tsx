@@ -44,13 +44,21 @@ const menuItems = [
   {
     id: 5,
     icon: "/CompensatoryTimeOff.png",
+    label: "Compensatory Overtime Credit",
+    goto: "/hr-management/hrSelfService/Compensatory-Overtime-Credit",
+    isActive: false,
+  },
+
+  {
+    id: 6,
+    icon: "/CompensatoryTimeOff.png",
     label: "Compensatory Time Off",
     goto: "/hr-management/hrSelfService/Compensatory-Time-Off",
     isActive: false,
   },
 
   {
-    id: 6,
+    id: 7,
     icon: "/OfficialEngagement.png",
     label: "Official Engagement",
     goto: "/hr-management/hrSelfService/Official-Engagement",
@@ -58,7 +66,7 @@ const menuItems = [
   },
 
   {
-    id: 7,
+    id: 8,
     icon: "/PassSlip.png",
     label: "Pass Slip",
     goto: "/hr-management/hrSelfService/Pass-Slip",
@@ -66,18 +74,10 @@ const menuItems = [
   },
 
   {
-    id: 8,
+    id: 9,
     icon: "/TimeCorrection.png",
     label: "Time Correction",
     goto: "/hr-management/hrSelfService/Time-Correction",
-    isActive: false,
-  },
-
-  {
-    id: 9,
-    icon: "/CompensatoryTimeOff.png",
-    label: "Compensatory Overtime Credit",
-    goto: "/hr-management/hrSelfService/Compensatory-Overtime-Credit",
     isActive: false,
   },
 
@@ -92,21 +92,21 @@ const menuItems = [
 
 const otherItems = [
   {
-    id: 2,
+    id: 1,
     icon: "/accounts.png",
     label: "Accounts",
     goto: "/hr-management/accounts",
     isActive: false,
   },
   {
-    id: 3,
+    id: 2,
     icon: "/help.png",
     label: "Help",
     goto: "/hr-management",
     isActive: false,
   },
   {
-    id: 4,
+    id: 3,
     icon: "/logout.png",
     label: "Logout",
     action: "logout",

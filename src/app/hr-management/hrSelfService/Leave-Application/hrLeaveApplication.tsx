@@ -10,6 +10,7 @@ import LeaveMonetizationTable from "@/components/tables/LeaveMonetizationTable";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 import useSalaryPeriodRange from "@/lib/utils/useSalaryPeriodRange";
 
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
@@ -27,14 +28,49 @@ interface LeaveRecord {
   details?: string;
 }
 
-interface LeaveMonetizationRecord {
+interface MonetizationRecord {
   id: number;
-  employee: string;
+  employeeId: number;
+  employeeName: string;
   dateFiled: string;
-  noOfDays: number;
-  leaveType: string;
-  status: string;
-  details?: string;
+  noOfDaysSL: number;
+  noOfDaysVL: number;
+  totalDays: number;
+  slBalanceBefore: number | null;
+  vlBalanceBefore: number | null;
+  slBalanceAfter: number | null;
+  vlBalanceAfter: number | null;
+  reason: string | null;
+  recommendationStatus: string;
+  recommendedById: number | null;
+  recommendationRemarks: string | null;
+  approvalStatus: string;
+  approvedById: number | null;
+  approvalRemarks: string | null;
+  payrollIncluded: boolean;
+}
+
+interface ApiMonetizationDTO {
+  leaveMonetizationId: number;
+  employeeId: number;
+  employeeNo: string | null;
+  employeeName: string | null;
+  dateFiled: string | null;
+  noOfDaysSL: number | null;
+  noOfDaysVL: number | null;
+  totalDays: number | null;
+  slBalanceBefore: number | null;
+  vlBalanceBefore: number | null;
+  slBalanceAfter: number | null;
+  vlBalanceAfter: number | null;
+  reason: string | null;
+  recommendationStatus: string | null;
+  recommendedById: number | null;
+  recommendationRemarks: string | null;
+  approvalStatus: string | null;
+  approvedById: number | null;
+  approvalRemarks: string | null;
+  payrollIncluded: boolean | null;
 }
 
 interface EditRecord {
@@ -98,7 +134,22 @@ export default function HRLeaveApplicationModule() {
   }, [periodFrom, periodTo]);
 
   const [allLeaves, setAllLeaves] = useState<LeaveRecord[]>([]);
-  const [allMonetizations, setAllMonetizations] = useState<LeaveMonetizationRecord[]>([]);
+  const [allMonetizations, setAllMonetizations] = useState<MonetizationRecord[]>([]);
+  const [showMonetizationForm, setShowMonetizationForm] = useState(false);
+  const [editingMonetizationId, setEditingMonetizationId] = useState<number | null>(null);
+  const [isLoadingMonetization, setIsLoadingMonetization] = useState(false);
+  const [monetizationForm, setMonetizationForm] = useState({ dateFiled: new Date().toISOString().split("T")[0], noOfDaysSL: "", noOfDaysVL: "", reason: "" });
+  const [monetizationApprovalData, setMonetizationApprovalData] = useState<ApprovalSectionData>({
+    recommendationStatus: "Pending",
+    recommendationMessage: "",
+    recommendingApprovalById: null,
+    authorizedOfficialId: null,
+    approvedById: null,
+    approvedStatus: "Pending",
+    approvalMessage: "",
+    dueExigencyService: false,
+  });
+  const [monetizationApprovalInitialValues, setMonetizationApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
 
   // Load employees from localStorage on mount
   useEffect(() => {
@@ -121,17 +172,29 @@ export default function HRLeaveApplicationModule() {
     details: dto.details ?? undefined,
   }), []);
 
-  const dtoToMonetizationRecord = useCallback((dto: ApiLeaveDTO, empName: string): LeaveMonetizationRecord => ({
-    id: dto.leaveApplicationId,
-    employee: empName,
+  const dtoToMonetizationRecord = useCallback((dto: ApiMonetizationDTO): MonetizationRecord => ({
+    id: dto.leaveMonetizationId,
+    employeeId: dto.employeeId,
+    employeeName: dto.employeeName ?? `Employee #${dto.employeeId}`,
     dateFiled: dto.dateFiled ?? "",
-    noOfDays: dto.noOfDays ?? 0,
-    leaveType: dto.leaveType,
-    status: dto.status,
-    details: dto.details ?? undefined,
+    noOfDaysSL: dto.noOfDaysSL ?? 0,
+    noOfDaysVL: dto.noOfDaysVL ?? 0,
+    totalDays: dto.totalDays ?? 0,
+    slBalanceBefore: dto.slBalanceBefore,
+    vlBalanceBefore: dto.vlBalanceBefore,
+    slBalanceAfter: dto.slBalanceAfter,
+    vlBalanceAfter: dto.vlBalanceAfter,
+    reason: dto.reason,
+    recommendationStatus: dto.recommendationStatus ?? "Pending",
+    recommendedById: dto.recommendedById ?? null,
+    recommendationRemarks: dto.recommendationRemarks ?? null,
+    approvalStatus: dto.approvalStatus ?? "Pending",
+    approvedById: dto.approvedById ?? null,
+    approvalRemarks: dto.approvalRemarks ?? null,
+    payrollIncluded: dto.payrollIncluded ?? false,
   }), []);
 
-  // Fetch all leave records (no employee selected)
+  // Fetch all regular leave records (no employee selected)
   const fetchAllLeaves = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -142,15 +205,14 @@ export default function HRLeaveApplicationModule() {
       const empName = (id: number) =>
         employees.find((e) => Number(e.employeeId) === id)?.fullName ?? `Employee #${id}`;
       setAllLeaves(data.filter((d) => d.leaveType !== "Leave Monetization").map((d) => dtoToLeaveRecord(d, empName(d.employeeId))));
-      setAllMonetizations(data.filter((d) => d.leaveType === "Leave Monetization").map((d) => dtoToMonetizationRecord(d, empName(d.employeeId))));
     } catch (err) {
       console.error("Error fetching all leave records:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [employees, dtoToLeaveRecord, dtoToMonetizationRecord]);
+  }, [employees, dtoToLeaveRecord]);
 
-  // Fetch leave records for a specific employee
+  // Fetch regular leave records for a specific employee
   const fetchLeaveRecords = useCallback(async (employee: Employee) => {
     setIsLoading(true);
     try {
@@ -159,27 +221,57 @@ export default function HRLeaveApplicationModule() {
       const data: ApiLeaveDTO[] = await res.json();
       setRawDtos(data);
       setAllLeaves(data.filter((d) => d.leaveType !== "Leave Monetization").map((d) => dtoToLeaveRecord(d, employee.fullName)));
-      setAllMonetizations(data.filter((d) => d.leaveType === "Leave Monetization").map((d) => dtoToMonetizationRecord(d, employee.fullName)));
     } catch (err) {
       console.error("Error fetching leave records:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [dtoToLeaveRecord, dtoToMonetizationRecord]);
+  }, [dtoToLeaveRecord]);
+
+  // Fetch all monetization records from the dedicated endpoint
+  const fetchAllMonetizations = useCallback(async () => {
+    setIsLoadingMonetization(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-monetization/get-all`);
+      if (!res.ok) throw new Error("Failed to fetch monetization records");
+      const data: ApiMonetizationDTO[] = await res.json();
+      setAllMonetizations(data.map(dtoToMonetizationRecord));
+    } catch (err) {
+      console.error("Error fetching monetization records:", err);
+    } finally {
+      setIsLoadingMonetization(false);
+    }
+  }, [dtoToMonetizationRecord]);
+
+  // Fetch monetization records for a specific employee
+  const fetchMonetizationsByEmployee = useCallback(async (employee: Employee) => {
+    setIsLoadingMonetization(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-monetization/get-all/${employee.employeeId}`);
+      if (!res.ok) throw new Error("Failed to fetch monetization records");
+      const data: ApiMonetizationDTO[] = await res.json();
+      setAllMonetizations(data.map(dtoToMonetizationRecord));
+    } catch (err) {
+      console.error("Error fetching monetization records:", err);
+    } finally {
+      setIsLoadingMonetization(false);
+    }
+  }, [dtoToMonetizationRecord]);
 
   useEffect(() => {
     if (selectedEmployee) {
       fetchLeaveRecords(selectedEmployee);
+      fetchMonetizationsByEmployee(selectedEmployee);
     } else {
       fetchAllLeaves();
+      fetchAllMonetizations();
     }
-  }, [selectedEmployee, fetchLeaveRecords, fetchAllLeaves]);
+  }, [selectedEmployee, fetchLeaveRecords, fetchAllLeaves, fetchMonetizationsByEmployee, fetchAllMonetizations]);
 
-  // Table data — show records only when an employee is selected; filter by inclusive date range
+  // Table data — filter by inclusive date range when employee is selected
   const filteredLeaves = useMemo(() => {
     if (!selectedEmployee) return [];
     return allLeaves.filter((item) => {
-      if (item.employee.toLowerCase() !== selectedEmployee.fullName.toLowerCase()) return false;
       if (dateFrom && item.from && item.from < dateFrom) return false;
       if (dateTo && item.to && item.to > dateTo) return false;
       return true;
@@ -187,14 +279,12 @@ export default function HRLeaveApplicationModule() {
   }, [selectedEmployee, allLeaves, dateFrom, dateTo]);
 
   const filteredMonetizations = useMemo(() => {
-    if (!selectedEmployee) return [];
     return allMonetizations.filter((item) => {
-      if (item.employee.toLowerCase() !== selectedEmployee.fullName.toLowerCase()) return false;
       if (dateFrom && item.dateFiled && item.dateFiled < dateFrom) return false;
       if (dateTo && item.dateFiled && item.dateFiled > dateTo) return false;
       return true;
     });
-  }, [selectedEmployee, allMonetizations, dateFrom, dateTo]);
+  }, [allMonetizations, dateFrom, dateTo]);
 
   // Toast mixin for small bottom-end toasts
   const Toast = Swal.mixin({
@@ -221,8 +311,12 @@ export default function HRLeaveApplicationModule() {
     setInputValue("");
     setSelectedEmployee(null);
     setEditingRecord(null);
+    setEditingMonetizationId(null);
+    setMonetizationApprovalInitialValues(undefined);
+    setMonetizationApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
     setDateFrom("");
     setDateTo("");
+    setShowMonetizationForm(false);
   };
 
   // --- CRUD Handlers ---
@@ -253,8 +347,7 @@ export default function HRLeaveApplicationModule() {
     }
 
     // Overlapping inclusive dates check — skip the current record when editing
-    const isMonetizationCheck = leave.leaveType === "Leave Monetization";
-    if (!isMonetizationCheck && leave.from && leave.to) {
+    if (leave.from && leave.to) {
       const overlap = allLeaves.some(
         (existing) =>
           existing.id !== leave.id &&
@@ -268,16 +361,15 @@ export default function HRLeaveApplicationModule() {
       }
     }
 
-    const isMonetization = leave.leaveType === "Leave Monetization";
     const isUpdate = leave.id && leave.id > 0;
 
     const payload = {
       employeeId: Number(selectedEmployee.employeeId),
       dateFiled: leave.dateFiled,
       leaveType: leave.leaveType,
-      startDate: isMonetization ? null : leave.from || null,
-      endDate: isMonetization ? null : leave.to || null,
-      noOfDays: isMonetization ? (Number(leave.noOfDays) || null) : null,
+      startDate: leave.from || null,
+      endDate: leave.to || null,
+      noOfDays: null,
       commutation: leave.commutation || null,
       details: leave.details || null,
       status: leave.status || "Pending",
@@ -302,7 +394,7 @@ export default function HRLeaveApplicationModule() {
 
       Toast.fire({ icon: "success", title: isUpdate ? "Record updated!" : "Record saved!" });
       setEditingRecord(null);
-      setActiveTab(isMonetization ? "leaveMonetization" : "regularLeaves");
+      setActiveTab("regularLeaves");
       await fetchLeaveRecords(selectedEmployee);
     } catch (err) {
       console.error("Error saving leave application:", err);
@@ -358,34 +450,10 @@ export default function HRLeaveApplicationModule() {
     });
   };
 
-  const handleEditMonetization = (record: LeaveMonetizationRecord) => {
-    const raw = rawDtos.find((d) => d.leaveApplicationId === record.id);
-    setEditingRecord({
-      id: record.id,
-      dateFiled: record.dateFiled,
-      leaveType: record.leaveType,
-      from: "",
-      to: "",
-      noOfDays: String(record.noOfDays),
-      commutation: "requested",
-      details: record.details || "",
-      status: record.status,
-      recommendingApprovalById: raw?.recommendingApprovalById ?? null,
-      authorizedOfficialId: raw?.authorizedOfficialId ?? null,
-      approvedById: raw?.approvedById ?? null,
-      recommendationStatus: raw?.recommendationStatus ?? "",
-      recommendationMessage: raw?.recommendationMessage ?? "",
-      approvedStatus: raw?.approvedStatus ?? "",
-      approvalMessage: raw?.approvalMessage ?? "",
-      dueExigencyService: raw?.dueExigencyService ?? false,
-    });
-    setActiveTab("apply");
-  };
-
-  const handleDeleteMonetization = (record: LeaveMonetizationRecord) => {
+  const handleDeleteMonetization = (record: MonetizationRecord) => {
     Swal.fire({
       title: "Delete Monetization Record?",
-      text: `Remove monetization for ${record.employee} (${record.noOfDays} day(s))?`,
+      text: `Remove monetization for ${record.employeeName} (${record.totalDays} day(s))?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -394,16 +462,86 @@ export default function HRLeaveApplicationModule() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-application/delete/${record.id}`, { method: "DELETE" });
-          if (!res.ok) throw new Error("Delete failed");
+          const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-monetization/delete/${record.id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error(await res.text());
           setAllMonetizations((prev) => prev.filter((m) => m.id !== record.id));
           Toast.fire({ icon: "success", title: "Monetization record deleted!" });
         } catch (err) {
-          console.error("Error deleting monetization record:", err);
-          Swal.fire("Error", "Failed to delete monetization record.", "error");
+          Swal.fire("Error", err instanceof Error ? err.message : "Failed to delete.", "error");
         }
       }
     });
+  };
+
+  const handleCreateMonetization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployee) {
+      Swal.fire("Error", "Please select an employee first.", "error");
+      return;
+    }
+    const noOfDaysSL = parseFloat(monetizationForm.noOfDaysSL) || 0;
+    const noOfDaysVL = parseFloat(monetizationForm.noOfDaysVL) || 0;
+    if (noOfDaysSL + noOfDaysVL <= 0) {
+      Swal.fire("Validation", "Please enter at least some days to monetize.", "warning");
+      return;
+    }
+    const payload = {
+      employeeId: Number(selectedEmployee.employeeId),
+      dateFiled: monetizationForm.dateFiled || new Date().toISOString().split("T")[0],
+      noOfDaysSL,
+      noOfDaysVL,
+      reason: monetizationForm.reason,
+      recommendationStatus: monetizationApprovalData.recommendationStatus,
+      recommendationRemarks: monetizationApprovalData.recommendationMessage,
+      recommendedById: monetizationApprovalData.recommendingApprovalById,
+      approvalStatus: monetizationApprovalData.approvedStatus,
+      approvalRemarks: monetizationApprovalData.approvalMessage,
+      approvedById: monetizationApprovalData.approvedById,
+    };
+    try {
+      const isUpdate = editingMonetizationId !== null;
+      const url = isUpdate
+        ? `${API_BASE_URL_HRM}/api/leave-monetization/update/${editingMonetizationId}`
+        : `${API_BASE_URL_HRM}/api/leave-monetization/create`;
+      const method = isUpdate ? "PUT" : "POST";
+      const res = await fetchWithAuth(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      Toast.fire({ icon: "success", title: isUpdate ? "Monetization updated!" : "Monetization filed!" });
+      setMonetizationForm({ dateFiled: new Date().toISOString().split("T")[0], noOfDaysSL: "", noOfDaysVL: "", reason: "" });
+      setEditingMonetizationId(null);
+      setMonetizationApprovalInitialValues(undefined);
+      setMonetizationApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+      setShowMonetizationForm(false);
+      fetchMonetizationsByEmployee(selectedEmployee);
+    } catch (err) {
+      Swal.fire("Error", err instanceof Error ? err.message : "Failed to save monetization.", "error");
+    }
+  };
+
+  const handleEditMonetization = (record: MonetizationRecord) => {
+    setMonetizationForm({
+      dateFiled: record.dateFiled,
+      noOfDaysSL: String(record.noOfDaysSL),
+      noOfDaysVL: String(record.noOfDaysVL),
+      reason: record.reason ?? "",
+    });
+    const initVals: Partial<ApprovalSectionData> = {
+      approvedStatus: record.approvalStatus ?? "Pending",
+      recommendationStatus: record.recommendationStatus ?? "Pending",
+      approvalMessage: record.approvalRemarks ?? "",
+      recommendationMessage: record.recommendationRemarks ?? "",
+      approvedById: record.approvedById ?? null,
+      recommendingApprovalById: record.recommendedById ?? null,
+      authorizedOfficialId: null,
+      dueExigencyService: false,
+    };
+    setMonetizationApprovalInitialValues(initVals);
+    setMonetizationApprovalData(prev => ({ ...prev, ...initVals }));
+    setEditingMonetizationId(record.id);
+    setShowMonetizationForm(true);
   };
 
   const handleClearForm = () => {
@@ -459,6 +597,7 @@ export default function HRLeaveApplicationModule() {
                     value={inputValue}
                     onChange={(e) => {
                       setInputValue(e.target.value);
+                      setShowMonetizationForm(false);
                       const match = employees.find(
                         (emp) =>
                           `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
@@ -544,14 +683,66 @@ export default function HRLeaveApplicationModule() {
 
               {activeTab === "leaveMonetization" && (
                 <>
-                  <h3>
-                    {selectedEmployee
-                      ? `Leave Monetization for "[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}"`
-                      : "Select an employee to view Leave Monetization"}
-                  </h3>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                    <h3 style={{ margin: 0 }}>
+                      {selectedEmployee
+                        ? `Leave Monetization for "[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}"`
+                        : "Select an employee to view Leave Monetization"}
+                    </h3>
+                    {selectedEmployee && !showMonetizationForm && (
+                      <button
+                        className={styles.clearButton}
+                        style={{ background: "#28a745", color: "#fff", border: "none" }}
+                        onClick={() => { setEditingMonetizationId(null); setMonetizationApprovalInitialValues(undefined); setMonetizationApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setMonetizationForm({ dateFiled: new Date().toISOString().split("T")[0], noOfDaysSL: "", noOfDaysVL: "", reason: "" }); setShowMonetizationForm(true); }}
+                      >
+                        + File Monetization
+                      </button>
+                    )}
+                  </div>
 
                   {!selectedEmployee ? (
                     <p>Please select an employee to view monetization records.</p>
+                  ) : showMonetizationForm ? (
+                    <form onSubmit={handleCreateMonetization} style={{ maxWidth: 520, display: "flex", flexDirection: "column", gap: "1rem" }}>
+                      <h4 style={{ margin: 0 }}>{editingMonetizationId ? "Edit Leave Monetization" : "File Leave Monetization"}</h4>
+                      <div className={styles.formGroup}>
+                        <label>Date Filed</label>
+                        <input type="date" className={styles.searchInput}
+                          value={monetizationForm.dateFiled} required
+                          onChange={(e) => setMonetizationForm((f) => ({ ...f, dateFiled: e.target.value }))} />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>VL Days to Monetize <small>(deducted first per CSC rules)</small></label>
+                        <input type="number" min={0} step={0.5} className={styles.searchInput}
+                          placeholder="0" value={monetizationForm.noOfDaysVL}
+                          onChange={(e) => setMonetizationForm((f) => ({ ...f, noOfDaysVL: e.target.value }))} />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>SL Days to Monetize</label>
+                        <input type="number" min={0} step={0.5} className={styles.searchInput}
+                          placeholder="0" value={monetizationForm.noOfDaysSL}
+                          onChange={(e) => setMonetizationForm((f) => ({ ...f, noOfDaysSL: e.target.value }))} />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Total Days (min. 10 required)</label>
+                        <input type="text" readOnly className={styles.searchInput}
+                          value={((parseFloat(monetizationForm.noOfDaysSL) || 0) + (parseFloat(monetizationForm.noOfDaysVL) || 0)).toFixed(1)} />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Reason</label>
+                        <textarea className={styles.searchInput} rows={3} required
+                          placeholder="State reason for monetization..."
+                          value={monetizationForm.reason}
+                          onChange={(e) => setMonetizationForm((f) => ({ ...f, reason: e.target.value }))} />
+                      </div>
+                      <ApprovalSection key={editingMonetizationId ?? 0} initialValues={monetizationApprovalInitialValues} onDataChange={setMonetizationApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button type="submit" className={styles.clearButton} style={{ background: "#28a745", color: "#fff", border: "none" }}>{editingMonetizationId ? "Update" : "Submit"}</button>
+                        <button type="button" className={styles.clearButton} onClick={() => { setShowMonetizationForm(false); setEditingMonetizationId(null); setMonetizationApprovalInitialValues(undefined); setMonetizationApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); }}>Cancel</button>
+                      </div>
+                    </form>
+                  ) : isLoadingMonetization ? (
+                    <p>Loading...</p>
                   ) : filteredMonetizations.length > 0 ? (
                     <LeaveMonetizationTable
                       data={filteredMonetizations}

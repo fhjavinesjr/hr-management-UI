@@ -7,6 +7,7 @@ import modalStyles from "@/styles/Modal.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 
@@ -23,6 +24,9 @@ interface PassSlipDTO {
   approvedById?: number | null;
   approvedAt?: string | null;
   approvalRemarks?: string | null;
+  recommendationStatus?: string | null;
+  recommendedById?: number | null;
+  recommendationRemarks?: string | null;
 }
 
 interface FormState {
@@ -51,6 +55,18 @@ export default function HRPassSlipModule() {
   const [records, setRecords] = useState<PassSlipDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [approvalData, setApprovalData] = useState<ApprovalSectionData>({
+    recommendationStatus: "Pending",
+    recommendationMessage: "",
+    recommendingApprovalById: null,
+    authorizedOfficialId: null,
+    approvedById: null,
+    approvedStatus: "Pending",
+    approvalMessage: "",
+    dueExigencyService: false,
+  });
+  const [approvalInitialValues, setApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState<FormState>({
     dateFiled: today,
@@ -112,18 +128,28 @@ export default function HRPassSlipModule() {
         dateFiled: form.dateFiled,
         passSlipDate: form.passSlipDate,
         purpose: form.purpose,
-        departureTime: form.departureTime,
-        arrivalTime: form.arrivalTime,
+        departureTime: form.departureTime.length === 5 ? form.departureTime + ":00" : form.departureTime,
+        arrivalTime: form.arrivalTime.length === 5 ? form.arrivalTime + ":00" : form.arrivalTime,
         details: form.details,
-        status: "Pending",
+        status: approvalData.approvedStatus || "Pending",
+        approvedById: approvalData.approvedById,
+        approvalRemarks: approvalData.approvalMessage,
+        recommendationStatus: approvalData.recommendationStatus || "Pending",
+        recommendedById: approvalData.recommendingApprovalById,
+        recommendationRemarks: approvalData.recommendationMessage,
       };
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/pass-slip/create`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const isUpdate = editingId !== null;
+      const url = isUpdate
+        ? `${API_BASE_URL_HRM}/api/pass-slip/update/${editingId}`
+        : `${API_BASE_URL_HRM}/api/pass-slip/create`;
+      const method = isUpdate ? "PUT" : "POST";
+      const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Pass slip filed successfully" });
+      Toast.fire({ icon: "success", title: isUpdate ? "Pass slip updated" : "Pass slip filed successfully" });
       setForm({ dateFiled: today, passSlipDate: today, purpose: "Personal", departureTime: "", arrivalTime: "", details: "" });
+      setEditingId(null);
+      setApprovalInitialValues(undefined);
+      setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
     } catch (err) {
@@ -133,52 +159,29 @@ export default function HRPassSlipModule() {
     }
   };
 
-  const handleApprove = async (passSlipId: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Approve Pass Slip",
-      input: "text",
-      inputLabel: "Remarks (optional)",
-      showCancelButton: true,
-      confirmButtonText: "Approve",
+  const handleEdit = (r: PassSlipDTO) => {
+    setForm({
+      dateFiled: r.dateFiled ?? today,
+      passSlipDate: r.passSlipDate ?? today,
+      purpose: r.purpose ?? "Personal",
+      departureTime: r.departureTime?.substring(0, 5) ?? "",
+      arrivalTime: r.arrivalTime?.substring(0, 5) ?? "",
+      details: r.details ?? "",
     });
-    if (remarks === undefined) return; // cancelled
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/pass-slip/approve/${passSlipId}`, {
-        method: "PUT",
-        body: JSON.stringify({ approvedById, remarks: remarks ?? "" }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Pass slip approved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Approval failed", text: String(err) });
-    }
-  };
-
-  const handleDisapprove = async (passSlipId: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Disapprove Pass Slip",
-      input: "text",
-      inputLabel: "Reason for disapproval",
-      inputValidator: (v) => (!v ? "Please provide a reason" : null),
-      showCancelButton: true,
-      confirmButtonText: "Disapprove",
-      confirmButtonColor: "#d33",
-    });
-    if (remarks === undefined) return;
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/pass-slip/disapprove/${passSlipId}`, {
-        method: "PUT",
-        body: JSON.stringify({ approvedById, remarks }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "Pass slip disapproved" });
-      if (selectedEmployee) fetchRecords(selectedEmployee);
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed", text: String(err) });
-    }
+    const initVals: Partial<ApprovalSectionData> = {
+      approvedStatus: r.status ?? "Pending",
+      approvalMessage: r.approvalRemarks ?? "",
+      approvedById: r.approvedById ?? null,
+      recommendationStatus: r.recommendationStatus ?? "Pending",
+      recommendationMessage: r.recommendationRemarks ?? "",
+      recommendingApprovalById: r.recommendedById ?? null,
+      authorizedOfficialId: null,
+      dueExigencyService: false,
+    };
+    setApprovalInitialValues(initVals);
+    setApprovalData(prev => ({ ...prev, ...initVals }));
+    setEditingId(r.passSlipId!);
+    setActiveTab("apply");
   };
 
   const handleDelete = async (passSlipId: number) => {
@@ -205,6 +208,9 @@ export default function HRPassSlipModule() {
     setSelectedEmployee(null);
     setRecords([]);
     setShowSuggestions(false);
+    setEditingId(null);
+    setApprovalInitialValues(undefined);
+    setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
     setActiveTab("table");
   };
 
@@ -266,7 +272,7 @@ export default function HRPassSlipModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => setActiveTab("apply")}>File Pass Slip</button>
+                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File Pass Slip</button>
               </div>
             </div>
 
@@ -303,13 +309,8 @@ export default function HRPassSlipModule() {
                               <td style={td}>{r.details}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>
-                                {r.status === "Pending" && (
-                                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                                    <button onClick={() => handleApprove(r.passSlipId!)} style={btnApprove}>Approve</button>
-                                    <button onClick={() => handleDisapprove(r.passSlipId!)} style={btnDisapprove}>Disapprove</button>
-                                    <button onClick={() => handleDelete(r.passSlipId!)} style={btnDelete}>Delete</button>
-                                  </div>
-                                )}
+                                <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>
+                                <button onClick={() => handleDelete(r.passSlipId!)} style={btnDelete}>Delete</button>
                               </td>
                             </tr>
                           ))}
@@ -322,7 +323,7 @@ export default function HRPassSlipModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File Pass Slip{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}</h3>
+                  <h3>File Pass Slip{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
                   {selectedEmployee && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
@@ -353,8 +354,9 @@ export default function HRPassSlipModule() {
                         <label>Details / Purpose Description</label>
                         <textarea value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} className={styles.inputField} rows={3} />
                       </div>
+                      <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
                       <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
-                        {isSubmitting ? "Submitting..." : "Submit Pass Slip"}
+                        {isSubmitting ? "Submitting..." : editingId ? "Update Pass Slip" : "Submit Pass Slip"}
                       </button>
                     </form>
                   )}
@@ -371,6 +373,5 @@ export default function HRPassSlipModule() {
 // Inline table cell styles
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
-const btnApprove: React.CSSProperties = { padding: "3px 8px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
-const btnDisapprove: React.CSSProperties = { ...btnApprove, background: "#dc2626" };
-const btnDelete: React.CSSProperties = { ...btnApprove, background: "#6b7280" };
+const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
+const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };

@@ -7,6 +7,7 @@ import modalStyles from "@/styles/Modal.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 
 const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
 
@@ -18,11 +19,23 @@ interface CocDTO {
   hoursWorked: number;
   reason: string;
   workType: string;
+  overtimeRequestId?: number | null;
   status: string;
   approvedById?: number | null;
   approvedAt?: string | null;
   approvalRemarks?: string | null;
+  recommendationStatus?: string | null;
+  recommendedById?: number | null;
+  recommendationRemarks?: string | null;
   currentBalance?: number;
+}
+
+interface OvertimeRequestDTO {
+  overtimeRequestId: number;
+  dateTimeFrom: string;
+  dateTimeTo: string;
+  totalHours: number;
+  purpose: string;
 }
 
 interface FormState {
@@ -31,6 +44,7 @@ interface FormState {
   hoursWorked: string;
   reason: string;
   workType: string;
+  overtimeRequestId: string; // "" when not selected
 }
 
 const Toast = Swal.mixin({
@@ -51,6 +65,20 @@ export default function HRCompensatoryOvertimeCreditModule() {
   const [availableBalance, setAvailableBalance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [approvalData, setApprovalData] = useState<ApprovalSectionData>({
+    recommendationStatus: "Pending",
+    recommendationMessage: "",
+    recommendingApprovalById: null,
+    authorizedOfficialId: null,
+    approvedById: null,
+    approvedStatus: "Pending",
+    approvalMessage: "",
+    dueExigencyService: false,
+  });
+  const [approvalInitialValues, setApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
+  const [approvedOTRequests, setApprovedOTRequests] = useState<OvertimeRequestDTO[]>([]);
+  const [isFetchingOT, setIsFetchingOT] = useState(false);
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState<FormState>({
     dateFiled: today,
@@ -58,6 +86,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
     hoursWorked: "8",
     reason: "",
     workType: "HOLIDAY_DUTY",
+    overtimeRequestId: "",
   });
 
   // Load employees from localStorage
@@ -107,8 +136,39 @@ export default function HRCompensatoryOvertimeCreditModule() {
     } else {
       setRecords([]);
       setAvailableBalance(null);
+      setApprovedOTRequests([]);
     }
   }, [selectedEmployee, fetchRecords, fetchBalance]);
+
+  // When employee selects OVERTIME work type, load their approved OT requests
+  const handleWorkTypeChange = useCallback(async (workType: string) => {
+    setForm((prev) => ({ ...prev, workType, overtimeRequestId: "" }));
+    if (workType === "OVERTIME" && selectedEmployee) {
+      setIsFetchingOT(true);
+      try {
+        const res = await fetchWithAuth(
+          `${API_BASE_URL_HRM}/api/overtime-request/get-approved/${selectedEmployee.employeeId}`
+        );
+        if (res.ok) {
+          const data: OvertimeRequestDTO[] = await res.json();
+          setApprovedOTRequests(data);
+          if (data.length === 0) {
+            Swal.fire({
+              icon: "info",
+              title: "No Approved Overtime Requests",
+              text: "This employee has no approved overtime orders to reference. Please file and get an Overtime Request approved first (Step 1).",
+            });
+          }
+        }
+      } catch {
+        Toast.fire({ icon: "error", title: "Could not load overtime requests" });
+      } finally {
+        setIsFetchingOT(false);
+      }
+    } else {
+      setApprovedOTRequests([]);
+    }
+  }, [selectedEmployee]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,15 +190,27 @@ export default function HRCompensatoryOvertimeCreditModule() {
         hoursWorked: hrs,
         reason: form.reason,
         workType: form.workType,
-        status: "Pending",
+        overtimeRequestId: form.overtimeRequestId ? Number(form.overtimeRequestId) : null,
+        status: approvalData.approvedStatus || "Pending",
+        approvedById: approvalData.approvedById,
+        approvalRemarks: approvalData.approvalMessage,
+        recommendationStatus: approvalData.recommendationStatus || "Pending",
+        recommendedById: approvalData.recommendingApprovalById,
+        recommendationRemarks: approvalData.recommendationMessage,
       };
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/create`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const isUpdate = editingId !== null;
+      const url = isUpdate
+        ? `${API_BASE_URL_HRM}/api/coc/update/${editingId}`
+        : `${API_BASE_URL_HRM}/api/coc/create`;
+      const method = isUpdate ? "PUT" : "POST";
+      const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "COC application filed successfully" });
-      setForm({ dateFiled: today, dateWorked: today, hoursWorked: "8", reason: "", workType: "HOLIDAY_DUTY" });
+      Toast.fire({ icon: "success", title: isUpdate ? "COC record updated" : "COC application filed successfully" });
+      setForm({ dateFiled: today, dateWorked: today, hoursWorked: "8", reason: "", workType: "HOLIDAY_DUTY", overtimeRequestId: "" });
+      setApprovedOTRequests([]);
+      setEditingId(null);
+      setApprovalInitialValues(undefined);
+      setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
       fetchBalance(selectedEmployee.employeeId);
@@ -149,53 +221,29 @@ export default function HRCompensatoryOvertimeCreditModule() {
     }
   };
 
-  const handleApprove = async (cocId: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Approve COC Application",
-      input: "text",
-      inputLabel: "Remarks (optional)",
-      showCancelButton: true,
-      confirmButtonText: "Approve",
-      confirmButtonColor: "#16a34a",
+  const handleEdit = (r: CocDTO) => {
+    setForm({
+      dateFiled: r.dateFiled ?? today,
+      dateWorked: r.dateWorked ?? today,
+      hoursWorked: String(r.hoursWorked),
+      reason: r.reason ?? "",
+      workType: r.workType ?? "HOLIDAY_DUTY",
+      overtimeRequestId: r.overtimeRequestId ? String(r.overtimeRequestId) : "",
     });
-    if (remarks === undefined) return;
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/approve/${cocId}`, {
-        method: "PUT",
-        body: JSON.stringify({ approvedById, remarks: remarks ?? "" }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "COC approved — balance updated" });
-      if (selectedEmployee) { fetchRecords(selectedEmployee); fetchBalance(selectedEmployee.employeeId); }
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Approval failed", text: String(err) });
-    }
-  };
-
-  const handleDisapprove = async (cocId: number) => {
-    const approvedById = localStorageUtil.getEmployeeId();
-    const { value: remarks } = await Swal.fire({
-      title: "Disapprove COC Application",
-      input: "text",
-      inputLabel: "Reason for disapproval",
-      inputValidator: (v) => (!v ? "Please provide a reason" : null),
-      showCancelButton: true,
-      confirmButtonText: "Disapprove",
-      confirmButtonColor: "#d33",
-    });
-    if (remarks === undefined) return;
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/disapprove/${cocId}`, {
-        method: "PUT",
-        body: JSON.stringify({ approvedById, remarks }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: "COC disapproved" });
-      if (selectedEmployee) { fetchRecords(selectedEmployee); fetchBalance(selectedEmployee.employeeId); }
-    } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed", text: String(err) });
-    }
+    const initVals: Partial<ApprovalSectionData> = {
+      approvedStatus: r.status ?? "Pending",
+      approvalMessage: r.approvalRemarks ?? "",
+      approvedById: r.approvedById ?? null,
+      recommendationStatus: r.recommendationStatus ?? "Pending",
+      recommendationMessage: r.recommendationRemarks ?? "",
+      recommendingApprovalById: r.recommendedById ?? null,
+      authorizedOfficialId: null,
+      dueExigencyService: false,
+    };
+    setApprovalInitialValues(initVals);
+    setApprovalData(prev => ({ ...prev, ...initVals }));
+    setEditingId(r.cocId!);
+    setActiveTab("apply");
   };
 
   const handleDelete = async (cocId: number) => {
@@ -223,6 +271,9 @@ export default function HRCompensatoryOvertimeCreditModule() {
     setRecords([]);
     setAvailableBalance(null);
     setShowSuggestions(false);
+    setEditingId(null);
+    setApprovalInitialValues(undefined);
+    setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
     setActiveTab("table");
   };
 
@@ -288,7 +339,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
               {/* Tabs */}
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>Records</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => setActiveTab("apply")}>File COC</button>
+                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File COC</button>
               </div>
             </div>
 
@@ -325,13 +376,8 @@ export default function HRCompensatoryOvertimeCreditModule() {
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
-                                {r.status === "Pending" && (
-                                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                                    <button onClick={() => handleApprove(r.cocId!)} style={btnApprove}>Approve</button>
-                                    <button onClick={() => handleDisapprove(r.cocId!)} style={btnDisapprove}>Disapprove</button>
-                                    <button onClick={() => handleDelete(r.cocId!)} style={btnDelete}>Delete</button>
-                                  </div>
-                                )}
+                                <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>
+                                <button onClick={() => handleDelete(r.cocId!)} style={btnDelete}>Delete</button>
                               </td>
                             </tr>
                           ))}
@@ -344,7 +390,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File COC Application{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}</h3>
+                  <h3>File COC Application{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
                   {selectedEmployee && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
@@ -362,17 +408,58 @@ export default function HRCompensatoryOvertimeCreditModule() {
                       </div>
                       <div className={styles.formGroup}>
                         <label>Work Type</label>
-                        <select value={form.workType} onChange={(e) => setForm({ ...form, workType: e.target.value })} className={styles.inputField}>
+                        <select
+                          value={form.workType}
+                          onChange={(e) => handleWorkTypeChange(e.target.value)}
+                          className={styles.inputField}
+                        >
                           <option value="HOLIDAY_DUTY">Holiday Duty</option>
                           <option value="OVERTIME">Overtime</option>
                         </select>
                       </div>
+                      {form.workType === "OVERTIME" && (
+                        <div className={styles.formGroup}>
+                          <label>Reference Approved Overtime Order (Step 1)</label>
+                          {isFetchingOT && <p style={{ fontSize: "0.8rem", color: "#6b7280" }}>Loading approved overtime requests...</p>}
+                          {!isFetchingOT && approvedOTRequests.length === 0 && (
+                            <p style={{ fontSize: "0.8rem", color: "#dc2626" }}>
+                              No approved overtime orders found. File an Overtime Request first.
+                            </p>
+                          )}
+                          {!isFetchingOT && approvedOTRequests.length > 0 && (
+                            <select
+                              value={form.overtimeRequestId}
+                              onChange={(e) => {
+                                const selected = approvedOTRequests.find(
+                                  (ot) => ot.overtimeRequestId === Number(e.target.value)
+                                );
+                                setForm((prev) => ({
+                                  ...prev,
+                                  overtimeRequestId: e.target.value,
+                                  dateWorked: selected ? selected.dateTimeFrom.substring(0, 10) : prev.dateWorked,
+                                  hoursWorked: selected ? String(selected.totalHours) : prev.hoursWorked,
+                                }));
+                              }}
+                              className={styles.inputField}
+                              required
+                            >
+                              <option value="">— Select Overtime Order —</option>
+                              {approvedOTRequests.map((ot) => (
+                                <option key={ot.overtimeRequestId} value={ot.overtimeRequestId}>
+                                  {ot.dateTimeFrom.substring(0, 16)} → {ot.dateTimeTo.substring(0, 16)} ({ot.totalHours.toFixed(2)} hrs)
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
                       <div className={styles.formGroup}>
                         <label>Reason / Justification</label>
                         <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={styles.inputField} rows={3} required />
                       </div>
+                      <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
                       <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
-                        {isSubmitting ? "Submitting..." : "File COC Application"}
+                        {isSubmitting ? "Submitting..." : editingId ? "Update COC Application" : "File COC Application"}
                       </button>
                     </form>
                   )}
@@ -388,6 +475,5 @@ export default function HRCompensatoryOvertimeCreditModule() {
 
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
-const btnApprove: React.CSSProperties = { padding: "3px 8px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
-const btnDisapprove: React.CSSProperties = { ...btnApprove, background: "#dc2626" };
-const btnDelete: React.CSSProperties = { ...btnApprove, background: "#6b7280" };
+const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
+const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
