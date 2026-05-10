@@ -51,7 +51,19 @@ export default function EmploymentRecord() {
 
   useEffect(() => {
     const role = localStorageUtil.getEmployeeRole();
+    const empNo = localStorageUtil.getEmployeeNo();
+    const fullname = localStorageUtil.getEmployeeFullname();
+    const employeeId = localStorageUtil.getEmployeeId();
     setUserRole(role);
+    if (role !== "1" && empNo) {
+      const storedEmployees = localStorageUtil.getEmployees();
+      const empFromList = storedEmployees?.find(e => e.employeeNo === empNo) ?? null;
+      if (empFromList) {
+        setSelectedEmployee(empFromList);
+      } else if (fullname) {
+        setSelectedEmployee({ employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false });
+      }
+    }
   }, []);
 
   // fetchEmploymentRecords is declared below with useCallback — call it when selected employee changes

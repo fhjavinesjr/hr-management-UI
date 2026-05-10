@@ -23,6 +23,8 @@ interface MonetizationRecord {
   approvedById: number | null;
   approvalRemarks: string | null;
   payrollIncluded: boolean;
+  recommendingOfficer?: string;
+  approvedBy?: string;
 }
 
 interface LeaveMonetizationTableProps {
@@ -94,12 +96,14 @@ export default function LeaveMonetizationTable({ data, onEdit, onDelete }: Leave
               <th style={th}>Rec. Status</th>
               <th style={th}>Approval</th>
               <th style={th}>Payroll</th>
+              <th style={th}>Recommending Officer</th>
+              <th style={th}>Approved By</th>
               <th style={th}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {paginatedData.length === 0 ? (
-              <tr><td colSpan={13} style={{ ...td, textAlign: "center" }}>No records.</td></tr>
+              <tr><td colSpan={15} style={{ ...td, textAlign: "center" }}>No records.</td></tr>
             ) : paginatedData.map((record) => (
               <tr key={record.id}>
                 <td style={td}>{record.employeeName}</td>
@@ -118,9 +122,15 @@ export default function LeaveMonetizationTable({ data, onEdit, onDelete }: Leave
                     {record.payrollIncluded ? "Yes" : "No"}
                   </span>
                 </td>
+                <td style={td}>{record.recommendingOfficer ?? "—"}</td>
+                <td style={td}>{record.approvedBy ?? "—"}</td>
                 <td style={{ ...td, display: "flex", gap: "4px", flexWrap: "wrap", alignItems: "center" }}>
-                  <button className={tableStyles.editBtn} onClick={() => onEdit?.(record)}>Edit</button>
-                  <button className={tableStyles.deleteBtn} onClick={() => onDelete?.(record)}>Delete</button>
+                  {record.recommendationStatus === "Pending" && record.approvalStatus === "Pending" ? (
+                    <>
+                      <button className={tableStyles.editBtn} onClick={() => onEdit?.(record)}>Edit</button>
+                      <button className={tableStyles.deleteBtn} onClick={() => onDelete?.(record)}>Delete</button>
+                    </>
+                  ) : "—"}
                 </td>
               </tr>
             ))}

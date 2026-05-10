@@ -33,6 +33,7 @@ export default function BeginningBalanceModule() {
   const [inputValue, setInputValue] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [asOfDate, setAsOfDate] = useState("");
   const [leaveRows, setLeaveRows] = useState<LeaveRow[]>([]);
@@ -55,6 +56,22 @@ export default function BeginningBalanceModule() {
     const stored = localStorageUtil.getEmployees();
     if (stored && stored.length > 0) {
       setEmployees(stored);
+    }
+    const role = localStorageUtil.getEmployeeRole();
+    const fullname = localStorageUtil.getEmployeeFullname();
+    const empNo = localStorageUtil.getEmployeeNo();
+    const employeeId = localStorageUtil.getEmployeeId();
+    setUserRole(role);
+    if (role !== "1" && empNo) {
+      const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
+      if (empFromList) {
+        setSelectedEmployee(empFromList);
+        setInputValue(`[${empFromList.employeeNo}] ${empFromList.fullName}`);
+      } else if (fullname) {
+        const own: Employee = { employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false };
+        setSelectedEmployee(own);
+        setInputValue(`[${empNo}] ${fullname}`);
+      }
     }
   }, []);
 
@@ -232,10 +249,12 @@ export default function BeginningBalanceModule() {
                   <input
                     id="bb-employee"
                     type="text"
-                    list="bb-employee-list"
+                    list={userRole === "1" ? "bb-employee-list" : undefined}
                     placeholder="Employee No / Last Name"
                     value={inputValue}
+                    readOnly={userRole !== "1"}
                     onChange={(e) => {
+                      if (userRole !== "1") return;
                       setInputValue(e.target.value);
                       const match = employees.find(
                         (emp) =>
@@ -247,14 +266,16 @@ export default function BeginningBalanceModule() {
                     className={styles.searchInput}
                     style={{ width: "100%" }}
                   />
-                  <datalist id="bb-employee-list">
-                    {employees.map((emp) => (
-                      <option
-                        key={emp.employeeNo}
-                        value={`[${emp.employeeNo}] ${emp.fullName}`}
-                      />
-                    ))}
-                  </datalist>
+                  {userRole === "1" && (
+                    <datalist id="bb-employee-list">
+                      {employees.map((emp) => (
+                        <option
+                          key={emp.employeeNo}
+                          value={`[${emp.employeeNo}] ${emp.fullName}`}
+                        />
+                      ))}
+                    </datalist>
+                  )}
                 </div>
 
                 {/* Shared As Of Date */}

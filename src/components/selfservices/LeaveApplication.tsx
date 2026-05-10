@@ -8,6 +8,29 @@ import { Employee } from "@/lib/types/Employee";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 
 const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
+const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+
+interface LeaveBalanceDTO {
+  employeeId: number;
+  vacationLeaveBalance: number | null;
+  sickLeaveBalance: number | null;
+  splBalance: number | null;
+  forcedLeaveBalance: number | null;
+  lastProcessedPeriodEnd: string | null;
+}
+
+const fmt = (v: number | null | undefined): string =>
+  v == null ? "\u2014" : v.toFixed(3);
+
+function balanceLabelFor(leaveType: string): { label: string; key: keyof LeaveBalanceDTO } | null {
+  switch (leaveType) {
+    case "Vacation Leave": return { label: "VL Available", key: "vacationLeaveBalance" };
+    case "Forced Leave":   return { label: "Forced Leave Remaining (this year)", key: "forcedLeaveBalance" };
+    case "Sick Leave":     return { label: "SL Available", key: "sickLeaveBalance" };
+    case "Special Privilege Leave": return { label: "SPL Available", key: "splBalance" };
+    default: return null;
+  }
+}
 
 interface EditRecord {
   id?: number;
@@ -31,6 +54,7 @@ interface EditRecord {
 
 interface LeaveApplicationProps {
   employeeName: string;
+  employeeId?: string | null;
   editRecord?: EditRecord | null;
   onSubmitLeave: (leave: {
     id?: number;
@@ -68,6 +92,7 @@ const initialFormState = {
 
 export default function LeaveApplication({
   employeeName,
+  employeeId,
   editRecord,
   onSubmitLeave,
   onClear,
@@ -75,6 +100,8 @@ export default function LeaveApplication({
 }: LeaveApplicationProps) {
 
   const [form, setForm] = useState(initialFormState);
+  const [balance, setBalance] = useState<LeaveBalanceDTO | null>(null);
+  const [isBalanceLoading, setIsBalanceLoading] = useState(false);
   const [approvalData, setApprovalData] = useState<ApprovalSectionData>({
     recommendingApprovalById: null,
     authorizedOfficialId: null,
@@ -137,6 +164,21 @@ export default function LeaveApplication({
   }, []);
 
   const isMonetization = form.leaveType === "Leave Monetization";
+
+  // Fetch balance whenever the selected employee changes
+  useEffect(() => {
+    if (!employeeId) { setBalance(null); return; }
+    setIsBalanceLoading(true);
+    fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-balance/current/${employeeId}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => setBalance(data ?? null))
+      .catch(() => setBalance(null))
+      .finally(() => setIsBalanceLoading(false));
+  }, [employeeId]);
+
+  const balInfo = balanceLabelFor(form.leaveType);
+  const displayBalance = balInfo && balance ? (balance[balInfo.key] as number | null) : null;
+  const vlForForcedDisplay = form.leaveType === "Forced Leave" && balance ? balance.vacationLeaveBalance : null;
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -223,6 +265,41 @@ export default function LeaveApplication({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Balance indicator — shown after a leave type with a balance is selected */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: balInfo ? "1rem" : 0 }}>
+          {balInfo && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "0.5rem",
+              background: displayBalance !== null && displayBalance <= 0 ? "#fef2f2" : "#f0fdf4",
+              border: `1px solid ${displayBalance !== null && displayBalance <= 0 ? "#fca5a5" : "#86efac"}`,
+              borderRadius: "8px", padding: "0.5rem 1rem",
+              fontSize: "0.9rem", fontWeight: 600,
+              color: displayBalance !== null && displayBalance <= 0 ? "#dc2626" : "#15803d",
+            }}>
+              <span>{balInfo.label}:</span>
+              <span>{isBalanceLoading ? "Loading…" : displayBalance !== null ? `${fmt(displayBalance)} day(s)` : "\u2014"}</span>
+              {balance?.lastProcessedPeriodEnd && (
+                <span style={{ fontWeight: 400, fontSize: "0.78rem", color: "#6b7280", marginLeft: "0.5rem" }}>
+                  (as of {balance.lastProcessedPeriodEnd})
+                </span>
+              )}
+            </div>
+          )}
+          {vlForForcedDisplay !== null && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "0.5rem",
+              background: vlForForcedDisplay <= 0 ? "#fef2f2" : "#fefce8",
+              border: `1px solid ${vlForForcedDisplay <= 0 ? "#fca5a5" : "#fde047"}`,
+              borderRadius: "8px", padding: "0.5rem 1rem",
+              fontSize: "0.9rem", fontWeight: 600,
+              color: vlForForcedDisplay <= 0 ? "#dc2626" : "#854d0e",
+            }}>
+              <span>VL Available (charged concurrently):</span>
+              <span>{isBalanceLoading ? "Loading…" : `${fmt(vlForForcedDisplay)} day(s)`}</span>
+            </div>
+          )}
         </div>
 
         {/* Inclusive Dates for normal leaves */}

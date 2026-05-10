@@ -48,6 +48,8 @@ interface MonetizationRecord {
   approvedById: number | null;
   approvalRemarks: string | null;
   payrollIncluded: boolean;
+  recommendingOfficer?: string;
+  approvedBy?: string;
 }
 
 interface ApiMonetizationDTO {
@@ -71,6 +73,14 @@ interface ApiMonetizationDTO {
   approvedById: number | null;
   approvalRemarks: string | null;
   payrollIncluded: boolean | null;
+}
+
+interface EmployeeBasicInfo {
+  employeeId: number;
+  fullName?: string;
+  firstname?: string;
+  lastname?: string;
+  suffix?: string;
 }
 
 interface EditRecord {
@@ -119,6 +129,7 @@ export default function HRLeaveApplicationModule() {
   const [inputValue, setInputValue] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<EditRecord | null>(null);
   const [rawDtos, setRawDtos] = useState<ApiLeaveDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -157,6 +168,22 @@ export default function HRLeaveApplicationModule() {
     if (stored && stored.length > 0) {
       setEmployees(stored);
     }
+    const role = localStorageUtil.getEmployeeRole();
+    const fullname = localStorageUtil.getEmployeeFullname();
+    const empNo = localStorageUtil.getEmployeeNo();
+    const employeeId = localStorageUtil.getEmployeeId();
+    setUserRole(role);
+    if (role !== "1" && empNo) {
+      const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
+      if (empFromList) {
+        setSelectedEmployee(empFromList);
+        setInputValue(`[${empFromList.employeeNo}] ${empFromList.fullName}`);
+      } else if (fullname) {
+        const own: Employee = { employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false };
+        setSelectedEmployee(own);
+        setInputValue(`[${empNo}] ${fullname}`);
+      }
+    }
   }, []);
 
   // Map API DTO → frontend record shapes
@@ -172,7 +199,7 @@ export default function HRLeaveApplicationModule() {
     details: dto.details ?? undefined,
   }), []);
 
-  const dtoToMonetizationRecord = useCallback((dto: ApiMonetizationDTO): MonetizationRecord => ({
+  const dtoToMonetizationRecord = useCallback((dto: ApiMonetizationDTO, nm: Map<number, string>): MonetizationRecord => ({
     id: dto.leaveMonetizationId,
     employeeId: dto.employeeId,
     employeeName: dto.employeeName ?? `Employee #${dto.employeeId}`,
@@ -192,6 +219,8 @@ export default function HRLeaveApplicationModule() {
     approvedById: dto.approvedById ?? null,
     approvalRemarks: dto.approvalRemarks ?? null,
     payrollIncluded: dto.payrollIncluded ?? false,
+    recommendingOfficer: dto.recommendedById ? (nm.get(dto.recommendedById) ?? "—") : "—",
+    approvedBy: dto.approvedById ? (nm.get(dto.approvedById) ?? "—") : "—",
   }), []);
 
   // Fetch all regular leave records (no employee selected)
@@ -232,10 +261,21 @@ export default function HRLeaveApplicationModule() {
   const fetchAllMonetizations = useCallback(async () => {
     setIsLoadingMonetization(true);
     try {
+      const nm = new Map<number, string>();
+      try {
+        const nRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employees/basicInfo`);
+        if (nRes.ok) {
+          const nData: EmployeeBasicInfo[] = await nRes.json();
+          nData.forEach((e) => {
+            const name = e.fullName?.trim() || [e.firstname, e.lastname, e.suffix].filter(Boolean).join(" ").trim();
+            if (e.employeeId && name) nm.set(e.employeeId, name);
+          });
+        }
+      } catch {}
       const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-monetization/get-all`);
       if (!res.ok) throw new Error("Failed to fetch monetization records");
       const data: ApiMonetizationDTO[] = await res.json();
-      setAllMonetizations(data.map(dtoToMonetizationRecord));
+      setAllMonetizations(data.map((dto) => dtoToMonetizationRecord(dto, nm)));
     } catch (err) {
       console.error("Error fetching monetization records:", err);
     } finally {
@@ -247,10 +287,21 @@ export default function HRLeaveApplicationModule() {
   const fetchMonetizationsByEmployee = useCallback(async (employee: Employee) => {
     setIsLoadingMonetization(true);
     try {
+      const nm = new Map<number, string>();
+      try {
+        const nRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employees/basicInfo`);
+        if (nRes.ok) {
+          const nData: EmployeeBasicInfo[] = await nRes.json();
+          nData.forEach((e) => {
+            const name = e.fullName?.trim() || [e.firstname, e.lastname, e.suffix].filter(Boolean).join(" ").trim();
+            if (e.employeeId && name) nm.set(e.employeeId, name);
+          });
+        }
+      } catch {}
       const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-monetization/get-all/${employee.employeeId}`);
       if (!res.ok) throw new Error("Failed to fetch monetization records");
       const data: ApiMonetizationDTO[] = await res.json();
-      setAllMonetizations(data.map(dtoToMonetizationRecord));
+      setAllMonetizations(data.map((dto) => dtoToMonetizationRecord(dto, nm)));
     } catch (err) {
       console.error("Error fetching monetization records:", err);
     } finally {
@@ -592,10 +643,12 @@ export default function HRLeaveApplicationModule() {
                   <input
                     id="leave-employee"
                     type="text"
-                    list="leave-employee-list"
+                    list={userRole === "1" ? "leave-employee-list" : undefined}
                     placeholder="Employee No / Last Name"
                     value={inputValue}
+                    readOnly={userRole !== "1"}
                     onChange={(e) => {
+                      if (userRole !== "1") return;
                       setInputValue(e.target.value);
                       setShowMonetizationForm(false);
                       const match = employees.find(
@@ -612,14 +665,16 @@ export default function HRLeaveApplicationModule() {
                     className={styles.searchInput}
                     style={{ width: "100%" }}
                   />
-                  <datalist id="leave-employee-list">
-                    {employees.map((emp) => (
-                      <option
-                        key={emp.employeeNo}
-                        value={`[${emp.employeeNo}] ${emp.fullName}`}
-                      />
-                    ))}
-                  </datalist>
+                  {userRole === "1" && (
+                    <datalist id="leave-employee-list">
+                      {employees.map((emp) => (
+                        <option
+                          key={emp.employeeNo}
+                          value={`[${emp.employeeNo}] ${emp.fullName}`}
+                        />
+                      ))}
+                    </datalist>
+                  )}
                 </div>
 
                 {/* Clear button */}
@@ -640,12 +695,6 @@ export default function HRLeaveApplicationModule() {
                   Regular Leaves
                 </button>
                 <button
-                  className={activeTab === "leaveMonetization" ? styles.active : ""}
-                  onClick={() => setActiveTab("leaveMonetization")}
-                >
-                  Leave Monetization
-                </button>
-                <button
                   className={activeTab === "apply" ? styles.active : ""}
                   onClick={() => {
                     setEditingRecord(null);
@@ -653,6 +702,12 @@ export default function HRLeaveApplicationModule() {
                   }}
                 >
                   Application
+                </button>
+                <button
+                  className={activeTab === "leaveMonetization" ? styles.active : ""}
+                  onClick={() => setActiveTab("leaveMonetization")}
+                >
+                  Leave Monetization
                 </button>
               </div>
             </div>
@@ -764,6 +819,7 @@ export default function HRLeaveApplicationModule() {
                   </h3>
                   <LeaveApplication
                     employeeName={selectedEmployee?.fullName ?? ""}
+                    employeeId={selectedEmployee?.employeeId ?? null}
                     editRecord={editingRecord}
                     employees={employees}
                     onSubmitLeave={handleSubmitLeave}

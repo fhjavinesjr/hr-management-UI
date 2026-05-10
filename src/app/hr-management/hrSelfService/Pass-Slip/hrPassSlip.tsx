@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
+import tableStyles from "@/styles/tables.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
@@ -52,9 +53,14 @@ export default function HRPassSlipModule() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [records, setRecords] = useState<PassSlipDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [approvalData, setApprovalData] = useState<ApprovalSectionData>({
     recommendationStatus: "Pending",
@@ -81,6 +87,22 @@ export default function HRPassSlipModule() {
   useEffect(() => {
     const stored = localStorageUtil.getEmployees();
     if (stored && stored.length > 0) setEmployees(stored);
+    const role = localStorageUtil.getEmployeeRole();
+    const fullname = localStorageUtil.getEmployeeFullname();
+    const empNo = localStorageUtil.getEmployeeNo();
+    const employeeId = localStorageUtil.getEmployeeId();
+    setUserRole(role);
+    if (role !== "1" && empNo) {
+      const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
+      if (empFromList) {
+        setSelectedEmployee(empFromList);
+        setSearch(`[${empFromList.employeeNo}] ${empFromList.fullName}`);
+      } else if (fullname) {
+        const own: Employee = { employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false };
+        setSelectedEmployee(own);
+        setSearch(`[${empNo}] ${fullname}`);
+      }
+    }
   }, []);
 
   const filteredSuggestions = useMemo(() => {
@@ -91,6 +113,17 @@ export default function HRPassSlipModule() {
         e.employeeNo.toLowerCase().includes(search.toLowerCase())
     );
   }, [search, employees]);
+
+  const filteredRecords = useMemo(() => {
+    return records.filter((r) => {
+      if (dateFrom && r.dateFiled && r.dateFiled < dateFrom) return false;
+      if (dateTo && r.dateFiled && r.dateFiled > dateTo) return false;
+      return true;
+    });
+  }, [records, dateFrom, dateTo]);
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRecords = filteredRecords.slice(startIndex, startIndex + itemsPerPage);
 
   const fetchRecords = useCallback(async (emp: Employee) => {
     setIsLoading(true);
@@ -110,6 +143,8 @@ export default function HRPassSlipModule() {
     if (selectedEmployee) fetchRecords(selectedEmployee);
     else setRecords([]);
   }, [selectedEmployee, fetchRecords]);
+
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,6 +246,9 @@ export default function HRPassSlipModule() {
     setEditingId(null);
     setApprovalInitialValues(undefined);
     setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+    setDateFrom("");
+    setDateTo("");
+    setCurrentPage(1);
     setActiveTab("table");
   };
 
@@ -234,39 +272,58 @@ export default function HRPassSlipModule() {
           <div className={styles.EmploymentRecord}>
             {/* Sticky Header */}
             <div className={styles.stickyHeader}>
-              <div className={styles.formGroup} style={{ position: "relative" }}>
-                <label>Search Employee</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+                <div className={styles.formGroup} style={{ width: "auto" }}>
+                  <label>Date From</label>
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={styles.searchInput} />
+                </div>
+                <div className={styles.formGroup} style={{ width: "auto" }}>
+                  <label>Date To</label>
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={styles.searchInput} />
+                </div>
+                <div className={styles.formGroup} style={{ flex: 1, minWidth: "220px", position: "relative" }}>
+                  <label>Search Employee</label>
+                  {userRole === "1" ? (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Employee No / Full Name"
+                        value={search}
+                        onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
+                        onFocus={() => setShowSuggestions(true)}
+                        className={styles.searchInput}
+                        style={{ width: "100%" }}
+                      />
+                      {showSuggestions && filteredSuggestions.length > 0 && (
+                        <ul className={styles.suggestionList}>
+                          {filteredSuggestions.map((emp) => (
+                            <li
+                              key={emp.employeeId}
+                              className={styles.suggestionItem}
+                              onMouseDown={() => {
+                                setSearch(emp.fullName);
+                                setSelectedEmployee(emp);
+                                setShowSuggestions(false);
+                              }}
+                            >
+                              {emp.employeeNo} — {emp.fullName}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  ) : (
                     <input
                       type="text"
-                      placeholder="Employee No / Full Name"
-                      value={search}
-                      onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
-                      onFocus={() => setShowSuggestions(true)}
+                      readOnly
                       className={styles.searchInput}
+                      style={{ width: "100%" }}
+                      value={selectedEmployee ? `[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}` : ""}
                     />
-                    {showSuggestions && filteredSuggestions.length > 0 && (
-                      <ul className={styles.suggestionList}>
-                        {filteredSuggestions.map((emp) => (
-                          <li
-                            key={emp.employeeId}
-                            className={styles.suggestionItem}
-                            onMouseDown={() => {
-                              setSearch(emp.fullName);
-                              setSelectedEmployee(emp);
-                              setShowSuggestions(false);
-                            }}
-                          >
-                            {emp.employeeNo} — {emp.fullName}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                    <button onClick={handleClear} className={styles.clearButton}>Clear</button>
-                  </div>
+                  )}
+                </div>
+                <div style={{ alignSelf: "flex-end", marginBottom: "20px", marginLeft: "1rem" }}>
+                  <button onClick={handleClear} className={styles.clearButton}>Clear</button>
                 </div>
               </div>
 
@@ -283,7 +340,23 @@ export default function HRPassSlipModule() {
                   <h3>{selectedEmployee ? `Pass Slips — ${selectedEmployee.fullName}` : "Search and select an employee"}</h3>
                   {isLoading && <p>Loading...</p>}
                   {!isLoading && selectedEmployee && records.length === 0 && <p>No records found.</p>}
-                  {!isLoading && records.length > 0 && (
+                  <div className={tableStyles.paginationContainer}>
+                    <div className={tableStyles.paginationLeft}>
+                      <label>Rows per page: </label>
+                      <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
+                        {[25, 50, 100, 300, 500].map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <span className={tableStyles.recordInfo}>Showing {filteredRecords.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredRecords.length)} of {filteredRecords.length}</span>
+                    </div>
+                    <div className={tableStyles.paginationRight}>
+                      <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className={tableStyles.paginationBtn}>First</button>
+                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={tableStyles.paginationBtn}>Previous</button>
+                      <span className={tableStyles.pageIndicator}>Page {currentPage} of {totalPages}</span>
+                      <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Next</button>
+                      <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Last</button>
+                    </div>
+                  </div>
+                  {!isLoading && filteredRecords.length > 0 && (
                     <div style={{ overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                         <thead>
@@ -299,7 +372,7 @@ export default function HRPassSlipModule() {
                           </tr>
                         </thead>
                         <tbody>
-                          {records.map((r) => (
+                          {paginatedRecords.map((r) => (
                             <tr key={r.passSlipId} style={{ borderBottom: "1px solid #e2e8f0" }}>
                               <td style={td}>{r.dateFiled}</td>
                               <td style={td}>{r.passSlipDate}</td>
