@@ -401,13 +401,15 @@ export default function Separation({employees, userRole, selectedEmployee, separ
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className={styles.editBtn}
-            onClick={handleEditToggle}
-          >
-            New
-          </button>
+          userRole === "1" && (
+            <button
+              type="button"
+              className={styles.editBtn}
+              onClick={handleEditToggle}
+            >
+              New
+            </button>
+          )
         )}
       </div>
       
@@ -623,13 +625,15 @@ export default function Separation({employees, userRole, selectedEmployee, separ
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className={styles.editBtn}
-            onClick={handleEditToggle}
-          >
-            New
-          </button>
+          userRole === "1" && (
+            <button
+              type="button"
+              className={styles.editBtn}
+              onClick={handleEditToggle}
+            >
+              New
+            </button>
+          )
         )}
       </div>
 
@@ -668,20 +672,24 @@ export default function Separation({employees, userRole, selectedEmployee, separ
                       <td>{getEmployeeLabel(item.approvedById)}</td>
                       <td>
                         <div className={styles.actionsCell}>
-                          <button
-                              type="button"
-                              className={`${styles.iconButton} ${styles.editIcon}`}
-                              onClick={() => handleEdit(item)}
-                          >
-                              <FaRegEdit />
-                          </button>
-                          <button
-                              type="button"
-                              className={`${styles.iconButton} ${styles.deleteIcon}`}
-                              onClick={() => handleDelete(Number(item.separationId))}
-                          >
-                              <FaTrashAlt />
-                          </button>
+                          {userRole === "1" && (
+                            <button
+                                type="button"
+                                className={`${styles.iconButton} ${styles.editIcon}`}
+                                onClick={() => handleEdit(item)}
+                            >
+                                <FaRegEdit />
+                            </button>
+                          )}
+                          {userRole === "1" && (
+                            <button
+                                type="button"
+                                className={`${styles.iconButton} ${styles.deleteIcon}`}
+                                onClick={() => handleDelete(Number(item.separationId))}
+                            >
+                                <FaTrashAlt />
+                            </button>
+                          )}
                         </div>
                       </td>
                   </tr>

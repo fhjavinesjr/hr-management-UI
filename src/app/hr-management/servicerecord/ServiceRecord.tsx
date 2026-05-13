@@ -40,12 +40,14 @@ type Props = {
   selectedEmployee?: Employee | null;
   employeeAppointments?: EmployeeAppointmentModel[] | null;
   fetchEmploymentRecords?: () => Promise<void>;
+  userRole?: string | null;
 };
 
 export default function ServiceRecord({
   selectedEmployee,
   employeeAppointments,
   fetchEmploymentRecords,
+  userRole,
 }: Props) {
   const [natureList, setNatureList] = useState<NatureOfAppointmentDTO[]>([]);
   const [positionList, setPositionList] = useState<JobPositionDTO[]>([]);
@@ -229,9 +231,11 @@ export default function ServiceRecord({
   return (
     <div className={styles.ServiceRecord}>
       {/* ADD BUTTON */}
-      <button onClick={handleAddNew} className={styles.addBtn}>
-        New
-      </button>
+      {userRole === "1" && (
+        <button onClick={handleAddNew} className={styles.addBtn}>
+          New
+        </button>
+      )}
 
       {/* FORM */}
       {showForm && (
@@ -300,23 +304,27 @@ export default function ServiceRecord({
                         📋
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleEditAppointment(a)}
-                        style={{ cursor: "pointer" }}
-                        title="Edit"
-                      >
-                        ✏️
-                      </button>
+                      {userRole === "1" && (
+                        <button
+                          type="button"
+                          onClick={() => handleEditAppointment(a)}
+                          style={{ cursor: "pointer" }}
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAppointment(a.employeeAppointmentId)}
-                        style={{ cursor: "pointer" }}
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
+                      {userRole === "1" && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAppointment(a.employeeAppointmentId)}
+                          style={{ cursor: "pointer" }}
+                          title="Delete"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

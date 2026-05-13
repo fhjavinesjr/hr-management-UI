@@ -1,11 +1,12 @@
 'use client'
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { MenuItem } from "./MenuItem";
 import styles from "@/styles/Sidebar.module.scss";
 import { usePathname } from 'next/navigation';
 import { authLogout } from "@/lib/utils/authLogout";
 import { useRouter } from "next/navigation";
+import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 
 
 const menuItems = [
@@ -114,8 +115,19 @@ const otherItems = [
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname(); // Use usePathname for the current route
-  const router = useRouter();    // Use useRouter for navigation
+  const pathname = usePathname();
+  const router = useRouter();
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRole(localStorageUtil.getEmployeeRole());
+  }, []);
+
+  const isAdmin = role === "1";
+
+  const visibleMenuItems = isAdmin
+    ? menuItems
+    : menuItems.filter((item) => item.id === 1); // Employment Record only for USER
 
   return (
     <nav className={styles.Sidebar} role="navigation" aria-label="Main navigation">
@@ -127,7 +139,7 @@ export default function Sidebar() {
       <div className={styles.menuSection}>
         <h2 className={styles.menuHeader}>HR ACTION CENTER</h2>
         <div role="menu">
-          {menuItems.map((item, index) => (
+          {visibleMenuItems.map((item, index) => (
             <MenuItem key={index} icon={item.icon} label={item.label} goto={item.goto} isActive={pathname === item.goto} onClick={() => {}} />
           ))}
         </div>

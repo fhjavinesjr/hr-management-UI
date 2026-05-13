@@ -95,6 +95,7 @@ export default function LeaveInformationModule() {
   const [records, setRecords] = useState<LeaveInfoDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [viewAllYear, setViewAllYear] = useState(false);
   const [ledgerEmployee, setLedgerEmployee] = useState<{ emp: Employee | null; name: string; id: number } | null>(null);
   const [ledgerRecords, setLedgerRecords] = useState<LeaveInfoDTO[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
@@ -142,12 +143,16 @@ export default function LeaveInformationModule() {
   }, [selectedSettingId, selectedYear, selectedMonth, salaryPeriodSettings]);
 
   const fetchPeriodRecords = useCallback(async () => {
-    if (!resolvedDates) return;
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/leave-information/get-by-period?start=${resolvedDates.start}&end=${resolvedDates.end}`
-      );
+      let url: string;
+      if (viewAllYear) {
+        url = `${API_BASE_URL_HRM}/api/leave-information/get-by-year?year=${selectedYear}`;
+      } else {
+        if (!resolvedDates) { setIsLoading(false); return; }
+        url = `${API_BASE_URL_HRM}/api/leave-information/get-by-period?start=${resolvedDates.start}&end=${resolvedDates.end}`;
+      }
+      const res = await fetchWithAuth(url);
       if (!res.ok) throw new Error("Failed to fetch leave information");
       const data: LeaveInfoDTO[] = await res.json();
       setRecords(data);
@@ -156,7 +161,7 @@ export default function LeaveInformationModule() {
     } finally {
       setIsLoading(false);
     }
-  }, [resolvedDates]);
+  }, [resolvedDates, viewAllYear, selectedYear]);
 
   const handleProcess = async () => {
     if (!resolvedDates) {
@@ -326,12 +331,13 @@ export default function LeaveInformationModule() {
                 </div>
 
                 {/* Month */}
-                <div className={styles.formGroup}>
+                <div className={styles.formGroup} style={{ opacity: viewAllYear ? 0.4 : 1 }}>
                   <label>Month</label>
                   <select
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(Number(e.target.value))}
                     className={styles.inputField}
+                    disabled={viewAllYear}
                   >
                     {months.map((m, i) => (
                       <option key={i} value={i}>{m}</option>
@@ -353,12 +359,26 @@ export default function LeaveInformationModule() {
                   </select>
                 </div>
 
-                {/* Resolved dates preview */}
-                {resolvedDates && (
+                {/* Resolved dates preview — hidden when viewing all year */}
+                {resolvedDates && !viewAllYear && (
                   <div style={{ fontSize: "0.8rem", color: "#6b7280", paddingBottom: "0.3rem" }}>
                     Period: <strong>{resolvedDates.start}</strong> → <strong>{resolvedDates.end}</strong>
                   </div>
                 )}
+
+                {/* All Year toggle */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", paddingBottom: "0.2rem" }}>
+                  <input
+                    id="viewAllYear"
+                    type="checkbox"
+                    checked={viewAllYear}
+                    onChange={(e) => { setViewAllYear(e.target.checked); setRecords([]); }}
+                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563eb" }}
+                  />
+                  <label htmlFor="viewAllYear" style={{ fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+                    View All Year ({selectedYear})
+                  </label>
+                </div>
               </div>
 
               {/* Scope */}
@@ -406,11 +426,11 @@ export default function LeaveInformationModule() {
                 {/* Action buttons */}
                 <button
                   onClick={fetchPeriodRecords}
-                  disabled={!resolvedDates || isLoading}
+                  disabled={(!resolvedDates && !viewAllYear) || isLoading}
                   className={styles.clearButton}
                   style={{ background: "#2563eb", color: "#fff", border: "none" }}
                 >
-                  {isLoading ? "Loading..." : "View Period"}
+                  {isLoading ? "Loading..." : viewAllYear ? `View ${selectedYear}` : "View Period"}
                 </button>
 
                 <button
@@ -436,7 +456,9 @@ export default function LeaveInformationModule() {
                 <>
                   <h3 style={{ marginBottom: "0.5rem" }}>
                     Leave Information — {records.length} record{records.length !== 1 ? "s" : ""}
-                    {resolvedDates && ` (${resolvedDates.start} → ${resolvedDates.end})`}
+                    {viewAllYear
+                      ? ` — All periods in ${selectedYear}`
+                      : resolvedDates && ` (${resolvedDates.start} → ${resolvedDates.end})`}
                   </h3>
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
@@ -462,7 +484,7 @@ export default function LeaveInformationModule() {
                       </thead>
                       <tbody>
                         {records.map((r) => (
-                          <tr key={r.leaveInformationId} style={{ borderBottom: "1px solid #e2e8f0", background: r.isLocked ? "#fef9c3" : undefined }}>
+                          <tr key={r.leaveInformationId} style={{ borderBottom: "1px solid #e2e8f0", background: r.isBegBalance ? "#e0f2fe" : r.isLocked ? "#fef9c3" : undefined }}>
                             <td style={td}>
                               <button
                                 onClick={() => openLedger(r)}
@@ -486,9 +508,11 @@ export default function LeaveInformationModule() {
                             <td style={{ ...tdNum, fontWeight: 700, color: "#15803d" }}>{r.sickLeaveBalance?.toFixed(3)}</td>
                             <td style={{ ...tdNum, fontWeight: 700, color: "#1d4ed8" }}>{r.vacationLeaveBalance?.toFixed(3)}</td>
                             <td style={td}>
-                              {r.isLocked
-                                ? <span style={{ color: "#ca8a04", fontWeight: 700, fontSize: "0.75rem" }}>🔒 Locked</span>
-                                : <span style={{ color: "#6b7280", fontSize: "0.75rem" }}>Open</span>}
+                              {r.isBegBalance
+                                ? <span style={{ color: "#0284c7", fontWeight: 700, fontSize: "0.75rem" }}>📌 Beg Bal</span>
+                                : r.isLocked
+                                  ? <span style={{ color: "#ca8a04", fontWeight: 700, fontSize: "0.75rem" }}>🔒 Locked</span>
+                                  : <span style={{ color: "#6b7280", fontSize: "0.75rem" }}>Open</span>}
                             </td>
                             <td style={td}>
                               <div style={{ display: "flex", gap: "0.3rem", flexWrap: "nowrap" }}>
@@ -554,7 +578,7 @@ export default function LeaveInformationModule() {
                   </thead>
                   <tbody>
                     {ledgerRecords.map((r) => (
-                      <tr key={r.leaveInformationId} style={{ borderBottom: "1px solid #e2e8f0", background: r.isLocked ? "#fef9c3" : undefined }}>
+                      <tr key={r.leaveInformationId} style={{ borderBottom: "1px solid #e2e8f0", background: r.isBegBalance ? "#e0f2fe" : r.isLocked ? "#fef9c3" : undefined }}>
                         <td style={td}>{r.cutoffStartDate}</td>
                         <td style={td}>{r.cutoffEndDate}</td>
                         <td style={tdNum}>{r.previousSickLeaveBalance?.toFixed(3)}</td>
@@ -568,7 +592,7 @@ export default function LeaveInformationModule() {
                         <td style={tdNum}>{r.absentCount?.toFixed(3)}</td>
                         <td style={{ ...tdNum, fontWeight: 700, color: "#15803d" }}>{r.sickLeaveBalance?.toFixed(3)}</td>
                         <td style={{ ...tdNum, fontWeight: 700, color: "#1d4ed8" }}>{r.vacationLeaveBalance?.toFixed(3)}</td>
-                        <td style={td}>{r.isLocked ? "🔒" : ""}</td>
+                        <td style={td}>{r.isBegBalance ? "📌" : r.isLocked ? "🔒" : ""}</td>
                       </tr>
                     ))}
                   </tbody>

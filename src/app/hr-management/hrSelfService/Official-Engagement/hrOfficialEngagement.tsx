@@ -61,6 +61,7 @@ export default function HROfficialEngagementModule() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"All" | "Official Business" | "Official Time">("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -120,9 +121,10 @@ export default function HROfficialEngagementModule() {
     return records.filter((r) => {
       if (dateFrom && r.dateFiled && r.dateFiled < dateFrom) return false;
       if (dateTo && r.dateFiled && r.dateFiled > dateTo) return false;
+      if (typeFilter !== "All" && r.officialType !== typeFilter) return false;
       return true;
     });
-  }, [records, dateFrom, dateTo]);
+  }, [records, dateFrom, dateTo, typeFilter]);
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedRecords = filteredRecords.slice(startIndex, startIndex + itemsPerPage);
@@ -148,7 +150,7 @@ export default function HROfficialEngagementModule() {
     else setRecords([]);
   }, [selectedEmployee, fetchRecords]);
 
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, selectedEmployee, itemsPerPage, typeFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -276,6 +278,7 @@ export default function HROfficialEngagementModule() {
     setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
     setDateFrom("");
     setDateTo("");
+    setTypeFilter("All");
     setCurrentPage(1);
     setActiveTab("table");
   };
@@ -305,6 +308,18 @@ export default function HROfficialEngagementModule() {
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date To</label>
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={styles.searchInput} />
+                </div>
+                <div className={styles.formGroup} style={{ width: "auto" }}>
+                  <label>Type</label>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value as "All" | "Official Business" | "Official Time")}
+                    className={styles.searchInput}
+                  >
+                    <option value="All">All</option>
+                    <option value="Official Business">Official Business</option>
+                    <option value="Official Time">Official Time</option>
+                  </select>
                 </div>
                 <div className={styles.formGroup} style={{ flex: 1, minWidth: "220px", position: "relative" }}>
                   <label>Search Employee</label>

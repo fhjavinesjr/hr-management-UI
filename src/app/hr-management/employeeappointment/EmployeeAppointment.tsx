@@ -66,6 +66,7 @@ type Props = {
   selectedEmployee?: Employee | null;
   employeeAppointments?: EmployeeAppointmentModel[] | null;
   fetchEmploymentRecords?: () => Promise<void>;
+  userRole?: string | null;
 };
 
 export default function EmployeeAppointment({
@@ -76,6 +77,7 @@ export default function EmployeeAppointment({
   selectedEmployee,
   employeeAppointments,
   fetchEmploymentRecords,
+  userRole,
 }: Props) {
   const [positionList, setPositionList] = useState<JobPositionDTO[]>([]);
   const [plantillaList, setPlantillaList] = useState<PlantillaDTO[]>([]);
@@ -538,16 +540,18 @@ export default function EmployeeAppointment({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              className={styles.editBtn}
-              onClick={(e) => {
-                e.preventDefault();
-                setIsDisabled(false);
-              }}
-            >
-              Edit
-            </button>
+            userRole === "1" && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsDisabled(false);
+                }}
+              >
+                Edit
+              </button>
+            )
           )}
         </div>
 
@@ -644,16 +648,18 @@ export default function EmployeeAppointment({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              className={styles.editBtn}
-              onClick={(e) => {
-                e.preventDefault();
-                setIsDisabled(false);
-              }}
-            >
-              Edit
-            </button>
+            userRole === "1" && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsDisabled(false);
+                }}
+              >
+                Edit
+              </button>
+            )
           )}
         </div>
       </form>

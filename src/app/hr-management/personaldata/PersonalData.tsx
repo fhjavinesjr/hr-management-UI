@@ -27,6 +27,7 @@ type PersonalDataProps = {
   fetchEmploymentRecords?: () => Promise<void>;
   onEmployeeCreated?: (employee: Employee) => void;
   newSetEmployees?: (employees: Employee[]) => void;
+  userRole?: string | null;
 };
 
 export default function PersonalData({
@@ -35,6 +36,7 @@ export default function PersonalData({
   fetchEmploymentRecords,
   onEmployeeCreated,
   newSetEmployees,
+  userRole,
 }: PersonalDataProps) {
   const [form, setForm] = useState<PersonalDataModel>({
     personalDataId: "",
@@ -2241,7 +2243,7 @@ export default function PersonalData({
               name="employeeNo"
               value={form.employeeNo}
               onChange={handleChange}
-              disabled={isDisabled}
+              disabled={isDisabled || userRole !== "1"}
               required
             />
           </label>
@@ -2255,7 +2257,7 @@ export default function PersonalData({
               name="biometricNo"
               value={form.biometricNo}
               onChange={handleChange}
-              disabled={isDisabled}
+              disabled={isDisabled || userRole !== "1"}
               required={true}
             />
           </label>
@@ -2268,7 +2270,7 @@ export default function PersonalData({
               name="userRole"
               value={form.userRole}
               onChange={handleChange}
-              disabled={isDisabled}
+              disabled={isDisabled || userRole !== "1"}
             >
               <option value="">-- Select Role --</option>
               <option value="1">ADMIN</option>

@@ -261,12 +261,14 @@ export default function EmploymentRecord() {
                     Search
                   </button> */}
                   &nbsp;
-                  <button
-                    className={styles.clearButton}
-                    onClick={clearEmploymentRecordsWithShowMessage}
-                  >
-                    Clear
-                  </button>
+                  {userRole === "1" && (
+                    <button
+                      className={styles.clearButton}
+                      onClick={clearEmploymentRecordsWithShowMessage}
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -302,7 +304,7 @@ export default function EmploymentRecord() {
             {/* Tab Content */}
             <div className={styles.tabContent}>
               {activeTab === "personal" && (
-                <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} 
+                <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole}
                   onEmployeeCreated={(employee) => {
                     setSelectedEmployee(employee);
                     setInputValue(`[${employee.employeeNo}] ${employee.fullName}`);
@@ -313,10 +315,10 @@ export default function EmploymentRecord() {
                 />
               )}
               {activeTab === "appointment" && (
-                <EmployeeAppointment mode="edit_add_employee_appointment" selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords}/>
+                <EmployeeAppointment mode="edit_add_employee_appointment" selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole}/>
               )}
               {activeTab === "service" && (
-                <ServiceRecord selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} />
+                <ServiceRecord selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole} />
               )}
               {activeTab === "separation" && <Separation employees={employees} userRole={userRole} selectedEmployee={selectedEmployee} separations={separations} fetchEmploymentRecords={fetchEmploymentRecords} />}
             </div>
