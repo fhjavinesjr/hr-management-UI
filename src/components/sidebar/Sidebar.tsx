@@ -93,14 +93,14 @@ const menuItems = [
 
 const otherItems = [
   {
-    id: 2,
+    id: 1,
     icon: "/help.png",
     label: "Help",
     goto: "/hr-management",
     isActive: false,
   },
   {
-    id: 3,
+    id: 2,
     icon: "/logout.png",
     label: "Logout",
     action: "logout",
