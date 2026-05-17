@@ -93,13 +93,6 @@ const menuItems = [
 
 const otherItems = [
   {
-    id: 1,
-    icon: "/accounts.png",
-    label: "Accounts",
-    goto: "/hr-management/accounts",
-    isActive: false,
-  },
-  {
     id: 2,
     icon: "/help.png",
     label: "Help",
