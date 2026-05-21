@@ -1,5 +1,6 @@
 "use client";
 
+import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
@@ -12,7 +13,7 @@ import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/appr
 import to12HourFormat from "@/lib/utils/convert24To12HrFormat";
 import Tstyle from "@/styles/TimeCorrection.module.scss";
 
-const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 
 interface TimeCorrectionDTO {
   timeCorrectionId?: number;

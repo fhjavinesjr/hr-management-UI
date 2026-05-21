@@ -1,5 +1,6 @@
 "use client";
 
+import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import React, { useEffect, useState } from "react";
 import tableStyles from "@/styles/DTRTable.module.scss";
 import styles from "@/styles/ServiceRecord.module.scss";
@@ -207,7 +208,7 @@ export default function ServiceRecord({
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+          const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
           const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employeeAppointment/delete/${id}`, { method: "DELETE" });
           if (!res.ok) throw new Error("Failed to delete");
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import styles from "@/styles/EmployeeAppointment.module.scss";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
@@ -21,8 +22,8 @@ import {
 } from "@/lib/types/EmployeeAppointment";
 
 
-const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
-const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
+const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 
 export type Appointment = {
   employeeAppointmentId: string;

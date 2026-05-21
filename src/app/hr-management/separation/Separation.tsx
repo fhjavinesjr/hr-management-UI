@@ -1,5 +1,6 @@
 "use client";
 
+import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import React, { useEffect, useState, useRef } from "react";
 import styles from "@/styles/Separation.module.scss";
 import Swal from "sweetalert2";
@@ -9,8 +10,8 @@ import { Employee } from "@/lib/types/Employee";
 import { SeparationModel } from "@/lib/types/Separation";
 import { FaRegEdit, FaTrashAlt } from "react-icons/fa";
 
-const API_BASE_URL_ADMINISTRATIVE = process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE;
-const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
+const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 
 // Add the type model for the form fields
 type SeparationForm = {

@@ -88,7 +88,16 @@ const menuItems = [
     label: "Leave Information",
     goto: "/hr-management/Leave-Information",
     isActive: false,
-  }
+  },
+
+  {
+    id: 11,
+    icon: "/accounts.png",
+    label: "Plantilla Monitoring",
+    goto: "/hr-management/plantilla",
+    isActive: false,
+    adminOnly: true,
+  },
 ];
 
 const otherItems = [

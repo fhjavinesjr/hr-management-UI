@@ -1,5 +1,6 @@
 "use client";
 
+import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import { useState, useEffect, useCallback } from "react";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import PersonalData from "@/app/hr-management/personaldata/PersonalData";
@@ -13,7 +14,7 @@ import { PersonalDataModel } from "@/lib/types/PersonalData";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 import { SeparationModel } from "@/lib/types/Separation";
 
-const API_BASE_URL_HRM = process.env.NEXT_PUBLIC_API_BASE_URL_HRM;
+const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
 
