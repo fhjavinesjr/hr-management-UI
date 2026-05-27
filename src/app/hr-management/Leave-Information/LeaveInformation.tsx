@@ -21,6 +21,7 @@ interface SalaryPeriodSettingDTO {
   cutoffStartMonthOffset: number;
   cutoffEndDay: number;
   cutoffEndMonthOffset: number;
+  salaryReleaseMonthOffset?: number | null;
   isActive: boolean;
 }
 
