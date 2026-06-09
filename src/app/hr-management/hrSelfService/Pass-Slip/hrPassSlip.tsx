@@ -50,6 +50,9 @@ const Toast = Swal.mixin({
 
 export default function HRPassSlipModule() {
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
+  const canAdd = localStorageUtil.canAdd("hrm.ss.passSlip");
+  const canEdit = localStorageUtil.canEdit("hrm.ss.passSlip");
+  const canDelete = localStorageUtil.canDelete("hrm.ss.passSlip");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -149,6 +152,11 @@ export default function HRPassSlipModule() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isUpdate = editingId !== null;
+    if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to perform this action." });
+      return;
+    }
     if (!selectedEmployee) {
       Swal.fire({ icon: "warning", title: "No employee selected" });
       return;
@@ -174,7 +182,6 @@ export default function HRPassSlipModule() {
         recommendedById: approvalData.recommendingApprovalById,
         recommendationRemarks: approvalData.recommendationMessage,
       };
-      const isUpdate = editingId !== null;
       const url = isUpdate
         ? `${API_BASE_URL_HRM}/api/pass-slip/update/${editingId}`
         : `${API_BASE_URL_HRM}/api/pass-slip/create`;
@@ -196,6 +203,10 @@ export default function HRPassSlipModule() {
   };
 
   const handleEdit = (r: PassSlipDTO) => {
+    if (!canEdit) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to edit records." });
+      return;
+    }
     setForm({
       dateFiled: r.dateFiled ?? today,
       passSlipDate: r.passSlipDate ?? today,
@@ -221,6 +232,10 @@ export default function HRPassSlipModule() {
   };
 
   const handleDelete = async (passSlipId: number) => {
+    if (!canDelete) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to delete records." });
+      return;
+    }
     const confirm = await Swal.fire({
       title: "Delete this record?",
       icon: "warning",
@@ -330,7 +345,7 @@ export default function HRPassSlipModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File Pass Slip</button>
+                {(canAdd || canEdit) && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File Pass Slip</button>}
               </div>
             </div>
 
@@ -383,8 +398,9 @@ export default function HRPassSlipModule() {
                               <td style={td}>{r.details}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>
-                                <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>
-                                <button onClick={() => handleDelete(r.passSlipId!)} style={btnDelete}>Delete</button>
+                                {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
+                                {canDelete && <button onClick={() => handleDelete(r.passSlipId!)} style={btnDelete}>Delete</button>}
+                                {!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
                           ))}
@@ -399,7 +415,7 @@ export default function HRPassSlipModule() {
                 <>
                   <h3>File Pass Slip{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
-                  {selectedEmployee && (
+                  {selectedEmployee && (editingId ? canEdit : canAdd) && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
@@ -433,6 +449,9 @@ export default function HRPassSlipModule() {
                         {isSubmitting ? "Submitting..." : editingId ? "Update Pass Slip" : "Submit Pass Slip"}
                       </button>
                     </form>
+                  )}
+                  {selectedEmployee && !(editingId ? canEdit : canAdd) && (
+                    <p style={{ color: "#dc2626" }}>You do not have permission to {editingId ? "edit" : "create"} pass slips.</p>
                   )}
                 </>
               )}

@@ -20,9 +20,11 @@ interface LeaveApplicationTableProps {
   data: LeaveRecord[];
   onEdit?: (record: LeaveRecord) => void;
   onDelete?: (record: LeaveRecord) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
-export default function LeaveApplicationTable({ data, onEdit, onDelete }: LeaveApplicationTableProps) {
+export default function LeaveApplicationTable({ data, onEdit, onDelete, canEdit = true, canDelete = true }: LeaveApplicationTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
@@ -126,18 +128,23 @@ export default function LeaveApplicationTable({ data, onEdit, onDelete }: LeaveA
                 </span>
               </td>
               <td className={tableStyles.actionCell}>
-                <button
-                  className={tableStyles.editBtn}
-                  onClick={() => onEdit?.(record)}
-                >
-                  Edit
-                </button>
-                <button
-                  className={tableStyles.deleteBtn}
-                  onClick={() => onDelete?.(record)}
-                >
-                  Delete
-                </button>
+                {canEdit && (
+                  <button
+                    className={tableStyles.editBtn}
+                    onClick={() => onEdit?.(record)}
+                  >
+                    Edit
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    className={tableStyles.deleteBtn}
+                    onClick={() => onDelete?.(record)}
+                  >
+                    Delete
+                  </button>
+                )}
+                {!canEdit && !canDelete && "-"}
               </td>
             </tr>
           ))}

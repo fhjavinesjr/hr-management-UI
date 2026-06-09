@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { MenuItem } from "./MenuItem";
 import styles from "@/styles/Sidebar.module.scss";
 import { usePathname } from 'next/navigation';
@@ -16,6 +16,7 @@ const menuItems = [
     label: "Employment Record",
     goto: "/hr-management/employmentrecord",
     isActive: false,
+    permKey: "hrm.employmentRecord",
   },
 
   {
@@ -24,6 +25,7 @@ const menuItems = [
     label: "Beginning Balance",
     goto: "/hr-management/hrSelfService/Beginning-Balance",
     isActive: false,
+    permKey: "hrm.ss.beginBalance",
   },
 
   {
@@ -32,6 +34,7 @@ const menuItems = [
   label: "Leave Application",
   goto: "/hr-management/hrSelfService/Leave-Application",
   isActive: false,
+  permKey: "hrm.ss.leaveApp",
   },
 
   {
@@ -40,6 +43,7 @@ const menuItems = [
     label: "Overtime Request",
     goto: "/hr-management/hrSelfService/Overtime-Request",
     isActive: false,
+    permKey: "hrm.ss.overtimeReq",
   },
 
   {
@@ -48,6 +52,7 @@ const menuItems = [
     label: "Compensatory Overtime Credit",
     goto: "/hr-management/hrSelfService/Compensatory-Overtime-Credit",
     isActive: false,
+    permKey: "hrm.ss.coc",
   },
 
   {
@@ -56,6 +61,7 @@ const menuItems = [
     label: "Compensatory Time Off",
     goto: "/hr-management/hrSelfService/Compensatory-Time-Off",
     isActive: false,
+    permKey: "hrm.ss.cto",
   },
 
   {
@@ -64,6 +70,7 @@ const menuItems = [
     label: "Official Engagement",
     goto: "/hr-management/hrSelfService/Official-Engagement",
     isActive: false,
+    permKey: "hrm.ss.officialEngag",
   },
 
   {
@@ -72,6 +79,7 @@ const menuItems = [
     label: "Pass Slip",
     goto: "/hr-management/hrSelfService/Pass-Slip",
     isActive: false,
+    permKey: "hrm.ss.passSlip",
   },
 
   {
@@ -80,6 +88,7 @@ const menuItems = [
     label: "Time Correction",
     goto: "/hr-management/hrSelfService/Time-Correction",
     isActive: false,
+    permKey: "hrm.ss.timeCorrection",
   },
 
   {
@@ -88,6 +97,7 @@ const menuItems = [
     label: "Leave Information",
     goto: "/hr-management/Leave-Information",
     isActive: false,
+    permKey: "hrm.leaveInformation",
   },
 
   {
@@ -97,6 +107,7 @@ const menuItems = [
     goto: "/hr-management/plantilla",
     isActive: false,
     adminOnly: true,
+    permKey: "hrm.plantillaMonitoring",
   },
 ];
 
@@ -119,17 +130,9 @@ const otherItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => {}, []); // keep effect hook for future use
 
-  useEffect(() => {
-    setRole(localStorageUtil.getEmployeeRole());
-  }, []);
-
-  const isAdmin = role === "1";
-
-  const visibleMenuItems = isAdmin
-    ? menuItems
-    : menuItems.filter((item) => item.id === 1); // Employment Record only for USER
+  const visibleMenuItems = menuItems.filter(item => localStorageUtil.canAccess(item.permKey));
 
   return (
     <nav className={styles.Sidebar} role="navigation" aria-label="Main navigation">

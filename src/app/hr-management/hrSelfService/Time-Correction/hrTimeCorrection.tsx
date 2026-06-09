@@ -56,6 +56,9 @@ const Toast = Swal.mixin({
 
 export default function HRTimeCorrectionModule() {
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
+  const canAdd = localStorageUtil.canAdd("hrm.ss.timeCorrection");
+  const canEdit = localStorageUtil.canEdit("hrm.ss.timeCorrection");
+  const canDelete = localStorageUtil.canDelete("hrm.ss.timeCorrection");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -196,6 +199,11 @@ export default function HRTimeCorrectionModule() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isUpdate = editingId !== null;
+    if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to perform this action." });
+      return;
+    }
     if (!selectedEmployee) {
       Swal.fire({ icon: "warning", title: "No employee selected" });
       return;
@@ -222,7 +230,6 @@ export default function HRTimeCorrectionModule() {
         recommendedById: approvalData.recommendingApprovalById,
         recommendationRemarks: approvalData.recommendationMessage,
       };
-      const isUpdate = editingId !== null;
       const url = isUpdate
         ? `${API_BASE_URL_HRM}/api/time-correction/update/${editingId}`
         : `${API_BASE_URL_HRM}/api/time-correction/create`;
@@ -250,6 +257,10 @@ export default function HRTimeCorrectionModule() {
   };
 
   const handleEdit = (r: TimeCorrectionDTO) => {
+    if (!canEdit) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to edit records." });
+      return;
+    }
     setForm({
       dateFiled: r.dateFiled ?? today,
       workDate: r.workDate ?? today,
@@ -276,6 +287,10 @@ export default function HRTimeCorrectionModule() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canDelete) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to delete records." });
+      return;
+    }
     const confirm = await Swal.fire({
       title: "Delete this record?",
       icon: "warning",
@@ -385,7 +400,7 @@ export default function HRTimeCorrectionModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File TC</button>
+                {(canAdd || canEdit) && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File TC</button>}
               </div>
             </div>
 
@@ -438,7 +453,7 @@ export default function HRTimeCorrectionModule() {
                               <td style={td}>{r.correctedTimeOut}</td>
                               <td style={td}>{r.reason}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
-                              <td style={td}>                                  <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>                                <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>
+                              <td style={td}>{canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}{canDelete && <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>}{!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
                           ))}
@@ -453,7 +468,7 @@ export default function HRTimeCorrectionModule() {
                 <>
                   <h3>File Time Correction{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
-                  {selectedEmployee && (
+                  {selectedEmployee && (editingId ? canEdit : canAdd) && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
@@ -488,6 +503,9 @@ export default function HRTimeCorrectionModule() {
                         {isSubmitting ? "Submitting..." : editingId ? "Update Time Correction" : "Submit Time Correction"}
                       </button>
                     </form>
+                  )}
+                  {selectedEmployee && !(editingId ? canEdit : canAdd) && (
+                    <p style={{ color: "#dc2626" }}>You do not have permission to {editingId ? "edit" : "create"} time corrections.</p>
                   )}
                 </>
               )}

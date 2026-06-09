@@ -4,6 +4,7 @@ import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import React, { useState, useEffect, useCallback } from "react";
 import styles from "@/styles/PersonalData.module.scss";
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
+const API_BASE_URL_ADMIN = runtimeConfig.getApiUrl("administrative");
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import { toCustomFormat, toDateInputValue } from "@/lib/utils/dateFormatUtils";
 import { Employee } from "@/lib/types/Employee";
@@ -29,7 +30,12 @@ type PersonalDataProps = {
   onEmployeeCreated?: (employee: Employee) => void;
   newSetEmployees?: (employees: Employee[]) => void;
   userRole?: string | null;
+  canAdd?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
+
+type PermissionRuleset = { permissionId: number; permissionName: string };
 
 export default function PersonalData({
   selectedEmployee,
@@ -38,7 +44,18 @@ export default function PersonalData({
   onEmployeeCreated,
   newSetEmployees,
   userRole,
+  canAdd = false,
+  canEdit = false,
+  canDelete = false,
 }: PersonalDataProps) {
+  const [permissionRulesets, setPermissionRulesets] = useState<PermissionRuleset[]>([]);
+
+  useEffect(() => {
+    fetchWithAuth(`${API_BASE_URL_ADMIN}/api/permission/get-all`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: PermissionRuleset[]) => setPermissionRulesets(data))
+      .catch(() => setPermissionRulesets([]));
+  }, []);
   const [form, setForm] = useState<PersonalDataModel>({
     personalDataId: "",
     employeeNo: "",
@@ -373,6 +390,34 @@ export default function PersonalData({
     return null;
   };
 
+  // If the logged-in user's ruleset is named "USER", auto-fill their employeeNo/name
+  useEffect(() => {
+    try {
+      const storedRole = localStorageUtil.getEmployeeRole();
+      const matched = permissionRulesets.find(r => String(r.permissionId) === String(storedRole));
+      const isUser = !!matched && String(matched.permissionName).toUpperCase() === "USER";
+      setIsUserRuleset(isUser);
+
+      if (isUser) {
+        const myEmpNo = localStorageUtil.getEmployeeNo() ?? "";
+        const myFull = localStorageUtil.getEmployeeFullname() ?? "";
+        // Only auto-fill when creating/editing own record
+        if (!selectedEmployee || selectedEmployee.employeeNo === myEmpNo) {
+          const parsed = parseFullName(myFull);
+          setForm(prev => ({
+            ...prev,
+            employeeNo: prev.employeeNo || myEmpNo,
+            surname: prev.surname || parsed.surname,
+            firstname: prev.firstname || parsed.firstname,
+            middlename: prev.middlename || parsed.middlename,
+          }));
+        }
+      }
+    } catch (e) {
+      // silent
+    }
+  }, [permissionRulesets, selectedEmployee]);
+
   // Populate personal data when fetched from backend
   useEffect(() => {
     if (personalData) {
@@ -465,6 +510,38 @@ export default function PersonalData({
   }, [personalData, fetchChildren]);
 
   const [isDisabled, setIsDisabled] = useState(true);
+  const [isUserRuleset, setIsUserRuleset] = useState(false);
+
+  // Parse a stored full name into surname / firstname / middlename heuristically
+  const parseFullName = (fullname?: string | null) => {
+    const result = { surname: "", firstname: "", middlename: "" };
+    if (!fullname) return result;
+    const name = fullname.trim();
+    if (!name) return result;
+    if (name.includes(",")) {
+      const parts = name.split(",");
+      result.surname = parts[0].trim();
+      const rest = parts[1].trim().split(/\s+/);
+      result.firstname = rest[0] ?? "";
+      result.middlename = rest.slice(1).join(" ") ?? "";
+      return result;
+    }
+    const tokens = name.split(/\s+/);
+    if (tokens.length === 1) {
+      result.surname = tokens[0];
+      return result;
+    }
+    if (tokens.length === 2) {
+      result.firstname = tokens[0];
+      result.surname = tokens[1];
+      return result;
+    }
+    // 3+ tokens: assume First Middle Last
+    result.firstname = tokens[0];
+    result.surname = tokens[tokens.length - 1];
+    result.middlename = tokens.slice(1, tokens.length - 1).join(" ");
+    return result;
+  };
 
   // Dynamic rows for repeating sections
   // Civil Service Eligibility rows (mapped to backend entity)
@@ -1825,10 +1902,21 @@ export default function PersonalData({
     // Auto-convert numeric fields (only apply for non-checkbox inputs)
     const numericFields = ["sex_id", "civilStatus_id", "height", "weight"];
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: !isCheckbox && numericFields.includes(name) ? Number(rawValue) : rawValue,
-    }));
+    const valueForSet = !isCheckbox && numericFields.includes(name) ? Number(rawValue) : rawValue;
+
+    // Special-case: if user answered NO to q35b (criminally charged), clear Date Filed
+    if (name === "q35b" && valueForSet === "no") {
+      setForm((prev) => ({
+        ...prev,
+        [name]: valueForSet,
+        q35bDateFiled: "",
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [name]: valueForSet,
+      }));
+    }
   };
 
   // Convert files to Base64 strings
@@ -2000,7 +2088,7 @@ export default function PersonalData({
         q35aDetails: form.q35aDetails ?? "",
         q35bDetails: form.q35bDetails ?? "",
         q35bDateFiled: form.q35bDateFiled
-          ? toCustomFormat(form.q35bDateFiled, false)
+          ? (toCustomFormat(form.q35bDateFiled, false) || null)
           : null,
         q35bStatus: form.q35bStatus ?? "",
         q36Details: form.q36Details ?? "",
@@ -2218,15 +2306,26 @@ export default function PersonalData({
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className={styles.editBtn}
-            onClick={handleEditToggle}
-          >
-            {selectedEmployee && selectedEmployee.isSearched === true
-              ? "Edit"
-              : "New"}
-          </button>
+          <>
+            {(!selectedEmployee || selectedEmployee.isSearched !== true) && canAdd && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={handleEditToggle}
+              >
+                New
+              </button>
+            )}
+            {selectedEmployee && selectedEmployee.isSearched === true && canEdit && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={handleEditToggle}
+              >
+                Edit
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -2244,7 +2343,7 @@ export default function PersonalData({
               name="employeeNo"
               value={form.employeeNo}
               onChange={handleChange}
-              disabled={isDisabled || userRole !== "1"}
+              disabled={isDisabled || (!canAdd && !canEdit)}
               required
             />
           </label>
@@ -2258,8 +2357,8 @@ export default function PersonalData({
               name="biometricNo"
               value={form.biometricNo}
               onChange={handleChange}
-              disabled={isDisabled || userRole !== "1"}
-              required={true}
+              disabled={isDisabled || (!canAdd && !canEdit)}
+              required
             />
           </label>
 
@@ -2271,11 +2370,12 @@ export default function PersonalData({
               name="userRole"
               value={form.userRole}
               onChange={handleChange}
-              disabled={isDisabled || userRole !== "1"}
+              disabled={isDisabled || (!canAdd && !canEdit)}
             >
               <option value="">-- Select Role --</option>
-              <option value="1">ADMIN</option>
-              <option value="2">USER</option>
+              {permissionRulesets.map(r => (
+                <option key={r.permissionId} value={String(r.permissionId)}>{r.permissionName}</option>
+              ))}
             </select>
           </label>
         </div>
@@ -3646,7 +3746,10 @@ export default function PersonalData({
                 name="q35bDateFiled"
                 value={form.q35bDateFiled ?? ""}
                 onChange={handleChange}
+                // Enable the Date Filed input whenever the form is editable (`isDisabled === false`).
+                // Only require the field when the user explicitly answers "yes" to q35b.
                 disabled={isDisabled}
+                required={form.q35b === "yes"}
               />
             </label>
             <label>

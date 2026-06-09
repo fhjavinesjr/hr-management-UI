@@ -31,6 +31,9 @@ type NatureOfSeparationDTO = {
 type Props = {
   employees?: Employee[];
   userRole?: string | null;
+  canAdd?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
   selectedEmployee?: Employee | null;
   separations?: SeparationModel[] | null;
   fetchEmploymentRecords?: () => Promise<void>;

@@ -58,6 +58,9 @@ const Toast = Swal.mixin({
 });
 
 export default function HRCompensatoryOvertimeCreditModule() {
+  const canAdd    = localStorageUtil.canAdd("hrm.ss.coc");
+  const canEdit   = localStorageUtil.canEdit("hrm.ss.coc");
+  const canDelete = localStorageUtil.canDelete("hrm.ss.coc");
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -397,7 +400,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
               {/* Tabs */}
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>Records</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File COC</button>
+                {canAdd && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File COC</button>}
               </div>
             </div>
 
@@ -450,8 +453,8 @@ export default function HRCompensatoryOvertimeCreditModule() {
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
-                                <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>
-                                <button onClick={() => handleDelete(r.cocId!)} style={btnDelete}>Delete</button>
+                                {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
+                                {canDelete && <button onClick={() => handleDelete(r.cocId!)} style={btnDelete}>Delete</button>}
                               </td>
                             </tr>
                           ))}

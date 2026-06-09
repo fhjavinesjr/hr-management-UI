@@ -46,6 +46,9 @@ const Toast = Swal.mixin({
 });
 
 export default function HROvertimeRequestModule() {
+  const canAdd    = localStorageUtil.canAdd("hrm.ss.overtimeReq");
+  const canEdit   = localStorageUtil.canEdit("hrm.ss.overtimeReq");
+  const canDelete = localStorageUtil.canDelete("hrm.ss.overtimeReq");
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -349,7 +352,7 @@ export default function HROvertimeRequestModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>Records</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File Request</button>
+                {canAdd && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File Request</button>}
               </div>
             </div>
 
@@ -401,8 +404,8 @@ export default function HROvertimeRequestModule() {
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
-                                <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>
-                                <button onClick={() => handleDelete(r.overtimeRequestId!)} style={btnDelete}>Delete</button>
+                                {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
+                                {canDelete && <button onClick={() => handleDelete(r.overtimeRequestId!)} style={btnDelete}>Delete</button>}
                               </td>
                             </tr>
                           ))}

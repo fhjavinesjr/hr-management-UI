@@ -68,6 +68,8 @@ type Props = {
   employeeAppointments?: EmployeeAppointmentModel[] | null;
   fetchEmploymentRecords?: () => Promise<void>;
   userRole?: string | null;
+  canEdit?: boolean;
+  canAdd?: boolean;
 };
 
 export default function EmployeeAppointment({
@@ -79,6 +81,8 @@ export default function EmployeeAppointment({
   employeeAppointments,
   fetchEmploymentRecords,
   userRole,
+  canEdit = false,
+  canAdd = false,
 }: Props) {
   const [positionList, setPositionList] = useState<JobPositionDTO[]>([]);
   const [plantillaList, setPlantillaList] = useState<PlantillaDTO[]>([]);
@@ -541,18 +545,32 @@ export default function EmployeeAppointment({
               </button>
             </>
           ) : (
-            userRole === "1" && (
-              <button
-                type="button"
-                className={styles.editBtn}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIsDisabled(false);
-                }}
-              >
-                Edit
-              </button>
-            )
+            <>
+              {!initialData && canAdd && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsDisabled(false);
+                  }}
+                >
+                  New
+                </button>
+              )}
+              {initialData && canEdit && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsDisabled(false);
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+            </>
           )}
         </div>
 
@@ -649,18 +667,32 @@ export default function EmployeeAppointment({
               </button>
             </>
           ) : (
-            userRole === "1" && (
-              <button
-                type="button"
-                className={styles.editBtn}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIsDisabled(false);
-                }}
-              >
-                Edit
-              </button>
-            )
+            <>
+              {!initialData && canAdd && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsDisabled(false);
+                  }}
+                >
+                  New
+                </button>
+              )}
+              {initialData && canEdit && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsDisabled(false);
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+            </>
           )}
         </div>
       </form>

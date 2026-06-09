@@ -31,6 +31,8 @@ interface CocState {
 }
 
 export default function BeginningBalanceModule() {
+  const canAdd = localStorageUtil.canAdd("hrm.ss.beginBalance");
+  const canEdit = localStorageUtil.canEdit("hrm.ss.beginBalance");
   const [inputValue, setInputValue] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -182,6 +184,11 @@ export default function BeginningBalanceModule() {
       Swal.fire("Error", "Please select an employee first.", "error");
       return;
     }
+    const hasExisting = leaveRows.some((r) => (r.leaveBeginningBalanceId ?? 0) > 0) || (coc.cocBeginningBalanceId ?? 0) > 0;
+    if ((hasExisting && !canEdit) || (!hasExisting && !canAdd)) {
+      Swal.fire("Access denied", "You do not have permission to perform this action.", "warning");
+      return;
+    }
     if (!asOfDate) {
       Swal.fire("Error", "Please set an As Of Date.", "error");
       return;
@@ -299,15 +306,15 @@ export default function BeginningBalanceModule() {
                   )}
                   <button
                     onClick={handleSave}
-                    disabled={!selectedEmployee || isLoading}
+                    disabled={!selectedEmployee || isLoading || (!canAdd && !canEdit)}
                     style={{
                       padding: "0.6rem 1.4rem",
-                      backgroundColor: selectedEmployee && !isLoading ? "#28a745" : "#aaa",
+                      backgroundColor: selectedEmployee && !isLoading && (canAdd || canEdit) ? "#28a745" : "#aaa",
                       color: "white",
                       border: "none",
                       borderRadius: "8px",
                       fontWeight: 600,
-                      cursor: selectedEmployee && !isLoading ? "pointer" : "not-allowed",
+                      cursor: selectedEmployee && !isLoading && (canAdd || canEdit) ? "pointer" : "not-allowed",
                     }}
                   >
                     Save

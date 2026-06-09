@@ -52,6 +52,9 @@ const Toast = Swal.mixin({
 
 export default function HROfficialEngagementModule() {
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
+  const canAdd = localStorageUtil.canAdd("hrm.ss.officialEngag");
+  const canEdit = localStorageUtil.canEdit("hrm.ss.officialEngag");
+  const canDelete = localStorageUtil.canDelete("hrm.ss.officialEngag");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -155,6 +158,11 @@ export default function HROfficialEngagementModule() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isUpdate = editingId !== null;
+    if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to perform this action." });
+      return;
+    }
     if (!selectedEmployee) {
       Swal.fire({ icon: "warning", title: "No employee selected" });
       return;
@@ -200,7 +208,6 @@ export default function HROfficialEngagementModule() {
         recommendedById: approvalData.recommendingApprovalById,
         recommendationRemarks: approvalData.recommendationMessage,
       };
-      const isUpdate = editingId !== null;
       const url = isUpdate
         ? `${API_BASE_URL_HRM}/api/official-engagement/update/${editingId}`
         : `${API_BASE_URL_HRM}/api/official-engagement/create`;
@@ -222,6 +229,10 @@ export default function HROfficialEngagementModule() {
   };
 
   const handleEdit = (r: OfficialEngagementApplicationDTO) => {
+    if (!canEdit) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to edit records." });
+      return;
+    }
     setForm({
       dateFiled: r.dateFiled ?? today,
       officialType: r.officialType ?? "Official Business",
@@ -248,6 +259,10 @@ export default function HROfficialEngagementModule() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canDelete) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to delete records." });
+      return;
+    }
     const confirm = await Swal.fire({
       title: "Delete this record?",
       icon: "warning",
@@ -370,7 +385,7 @@ export default function HROfficialEngagementModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File OE</button>
+                {(canAdd || canEdit) && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File OE</button>}
               </div>
             </div>
 
@@ -423,7 +438,7 @@ export default function HROfficialEngagementModule() {
                               <td style={td}>{r.endTime}</td>
                               <td style={td}>{r.details}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
-                              <td style={td}>                                  <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>                                <button onClick={() => handleDelete(r.officialEngagementApplicationId!)} style={btnDelete}>Delete</button>
+                              <td style={td}>{canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}{canDelete && <button onClick={() => handleDelete(r.officialEngagementApplicationId!)} style={btnDelete}>Delete</button>}{!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
                           ))}
@@ -438,7 +453,7 @@ export default function HROfficialEngagementModule() {
                 <>
                   <h3>File Official Engagement{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
-                  {selectedEmployee && (
+                  {selectedEmployee && (editingId ? canEdit : canAdd) && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
@@ -476,6 +491,9 @@ export default function HROfficialEngagementModule() {
                         {isSubmitting ? "Submitting..." : editingId ? "Update Official Engagement" : "Submit Official Engagement"}
                       </button>
                     </form>
+                  )}
+                  {selectedEmployee && !(editingId ? canEdit : canAdd) && (
+                    <p style={{ color: "#dc2626" }}>You do not have permission to {editingId ? "edit" : "create"} official engagements.</p>
                   )}
                 </>
               )}

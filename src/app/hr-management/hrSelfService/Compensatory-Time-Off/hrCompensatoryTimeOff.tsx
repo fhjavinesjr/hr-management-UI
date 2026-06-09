@@ -47,6 +47,9 @@ const Toast = Swal.mixin({
 
 export default function HRCompensatoryTimeOffModule() {
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
+  const canAdd = localStorageUtil.canAdd("hrm.ss.cto");
+  const canEdit = localStorageUtil.canEdit("hrm.ss.cto");
+  const canDelete = localStorageUtil.canDelete("hrm.ss.cto");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -160,6 +163,11 @@ export default function HRCompensatoryTimeOffModule() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isUpdate = editingId !== null;
+    if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to perform this action." });
+      return;
+    }
     if (!selectedEmployee) {
       Swal.fire({ icon: "warning", title: "No employee selected" });
       return;
@@ -192,7 +200,6 @@ export default function HRCompensatoryTimeOffModule() {
         recommendedById: approvalData.recommendingApprovalById,
         recommendationRemarks: approvalData.recommendationMessage,
       };
-      const isUpdate = editingId !== null;
       const url = isUpdate
         ? `${API_BASE_URL_HRM}/api/cto/update/${editingId}`
         : `${API_BASE_URL_HRM}/api/cto/create`;
@@ -215,6 +222,10 @@ export default function HRCompensatoryTimeOffModule() {
   };
 
   const handleEdit = (r: CtoDTO) => {
+    if (!canEdit) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to edit records." });
+      return;
+    }
     setForm({
       dateFiled: r.dateFiled ?? today,
       dateOfOffset: r.dateOfOffset ?? today,
@@ -238,6 +249,10 @@ export default function HRCompensatoryTimeOffModule() {
   };
 
   const handleDelete = async (ctoId: number) => {
+    if (!canDelete) {
+      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to delete records." });
+      return;
+    }
     const confirm = await Swal.fire({
       title: "Delete this CTO record?",
       icon: "warning",
@@ -350,7 +365,7 @@ export default function HRCompensatoryTimeOffModule() {
 
               <div className={styles.tabsHeader}>
                 <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>Records</button>
-                <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File CTO</button>
+                {(canAdd || canEdit) && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File CTO</button>}
               </div>
             </div>
 
@@ -401,7 +416,7 @@ export default function HRCompensatoryTimeOffModule() {
                               <td style={td}>{r.reason}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
-                              <td style={td}>                                  <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>                                <button onClick={() => handleDelete(r.ctoId!)} style={btnDelete}>Delete</button>
+                              <td style={td}>{canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}{canDelete && <button onClick={() => handleDelete(r.ctoId!)} style={btnDelete}>Delete</button>}{!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
                           ))}
@@ -421,7 +436,7 @@ export default function HRCompensatoryTimeOffModule() {
                     </p>
                   )}
                   {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
-                  {selectedEmployee && (
+                  {selectedEmployee && (editingId ? canEdit : canAdd) && (
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
@@ -456,6 +471,9 @@ export default function HRCompensatoryTimeOffModule() {
                         {isSubmitting ? "Submitting..." : editingId ? "Update CTO Application" : "File CTO Application"}
                       </button>
                     </form>
+                  )}
+                  {selectedEmployee && !(editingId ? canEdit : canAdd) && (
+                    <p style={{ color: "#dc2626" }}>You do not have permission to {editingId ? "edit" : "create"} CTO records.</p>
                   )}
                 </>
               )}

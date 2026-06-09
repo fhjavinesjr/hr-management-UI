@@ -14,7 +14,27 @@ export const formatMMDDYYYY = (date: Date) => {
  * (Used to populate HTML date input fields)
  */
 export const toDateInputValue = (customFormat: string): string => {
-  const [month, day, year] = customFormat.split(" ")[0].split("-");
+  if (!customFormat) return "";
+  const first = String(customFormat).split(" ")[0]; // take MM-dd-yyyy part
+  const parts = first.split("-");
+  if (parts.length !== 3) return "";
+  const [p1, p2, p3] = parts;
+  // Validate numeric parts
+  const isNumeric = (s: string) => /^\d+$/.test(s);
+  if (!isNumeric(p1) || !isNumeric(p2) || !isNumeric(p3)) return "";
+
+  // If format is yyyy-MM-dd
+  if (p1.length === 4) {
+    const year = p1.padStart(4, "0");
+    const month = p2.padStart(2, "0");
+    const day = p3.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  // Assume MM-dd-yyyy
+  const month = p1.padStart(2, "0");
+  const day = p2.padStart(2, "0");
+  const year = p3.padStart(4, "0");
   return `${year}-${month}-${day}`;
 };
 
@@ -39,7 +59,15 @@ export const toDateInputValueExplicit = (customFormat: string): string => {
  * - isStart: false => time = 23:59:59
  */
 export const toCustomFormat = (inputValue: string, isStart: boolean): string => {
-  const [year, month, day] = inputValue.split("-");
+  if (!inputValue) return "";
+  const parts = String(inputValue).split("-");
+  if (parts.length !== 3) return "";
+  const [yearStr, monthStr, dayStr] = parts;
+  // Validate numeric components
+  if (!/^\d{4}$/.test(yearStr) || !/^\d{1,2}$/.test(monthStr) || !/^\d{1,2}$/.test(dayStr)) return "";
+  const year = yearStr;
+  const month = String(Number(monthStr)).padStart(2, "0");
+  const day = String(Number(dayStr)).padStart(2, "0");
   const time = isStart ? "00:00:00" : "23:59:59";
   return `${month}-${day}-${year} ${time}`;
 };

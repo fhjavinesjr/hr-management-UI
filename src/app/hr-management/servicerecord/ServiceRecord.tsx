@@ -42,6 +42,9 @@ type Props = {
   employeeAppointments?: EmployeeAppointmentModel[] | null;
   fetchEmploymentRecords?: () => Promise<void>;
   userRole?: string | null;
+  canAdd?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
 
 export default function ServiceRecord({
@@ -49,6 +52,9 @@ export default function ServiceRecord({
   employeeAppointments,
   fetchEmploymentRecords,
   userRole,
+  canAdd = false,
+  canEdit = false,
+  canDelete = false,
 }: Props) {
   const [natureList, setNatureList] = useState<NatureOfAppointmentDTO[]>([]);
   const [positionList, setPositionList] = useState<JobPositionDTO[]>([]);

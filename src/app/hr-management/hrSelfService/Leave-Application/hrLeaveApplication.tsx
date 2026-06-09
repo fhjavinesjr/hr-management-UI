@@ -127,6 +127,9 @@ interface ApiLeaveDTO {
 
 export default function HRLeaveApplicationModule() {
   const [activeTab, setActiveTab] = useState<"regularLeaves" | "leaveMonetization" | "apply">("regularLeaves");
+  const canAdd = localStorageUtil.canAdd("hrm.ss.leaveApp");
+  const canEdit = localStorageUtil.canEdit("hrm.ss.leaveApp");
+  const canDelete = localStorageUtil.canDelete("hrm.ss.leaveApp");
   const [inputValue, setInputValue] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -393,6 +396,13 @@ export default function HRLeaveApplicationModule() {
     approvalMessage?: string;
     dueExigencyService?: boolean;
   }) => {
+    const isUpdate = !!(leave.id && leave.id > 0);
+
+    if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
+      Swal.fire("Access denied", "You do not have permission to perform this action.", "warning");
+      return;
+    }
+
     if (!selectedEmployee) {
       Swal.fire("Error", "Please select an employee first.", "error");
       return;
@@ -412,8 +422,6 @@ export default function HRLeaveApplicationModule() {
         return;
       }
     }
-
-    const isUpdate = leave.id && leave.id > 0;
 
     const payload = {
       employeeId: Number(selectedEmployee.employeeId),
@@ -455,6 +463,10 @@ export default function HRLeaveApplicationModule() {
   };
 
   const handleEditLeave = (record: LeaveRecord) => {
+    if (!canEdit) {
+      Swal.fire("Access denied", "You do not have permission to edit records.", "warning");
+      return;
+    }
     const raw = rawDtos.find((d) => d.leaveApplicationId === record.id);
     setEditingRecord({
       id: record.id,
@@ -479,6 +491,10 @@ export default function HRLeaveApplicationModule() {
   };
 
   const handleDeleteLeave = (record: LeaveRecord) => {
+    if (!canDelete) {
+      Swal.fire("Access denied", "You do not have permission to delete records.", "warning");
+      return;
+    }
     Swal.fire({
       title: "Delete Leave Record?",
       text: `Remove "${record.leaveType}" for ${record.employee}?`,
@@ -503,6 +519,10 @@ export default function HRLeaveApplicationModule() {
   };
 
   const handleDeleteMonetization = (record: MonetizationRecord) => {
+    if (!canDelete) {
+      Swal.fire("Access denied", "You do not have permission to delete records.", "warning");
+      return;
+    }
     Swal.fire({
       title: "Delete Monetization Record?",
       text: `Remove monetization for ${record.employeeName} (${record.totalDays} day(s))?`,
@@ -527,6 +547,13 @@ export default function HRLeaveApplicationModule() {
 
   const handleCreateMonetization = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isUpdate = editingMonetizationId !== null;
+
+    if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
+      Swal.fire("Access denied", "You do not have permission to perform this action.", "warning");
+      return;
+    }
+
     if (!selectedEmployee) {
       Swal.fire("Error", "Please select an employee first.", "error");
       return;
@@ -551,7 +578,6 @@ export default function HRLeaveApplicationModule() {
       approvedById: monetizationApprovalData.approvedById,
     };
     try {
-      const isUpdate = editingMonetizationId !== null;
       const url = isUpdate
         ? `${API_BASE_URL_HRM}/api/leave-monetization/update/${editingMonetizationId}`
         : `${API_BASE_URL_HRM}/api/leave-monetization/create`;
@@ -574,6 +600,10 @@ export default function HRLeaveApplicationModule() {
   };
 
   const handleEditMonetization = (record: MonetizationRecord) => {
+    if (!canEdit) {
+      Swal.fire("Access denied", "You do not have permission to edit records.", "warning");
+      return;
+    }
     setMonetizationForm({
       dateFiled: record.dateFiled,
       noOfDaysSL: String(record.noOfDaysSL),
@@ -695,15 +725,17 @@ export default function HRLeaveApplicationModule() {
                 >
                   Regular Leaves
                 </button>
-                <button
-                  className={activeTab === "apply" ? styles.active : ""}
-                  onClick={() => {
-                    setEditingRecord(null);
-                    setActiveTab("apply");
-                  }}
-                >
-                  Application
-                </button>
+                {(canAdd || canEdit) && (
+                  <button
+                    className={activeTab === "apply" ? styles.active : ""}
+                    onClick={() => {
+                      setEditingRecord(null);
+                      setActiveTab("apply");
+                    }}
+                  >
+                    Application
+                  </button>
+                )}
                 <button
                   className={activeTab === "leaveMonetization" ? styles.active : ""}
                   onClick={() => setActiveTab("leaveMonetization")}
@@ -730,6 +762,8 @@ export default function HRLeaveApplicationModule() {
                       data={filteredLeaves}
                       onEdit={handleEditLeave}
                       onDelete={handleDeleteLeave}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
                     />
                   ) : (
                     <p>No regular leave records found.</p>
@@ -745,7 +779,7 @@ export default function HRLeaveApplicationModule() {
                         ? `Leave Monetization for "[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}"`
                         : "Select an employee to view Leave Monetization"}
                     </h3>
-                    {selectedEmployee && !showMonetizationForm && (
+                    {selectedEmployee && !showMonetizationForm && canAdd && (
                       <button
                         className={styles.clearButton}
                         style={{ background: "#28a745", color: "#fff", border: "none" }}
@@ -793,7 +827,7 @@ export default function HRLeaveApplicationModule() {
                       </div>
                       <ApprovalSection key={editingMonetizationId ?? 0} initialValues={monetizationApprovalInitialValues} onDataChange={setMonetizationApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
                       <div style={{ display: "flex", gap: "0.5rem" }}>
-                        <button type="submit" className={styles.clearButton} style={{ background: "#28a745", color: "#fff", border: "none" }}>{editingMonetizationId ? "Update" : "Submit"}</button>
+                        <button type="submit" className={styles.clearButton} style={{ background: "#28a745", color: "#fff", border: "none" }} disabled={(editingMonetizationId ? !canEdit : !canAdd)}>{editingMonetizationId ? "Update" : "Submit"}</button>
                         <button type="button" className={styles.clearButton} onClick={() => { setShowMonetizationForm(false); setEditingMonetizationId(null); setMonetizationApprovalInitialValues(undefined); setMonetizationApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); }}>Cancel</button>
                       </div>
                     </form>
@@ -804,6 +838,8 @@ export default function HRLeaveApplicationModule() {
                       data={filteredMonetizations}
                       onEdit={handleEditMonetization}
                       onDelete={handleDeleteMonetization}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
                     />
                   ) : (
                     <p>No leave monetization records found.</p>
@@ -818,14 +854,18 @@ export default function HRLeaveApplicationModule() {
                       ? `Edit Leave Record${selectedEmployee ? ` for "[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}"` : ""}`
                       : `Apply Leave${selectedEmployee ? ` for "[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}"` : ""}`}
                   </h3>
-                  <LeaveApplication
-                    employeeName={selectedEmployee?.fullName ?? ""}
-                    employeeId={selectedEmployee?.employeeId ?? null}
-                    editRecord={editingRecord}
-                    employees={employees}
-                    onSubmitLeave={handleSubmitLeave}
-                    onClear={handleClearForm}
-                  />
+                  {(editingRecord?.id ? canEdit : canAdd) ? (
+                    <LeaveApplication
+                      employeeName={selectedEmployee?.fullName ?? ""}
+                      employeeId={selectedEmployee?.employeeId ?? null}
+                      editRecord={editingRecord}
+                      employees={employees}
+                      onSubmitLeave={handleSubmitLeave}
+                      onClear={handleClearForm}
+                    />
+                  ) : (
+                    <p style={{ color: "#dc2626" }}>You do not have permission to {editingRecord?.id ? "edit" : "create"} leave applications.</p>
+                  )}
                 </>
               )}
             </div>

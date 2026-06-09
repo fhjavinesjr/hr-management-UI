@@ -36,6 +36,7 @@ export default function EmploymentRecord() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
+  const isUserRuleset = (localStorageUtil.getPermissionName() ?? "").toUpperCase() === "USER";
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
     null
   );
@@ -50,22 +51,40 @@ export default function EmploymentRecord() {
     }
   }, []);
 
+  const [empCanAccess, setEmpCanAccess] = useState<boolean>(localStorageUtil.canAccess("hrm.employmentRecord"));
+  const empCanAdd    = localStorageUtil.canAdd("hrm.employmentRecord");
+  const empCanEdit   = localStorageUtil.canEdit("hrm.employmentRecord");
+  const empCanDelete = localStorageUtil.canDelete("hrm.employmentRecord");
+
   useEffect(() => {
-    const role = localStorageUtil.getEmployeeRole();
+    const isAdmin = localStorageUtil.getIsAdministrator();
     const empNo = localStorageUtil.getEmployeeNo();
     const fullname = localStorageUtil.getEmployeeFullname();
     const employeeId = localStorageUtil.getEmployeeId();
-    setUserRole(role);
-    if (role !== "1" && empNo) {
-      const storedEmployees = localStorageUtil.getEmployees();
-      const empFromList = storedEmployees?.find(e => e.employeeNo === empNo) ?? null;
-      if (empFromList) {
-        setSelectedEmployee(empFromList);
-      } else if (fullname) {
-        setSelectedEmployee({ employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false });
-      }
+    setUserRole(isAdmin ? "1" : "0");
+    const permName = (localStorageUtil.getPermissionName() ?? "").toUpperCase();
+    // Auto-select self when canAccess is restricted OR when the ruleset is USER
+    if ((!empCanAccess || permName === "USER") && empNo) {
+      autoSelectFunction(empNo, fullname, employeeId);
+    }
+    if((!empCanAdd && !empCanEdit) || (empCanAdd && !empCanEdit) || (!empCanAdd && empCanEdit)) {
+      autoSelectFunction(empNo, fullname, employeeId);
     }
   }, []);
+
+  //Auto select self
+  const autoSelectFunction = async (empNo?: string | null, fullname?: string | null, employeeId?: number | null) => {
+    const storedEmployees = localStorageUtil.getEmployees();
+    const empFromList = storedEmployees?.find(e => e.employeeNo === empNo) ?? null;
+      if (empFromList) {
+        setSelectedEmployee(empFromList);
+        setInputValue(`[${empFromList.employeeNo}] ${empFromList.fullName}`);
+      } else if (fullname) {
+        setSelectedEmployee({ employeeId: String(employeeId ?? ""), employeeNo: empNo ?? "", fullName: fullname, role: localStorageUtil.getEmployeeRole() ?? "", biometricNo: "", isSearched: false, isCleared: false });
+        setInputValue(`[${empNo ?? ""}] ${fullname}`);
+      }
+    setEmpCanAccess(false);
+  }
 
   // fetchEmploymentRecords is declared below with useCallback — call it when selected employee changes
   // The actual trigger useEffect is placed after the function declaration to avoid 'used before its declaration' errors.
@@ -211,18 +230,23 @@ export default function EmploymentRecord() {
                 <input
                   id="employee"
                   type="text"
-                  list={userRole === "1" ? "employee-list" : undefined}
+                  list={empCanAccess && !isUserRuleset ? "employee-list" : undefined}
                   placeholder="Employee No / Lastname"
                   value={
-                    userRole === "1"
-                      ? inputValue // ✅ Admin can type freely
+                    isUserRuleset
+                      ? selectedEmployee
+                        ? `[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}`
+                        : (localStorageUtil.getEmployeeNo() ? `[${localStorageUtil.getEmployeeNo()}] ${localStorageUtil.getEmployeeFullname() ?? ""}` : "")
+                      : empCanAccess
+                      ? inputValue
                       : selectedEmployee
                       ? `[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}`
                       : ""
                   }
-                  readOnly={userRole !== "1"} // ✅ Non-admin can't edit
+                  readOnly={!empCanAccess || isUserRuleset}
+                  // disabled={isUserRuleset}
                   onChange={(e) => {
-                    if (userRole === "1") {
+                    if (empCanAccess && !isUserRuleset) {
                       setInputValue(e.target.value); // ✅ Track admin typing
 
                       const selected = employees.find(
@@ -243,7 +267,7 @@ export default function EmploymentRecord() {
                     }
                   }}
                 />
-                {userRole === "1" && (
+                {empCanAccess && (
                   <datalist id="employee-list">
                     {employees.map((emp) => (
                       <option
@@ -262,7 +286,7 @@ export default function EmploymentRecord() {
                     Search
                   </button> */}
                   &nbsp;
-                  {userRole === "1" && (
+                  {empCanAccess && (
                     <button
                       className={styles.clearButton}
                       onClick={clearEmploymentRecordsWithShowMessage}
@@ -306,6 +330,7 @@ export default function EmploymentRecord() {
             <div className={styles.tabContent}>
               {activeTab === "personal" && (
                 <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole}
+                  canAdd={empCanAdd} canEdit={empCanEdit} canDelete={empCanDelete}
                   onEmployeeCreated={(employee) => {
                     setSelectedEmployee(employee);
                     setInputValue(`[${employee.employeeNo}] ${employee.fullName}`);
@@ -316,12 +341,12 @@ export default function EmploymentRecord() {
                 />
               )}
               {activeTab === "appointment" && (
-                <EmployeeAppointment mode="edit_add_employee_appointment" selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole}/>
+                <EmployeeAppointment mode="edit_add_employee_appointment" selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole} canAdd={empCanAdd} canEdit={empCanEdit}/>
               )}
               {activeTab === "service" && (
-                <ServiceRecord selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole} />
+                <ServiceRecord selectedEmployee={selectedEmployee} employeeAppointments={employeeAppointments} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole} canAdd={empCanAdd} canEdit={empCanEdit} canDelete={empCanDelete} />
               )}
-              {activeTab === "separation" && <Separation employees={employees} userRole={userRole} selectedEmployee={selectedEmployee} separations={separations} fetchEmploymentRecords={fetchEmploymentRecords} />}
+              {activeTab === "separation" && <Separation employees={employees} userRole={userRole} canAdd={empCanAdd} canEdit={empCanEdit} canDelete={empCanDelete} selectedEmployee={selectedEmployee} separations={separations} fetchEmploymentRecords={fetchEmploymentRecords} />}
             </div>
           </div>
         </div>
