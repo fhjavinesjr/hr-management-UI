@@ -238,7 +238,7 @@ export default function ServiceRecord({
   return (
     <div className={styles.ServiceRecord}>
       {/* ADD BUTTON */}
-      {userRole === "1" && (
+      {(!selectedEmployee || selectedEmployee.isSearched !== true) && canAdd && (
         <button onClick={handleAddNew} className={styles.addBtn}>
           New
         </button>

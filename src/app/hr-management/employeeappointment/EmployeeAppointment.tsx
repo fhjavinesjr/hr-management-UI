@@ -385,6 +385,12 @@ export default function EmployeeAppointment({
       if(form.mode === "edit_service_record") {
         isUpdate = true;
       }
+
+      if(canAdd && !canEdit) {
+        //User's level access has no edit access but has add access only — force create a new appointment record instead of updating existing one
+        isUpdate = false;
+        await Swal.fire("ERROR", "System is expecting only to EDIT the appointment but user has only ADD access. Please update permission or user level access of the user.", "error");
+      }
       
       const url = isUpdate
         ? `${API_BASE_URL_HRM}/api/employeeAppointment/update/${form.employeeAppointmentId}`
@@ -546,7 +552,7 @@ export default function EmployeeAppointment({
             </>
           ) : (
             <>
-              {!initialData && canAdd && (
+              {(!selectedEmployee || selectedEmployee.isSearched !== true) && canAdd && (
                 <button
                   type="button"
                   className={styles.editBtn}
@@ -558,7 +564,7 @@ export default function EmployeeAppointment({
                   New
                 </button>
               )}
-              {initialData && canEdit && (
+              {selectedEmployee && selectedEmployee.isSearched === true && canEdit && (
                 <button
                   type="button"
                   className={styles.editBtn}
@@ -668,7 +674,7 @@ export default function EmployeeAppointment({
             </>
           ) : (
             <>
-              {!initialData && canAdd && (
+              {(!selectedEmployee || selectedEmployee.isSearched !== true) && canAdd && (
                 <button
                   type="button"
                   className={styles.editBtn}
@@ -680,7 +686,7 @@ export default function EmployeeAppointment({
                   New
                 </button>
               )}
-              {initialData && canEdit && (
+              {selectedEmployee && selectedEmployee.isSearched === true && canEdit && (
                 <button
                   type="button"
                   className={styles.editBtn}

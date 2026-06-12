@@ -167,8 +167,10 @@ export default function EmploymentRecord() {
         title: `Successfully loaded Employment Record for ${selectedEmployeeName ?? ""}`,
       });
 
-      setSelectedEmployee((prev) => (prev ? { ...prev, isSearched: true } : prev));
-
+      if(empCanAccess || (!empCanAdd && empCanEdit)) {
+        setSelectedEmployee((prev) => (prev ? { ...prev, isSearched: true } : prev));
+      }
+      
     } catch (err) {
       console.log("Error: " + err);
       Swal.fire({
