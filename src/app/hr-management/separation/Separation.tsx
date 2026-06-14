@@ -39,7 +39,7 @@ type Props = {
   fetchEmploymentRecords?: () => Promise<void>;
 };
 
-export default function Separation({employees, userRole, selectedEmployee, separations, fetchEmploymentRecords}: Props) {
+export default function Separation({employees, userRole, selectedEmployee, separations, fetchEmploymentRecords, canEdit = false, canAdd = false, canDelete = false}: Props) {
   const [selectedEmployeeInterviewer, setSelectedEmployeeInterviewer] = useState<Employee | null>(null);
   const [inputValueEmployeeInterviewer, setInputValueEmployeeInterviewer] = useState("");
 
@@ -405,7 +405,7 @@ export default function Separation({employees, userRole, selectedEmployee, separ
             </button>
           </>
         ) : (
-          userRole === "1" && (
+          (!selectedEmployee || selectedEmployee.isSearched === true) && canAdd && (
             <button
               type="button"
               className={styles.editBtn}
@@ -481,18 +481,18 @@ export default function Separation({employees, userRole, selectedEmployee, separ
             <input
               id="employeeInterviewerId"
               type="text"
-              list={userRole === "1" ? "employee-list" : undefined}
+              list={"employee-list"}
               placeholder="Employee No / Lastname"
               value={
-                userRole === "1"
+                ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
                   ? inputValueEmployeeInterviewer // ✅ Admin can type freely
                   : selectedEmployeeInterviewer
                   ? `[${selectedEmployeeInterviewer.employeeNo}] ${selectedEmployeeInterviewer.fullName}`
                   : ""
               }
-              readOnly={userRole !== "1"} // ✅ Non-admin can't edit
+              readOnly={((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))} // ✅ Non-admin can't edit
               onChange={(e) => {
-                if (userRole === "1") {
+                if (((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
                   setInputValueEmployeeInterviewer(e.target.value); // ✅ Track admin typing
 
                   const selected = employees?.find(
@@ -504,7 +504,7 @@ export default function Separation({employees, userRole, selectedEmployee, separ
                 }
               }}
             />
-            {userRole === "1" && (
+            {(
               <datalist id="employee-list">
                 {employees?.map((emp) => (
                   <option
@@ -537,18 +537,18 @@ export default function Separation({employees, userRole, selectedEmployee, separ
             <input
               id="employeeIdProcessingBy"
               type="text"
-              list={userRole === "1" ? "employee-list" : undefined}
+              list={"employee-list"}
               placeholder="Employee No / Lastname"
               value={
-                userRole === "1"
+                ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
                   ? inputValueProcessedBy // ✅ Admin can type freely
                   : selectedProcessedBy
                   ? `[${selectedProcessedBy.employeeNo}] ${selectedProcessedBy.fullName}`
                   : ""
               }
-              readOnly={userRole !== "1"} // ✅ Non-admin can't edit
+              readOnly={((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))} // ✅ Non-admin can't edit
               onChange={(e) => {
-                if (userRole === "1") {
+                if (((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
                   setInputValueProcessedBy(e.target.value); // ✅ Track admin typing
 
                   const selected = employees?.find(
@@ -560,7 +560,7 @@ export default function Separation({employees, userRole, selectedEmployee, separ
                 }
               }}
             />
-            {userRole === "1" && (
+            {(
               <datalist id="employee-list">
                 {employees?.map((emp) => (
                   <option
@@ -576,18 +576,18 @@ export default function Separation({employees, userRole, selectedEmployee, separ
             <input
               id="approvedById"
               type="text"
-              list={userRole === "1" ? "employee-list" : undefined}
+              list={"employee-list"}
               placeholder="Employee No / Lastname"
               value={
-                userRole === "1"
+                ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
                   ? inputValueApprovedBy // ✅ Admin can type freely
                   : selectedApprovedBy
                   ? `[${selectedApprovedBy.employeeNo}] ${selectedApprovedBy.fullName}`
                   : ""
               }
-              readOnly={userRole !== "1"} // ✅ Non-admin can't edit
+              readOnly={((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))} // ✅ Non-admin can't edit
               onChange={(e) => {
-                if (userRole === "1") {
+                if (((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
                   setInputValueApprovedBy(e.target.value); // ✅ Track admin typing
 
                   const selected = employees?.find(
@@ -599,7 +599,7 @@ export default function Separation({employees, userRole, selectedEmployee, separ
                 }
               }}
             />
-            {userRole === "1" && (
+            {(
               <datalist id="employee-list">
                 {employees?.map((emp) => (
                   <option
@@ -629,7 +629,7 @@ export default function Separation({employees, userRole, selectedEmployee, separ
             </button>
           </>
         ) : (
-          userRole === "1" && (
+          (!selectedEmployee || selectedEmployee.isSearched === true) && canAdd && (
             <button
               type="button"
               className={styles.editBtn}
@@ -676,7 +676,7 @@ export default function Separation({employees, userRole, selectedEmployee, separ
                       <td>{getEmployeeLabel(item.approvedById)}</td>
                       <td>
                         <div className={styles.actionsCell}>
-                          {userRole === "1" && (
+                          {canEdit && (
                             <button
                                 type="button"
                                 className={`${styles.iconButton} ${styles.editIcon}`}
@@ -685,7 +685,7 @@ export default function Separation({employees, userRole, selectedEmployee, separ
                                 <FaRegEdit />
                             </button>
                           )}
-                          {userRole === "1" && (
+                          {canDelete && (
                             <button
                                 type="button"
                                 className={`${styles.iconButton} ${styles.deleteIcon}`}

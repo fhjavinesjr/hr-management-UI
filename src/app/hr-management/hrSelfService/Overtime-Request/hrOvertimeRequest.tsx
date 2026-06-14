@@ -97,7 +97,7 @@ export default function HROvertimeRequestModule() {
     const empNo = localStorageUtil.getEmployeeNo();
     const employeeId = localStorageUtil.getEmployeeId();
     setUserRole(role);
-    if (role !== "1" && empNo) {
+    if (empNo && ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
       const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
       if (empFromList) {
         setSelectedEmployee(empFromList);
@@ -306,43 +306,39 @@ export default function HROvertimeRequestModule() {
                 </div>
                 <div className={styles.formGroup} style={{ flex: 1, minWidth: "220px", position: "relative" }}>
                   <label>Search Employee</label>
-                  {userRole === "1" ? (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Employee No / Full Name"
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
-                        onFocus={() => setShowSuggestions(true)}
-                        className={styles.searchInput}
-                        style={{ width: "100%" }}
-                      />
-                      {showSuggestions && filteredSuggestions.length > 0 && (
-                        <ul className={styles.suggestionList}>
-                          {filteredSuggestions.map((emp) => (
-                            <li
-                              key={emp.employeeId}
-                              className={styles.suggestionItem}
-                              onMouseDown={() => {
-                                setSearch(emp.fullName);
-                                setSelectedEmployee(emp);
-                                setShowSuggestions(false);
-                              }}
-                            >
-                              {emp.employeeNo} — {emp.fullName}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </>
-                  ) : (
-                    <input
-                      type="text"
-                      readOnly
-                      className={styles.searchInput}
-                      style={{ width: "100%" }}
-                      value={selectedEmployee ? `[${selectedEmployee.employeeNo}] ${selectedEmployee.fullName}` : ""}
-                    />
+                  <input
+                    id="overtime-employee"
+                    type="text"
+                    list={"overtime-employee-list"}
+                    placeholder="Employee No / Last Name"
+                    value={search}
+                    readOnly={(!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)}
+                    onChange={(e) => {
+                      if ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)) return;
+                      setSearch(e.target.value);
+                      const match = employees.find(
+                        (emp) =>
+                          `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
+                          e.target.value.toLowerCase()
+                      );
+                      if (match) {
+                        setSelectedEmployee(match);
+                      } else {
+                        setSelectedEmployee(null);
+                      }
+                    }}
+                    className={styles.searchInput}
+                    style={{ width: "100%" }}
+                  />
+                  {(
+                    <datalist id="overtime-employee-list">
+                      {employees.map((emp) => (
+                        <option
+                          key={emp.employeeNo}
+                          value={`[${emp.employeeNo}] ${emp.fullName}`}
+                        />
+                      ))}
+                    </datalist>
                   )}
                 </div>
                 <div style={{ alignSelf: "flex-end", marginBottom: "20px", marginLeft: "1rem" }}>

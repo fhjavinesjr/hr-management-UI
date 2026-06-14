@@ -238,7 +238,7 @@ export default function ServiceRecord({
   return (
     <div className={styles.ServiceRecord}>
       {/* ADD BUTTON */}
-      {(!selectedEmployee || selectedEmployee.isSearched !== true) && canAdd && (
+      {(!selectedEmployee || selectedEmployee.isSearched === true) && canAdd && (
         <button onClick={handleAddNew} className={styles.addBtn}>
           New
         </button>
@@ -311,7 +311,7 @@ export default function ServiceRecord({
                         📋
                       </button>
 
-                      {userRole === "1" && (
+                      {canEdit && (
                         <button
                           type="button"
                           onClick={() => handleEditAppointment(a)}
@@ -322,7 +322,7 @@ export default function ServiceRecord({
                         </button>
                       )}
 
-                      {userRole === "1" && (
+                      {canDelete && (
                         <button
                           type="button"
                           onClick={() => handleDeleteAppointment(a.employeeAppointmentId)}

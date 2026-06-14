@@ -177,7 +177,7 @@ export default function HRLeaveApplicationModule() {
     const empNo = localStorageUtil.getEmployeeNo();
     const employeeId = localStorageUtil.getEmployeeId();
     setUserRole(role);
-    if (role !== "1" && empNo) {
+    if (empNo && ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
       const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
       if (empFromList) {
         setSelectedEmployee(empFromList);
@@ -674,12 +674,12 @@ export default function HRLeaveApplicationModule() {
                   <input
                     id="leave-employee"
                     type="text"
-                    list={userRole === "1" ? "leave-employee-list" : undefined}
+                    list={"leave-employee-list"}
                     placeholder="Employee No / Last Name"
                     value={inputValue}
-                    readOnly={userRole !== "1"}
+                    readOnly={(!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)}
                     onChange={(e) => {
-                      if (userRole !== "1") return;
+                      if ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)) return;
                       setInputValue(e.target.value);
                       setShowMonetizationForm(false);
                       const match = employees.find(
@@ -696,7 +696,7 @@ export default function HRLeaveApplicationModule() {
                     className={styles.searchInput}
                     style={{ width: "100%" }}
                   />
-                  {userRole === "1" && (
+                  {(
                     <datalist id="leave-employee-list">
                       {employees.map((emp) => (
                         <option

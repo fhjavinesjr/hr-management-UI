@@ -65,7 +65,7 @@ export default function BeginningBalanceModule() {
     const empNo = localStorageUtil.getEmployeeNo();
     const employeeId = localStorageUtil.getEmployeeId();
     setUserRole(role);
-    if (role !== "1" && empNo) {
+    if (empNo && ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
       const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
       if (empFromList) {
         setSelectedEmployee(empFromList);
@@ -257,12 +257,12 @@ export default function BeginningBalanceModule() {
                   <input
                     id="bb-employee"
                     type="text"
-                    list={userRole === "1" ? "bb-employee-list" : undefined}
+                    list={"bb-employee-list"}
                     placeholder="Employee No / Last Name"
                     value={inputValue}
-                    readOnly={userRole !== "1"}
+                    readOnly={(!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)}
                     onChange={(e) => {
-                      if (userRole !== "1") return;
+                      if ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)) return;
                       setInputValue(e.target.value);
                       const match = employees.find(
                         (emp) =>
@@ -274,7 +274,7 @@ export default function BeginningBalanceModule() {
                     className={styles.searchInput}
                     style={{ width: "100%" }}
                   />
-                  {userRole === "1" && (
+                  {(
                     <datalist id="bb-employee-list">
                       {employees.map((emp) => (
                         <option
