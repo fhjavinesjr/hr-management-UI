@@ -483,9 +483,32 @@ export default function HROfficialEngagementModule() {
                         <textarea value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} className={styles.inputField} rows={3} />
                       </div>
                       <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
-                      <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
-                        {isSubmitting ? "Submitting..." : editingId ? "Update Official Engagement" : "Submit Official Engagement"}
-                      </button>
+                      <div style={{ display: "flex", gap: "0.75rem" }}>
+                        <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
+                          {isSubmitting ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.clearButton}
+                          onClick={() => {
+                            setEditingId(null);
+                            setApprovalInitialValues(undefined);
+                            setApprovalData({
+                              recommendationStatus: "Pending",
+                              recommendationMessage: "",
+                              recommendingApprovalById: null,
+                              authorizedOfficialId: null,
+                              approvedById: null,
+                              approvedStatus: "Pending",
+                              approvalMessage: "",
+                              dueExigencyService: false,
+                            });
+                            setActiveTab("table");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </form>
                   )}
                   {selectedEmployee && !(editingId ? canEdit : canAdd) && (

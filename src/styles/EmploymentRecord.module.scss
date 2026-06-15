@@ -100,6 +100,31 @@
     }
 }
 
+  .submitButton {
+    padding: 0.65rem 1.4rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: auto;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+
+    &:hover:not(:disabled) {
+      background-color: #218838;
+      box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+  }
+
 .searchInput {
   width: auto;
   padding: 0.6rem;

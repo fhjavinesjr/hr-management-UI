@@ -443,9 +443,32 @@ export default function HROvertimeRequestModule() {
                         <textarea value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} className={styles.inputField} rows={3} required />
                       </div>
                       <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
-                      <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
-                        {isSubmitting ? "Submitting..." : editingId ? "Update Overtime Request" : "File Overtime Request"}
-                      </button>
+                      <div style={{ display: "flex", gap: "0.75rem" }}>
+                        <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
+                          {isSubmitting ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.clearButton}
+                          onClick={() => {
+                            setEditingId(null);
+                            setApprovalInitialValues(undefined);
+                            setApprovalData({
+                              recommendationStatus: "Pending",
+                              recommendationMessage: "",
+                              recommendingApprovalById: null,
+                              authorizedOfficialId: null,
+                              approvedById: null,
+                              approvedStatus: "Pending",
+                              approvalMessage: "",
+                              dueExigencyService: false,
+                            });
+                            setActiveTab("table");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </form>
                   )}
                 </>

@@ -286,9 +286,12 @@ export default function EmployeeAppointment({
     // fetch salary schedule if assumptionToDutyDate exists
     if (form.assumptionToDutyDate && selectedJobPosition.salaryGrade && selectedJobPosition.salaryStep) {
       try {
-        const dateStr = toCustomFormat(form.assumptionToDutyDate, false);
+        const dateStr = encodeURIComponent(toCustomFormat(form.assumptionToDutyDate, false));
         const salaryRes = await fetchWithAuth(`${API_BASE_URL_ADMINISTRATIVE}/api/salary-schedule/get-by-date-assumption-and-salary-grade-and-salary-step?dateAssumption=${dateStr}&salaryGrade=${selectedJobPosition.salaryGrade}&salaryStep=${selectedJobPosition.salaryStep}`);
-        if (!salaryRes.ok) throw new Error("Failed to fetch salary schedule");
+        if (!salaryRes.ok) {
+          const errorText = await salaryRes.text();
+          throw new Error(errorText || "Failed to fetch salary schedule");
+        }
         const data = await salaryRes.json();
         if (data) {
           const monthly = Number(data.monthlySalary);
