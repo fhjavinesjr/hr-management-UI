@@ -61,6 +61,22 @@ interface ProcessResultDTO {
   processed: LeaveInfoDTO[];
 }
 
+interface LeaveProcessBatchStartResponseDTO {
+  jobId: string | null;
+  message: string;
+}
+
+interface LeaveProcessJobStatusDTO {
+  jobId: string;
+  status: "PENDING" | "FETCHING_DATA" | "PROCESSING" | "DONE" | "FAILED";
+  progressPct: number;
+  totalEmployees: number;
+  processedEmployees: number;
+  skippedEmployees: number;
+  summary?: string;
+  errorDetail?: string;
+}
+
 const Toast = Swal.mixin({
   toast: true,
   position: "bottom-end",
@@ -68,6 +84,8 @@ const Toast = Swal.mixin({
   timer: 3000,
   timerProgressBar: true,
 });
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function clampDay(day: number, year: number, month: number): number {
   const maxDay = new Date(year, month + 1, 0).getDate();
@@ -194,12 +212,68 @@ export default function LeaveInformationModule() {
         employeeId: scope === "EMPLOYEE" ? Number(selectedEmployee!.employeeId) : null,
         processedById: localStorageUtil.getEmployeeId(),
       };
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-information/process`, {
+      const startRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-information/process-batch`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
-      const result: ProcessResultDTO = await res.json();
+
+      if (!startRes.ok) throw new Error(await startRes.text());
+      const started: LeaveProcessBatchStartResponseDTO = await startRes.json();
+      if (!started.jobId) {
+        throw new Error(started.message || "Failed to start leave processing job");
+      }
+
+      Swal.fire({
+        title: "Processing Leave Information",
+        html: "Initializing batch job...",
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      let latestStatus: LeaveProcessJobStatusDTO | null = null;
+      while (true) {
+        await sleep(1200);
+        const statusRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-information/process-status/${started.jobId}`);
+        if (!statusRes.ok) throw new Error(await statusRes.text());
+        const status: LeaveProcessJobStatusDTO = await statusRes.json();
+        latestStatus = status;
+
+        Swal.update({
+          html: `
+            <div style="text-align:left;font-size:0.9rem;line-height:1.45;min-width:320px">
+              <div><b>Status:</b> ${status.status}</div>
+              <div><b>Progress:</b> ${status.progressPct ?? 0}%</div>
+              <div><b>Total Employees:</b> ${status.totalEmployees ?? 0}</div>
+              <div><b>Processed:</b> ${status.processedEmployees ?? 0}</div>
+              <div><b>Skipped:</b> ${status.skippedEmployees ?? 0}</div>
+            </div>
+          `,
+        });
+
+        if (status.status === "DONE" || status.status === "FAILED") {
+          break;
+        }
+      }
+
+      Swal.close();
+
+      if (!latestStatus) {
+        throw new Error("No status received from leave processing job");
+      }
+
+      const resultRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-information/process-result/${started.jobId}`);
+      if (!resultRes.ok) {
+        throw new Error(await resultRes.text());
+      }
+      const result: ProcessResultDTO = await resultRes.json();
+
+      if (latestStatus.status === "FAILED") {
+        const failReason = latestStatus.errorDetail || "Leave processing job failed";
+        throw new Error(failReason);
+      }
 
       let html = `<b>Processed:</b> ${result.totalProcessed}<br/><b>Skipped:</b> ${result.totalSkipped}`;
       if (result.skippedReasons && result.skippedReasons.length > 0) {
