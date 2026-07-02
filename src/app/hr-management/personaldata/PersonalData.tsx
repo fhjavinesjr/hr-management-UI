@@ -1880,6 +1880,46 @@ export default function PersonalData({
     setIsDisabled(true); // disable editing again
   };
 
+  const handlePrintPDS = async () => {
+    const employeeId = Number(selectedEmployee?.employeeId ?? form.employeeId);
+
+    if (!employeeId || Number.isNaN(employeeId) || !selectedEmployee?.isSearched) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Cannot Print Yet",
+        text: "Please select and save an existing employee record before printing the PDS report.",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetchWithAuth(`${API_BASE_URL_HRM}/api/pds/report/${employeeId}`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to generate PDS report.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `PDS_${employeeId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      await Swal.fire({
+        icon: "error",
+        title: "Print Failed",
+        text: err instanceof Error ? err.message : "Unable to generate PDS report.",
+      });
+    }
+  };
+
   const handleEditToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setIsDisabled((prev) => {
@@ -2293,6 +2333,15 @@ export default function PersonalData({
     //Personal Data's Modal placeholder is in the EmploymentRecords.tsx
     <form className={styles.PersonalData} onSubmit={handleSubmit}>
       <div className={styles.actionBtns}>
+        {selectedEmployee?.isSearched === true && (
+          <button
+            type="button"
+            className={styles.editBtn}
+            onClick={handlePrintPDS}
+          >
+            Print PDS
+          </button>
+        )}
         {!isDisabled ? (
           <>
             <button type="submit" className={styles.submitBtn}>
@@ -3599,9 +3648,9 @@ export default function PersonalData({
         {/* 34 */}
         <div className={styles.questionBlock}>
           <p>
-            34. Are you related by consanguinity or affinity to the appointing
-            or recommending authority, or to the chief of bureau or office, or
-            to the person who has immediate supervision over you?
+            34. Are you related by consanguinity or affinity to the appointing or recommending authority, or to the			
+            chief of bureau or office or to the person who has immediate supervision over you in the Office, 			
+            Bureau or Department where you will be apppointed,
           </p>
           <p>a. within the third degree?</p>
           <label>
@@ -3770,7 +3819,7 @@ export default function PersonalData({
         <div className={styles.questionBlock}>
           <p>
             36. Have you ever been convicted of any crime or violation of any
-            law, ordinance, or regulation by any court or tribunal?
+            law, decree, ordinance, or regulation by any court or tribunal?
           </p>
           <label>
             <input
@@ -3807,10 +3856,10 @@ export default function PersonalData({
         {/* 37 */}
         <div className={styles.questionBlock}>
           <p>
-            37a. Have you ever been separated from service in any of the
-            following modes: resignation, retirement, dropped from the rolls,
-            dismissal, termination, end of term, finished contract or phased out
-            (abolition) in the public or private sector?
+            37. Have you ever been separated from the service in any of the 
+            following modes: resignation, retirement, dropped from the rolls, 
+            dismissal, termination, end of term, finished contract or phased out (abolition) 
+            in the public or private sector?
           </p>
           <label>
             <input
@@ -3844,7 +3893,7 @@ export default function PersonalData({
           />
 
           <p>
-            37b. Have you ever been a candidate in a national or local election
+            38a. Have you ever been a candidate in a national or local election
             held within the last year (except Barangay election)?
           </p>
           <label>
@@ -3879,7 +3928,7 @@ export default function PersonalData({
           />
 
           <p>
-            37c. Have you resigned from the government service during the three
+            38b. Have you resigned from the government service during the three
             (3)-month period before the last election to promote/actively
             campaign for a national or local candidate?
           </p>
@@ -3915,10 +3964,10 @@ export default function PersonalData({
           />
         </div>
 
-        {/* 38 */}
+        {/* 39 */}
         <div className={styles.questionBlock}>
           <p>
-            38. Have you acquired the status of an immigrant or permanent
+            39. Have you acquired the status of an immigrant or permanent
             resident of another country?
           </p>
           <label>
@@ -3953,10 +4002,10 @@ export default function PersonalData({
           />
         </div>
 
-        {/* 39 */}
+        {/* 40 */}
         <div className={styles.questionBlock}>
           <p>
-            39. Pursuant to (a) Indigenous People Act (RA 8371); (b) Magna Carta
+            40. Pursuant to (a) Indigenous People Act (RA 8371); (b) Magna Carta
             for Disabled Persons (RA 7277); and (c) Solo Parents Welfare Act of
             2000 (RA 8972), please answer the following items:
           </p>
