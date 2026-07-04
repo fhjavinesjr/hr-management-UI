@@ -557,6 +557,36 @@ export default function HRLeaveApplicationModule() {
     });
   };
 
+  const handlePrintLeaveForm = async (record: LeaveRecord) => {
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/leave-application/report/${record.id}`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to generate leave form report.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `LeaveForm_${record.id}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      await Swal.fire({
+        icon: "error",
+        title: "Print Failed",
+        text: err instanceof Error ? err.message : "Unable to generate leave form report.",
+      });
+    }
+  };
+
   const handleDeleteMonetization = (record: MonetizationRecord) => {
     if (!canDelete) {
       Swal.fire("Access denied", "You do not have permission to delete records.", "warning");
@@ -801,6 +831,7 @@ export default function HRLeaveApplicationModule() {
                       data={filteredLeaves}
                       onEdit={handleEditLeave}
                       onDelete={handleDeleteLeave}
+                      onPrint={handlePrintLeaveForm}
                       canEdit={canEdit}
                       canDelete={canDelete}
                     />

@@ -1,7 +1,7 @@
 "use client";
 
 import { runtimeConfig } from "@/lib/utils/runtimeConfig";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
@@ -66,6 +66,25 @@ interface LeaveProcessBatchStartResponseDTO {
   message: string;
 }
 
+interface LeaveProcessQueueItemDTO {
+  seqNo: number;
+  employeeId: number;
+  employeeNo: string;
+  employeeName: string;
+  status: "OK" | "SKIPPED" | "FAILED";
+  message: string;
+}
+
+interface EmployeeBasicInfoDTO {
+  employeeId: number | string;
+  employeeNo: string;
+  firstname?: string;
+  lastname?: string;
+  suffix?: string;
+  fullName?: string;
+  role?: string;
+}
+
 interface LeaveProcessJobStatusDTO {
   jobId: string;
   status: "PENDING" | "FETCHING_DATA" | "PROCESSING" | "DONE" | "FAILED";
@@ -87,6 +106,36 @@ const Toast = Swal.mixin({
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const normalizeIdentity = (value?: string | null): string => {
+  if (!value) return "";
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+};
+
+const isSystemPrivilegedEmployee = (employee: {
+  role?: string | null;
+  employeeNo?: string | null;
+  firstname?: string | null;
+  lastname?: string | null;
+}): boolean => {
+  const role = (employee.role ?? "").trim().toLowerCase();
+  if (role.includes("admin") || role.includes("super")) return true;
+
+  const employeeNo = normalizeIdentity(employee.employeeNo);
+  const firstname = normalizeIdentity(employee.firstname);
+  const lastname = normalizeIdentity(employee.lastname);
+  const firstLast = `${firstname}${lastname}`;
+  const lastFirst = `${lastname}${firstname}`;
+  const markers = new Set(["admin", "super", "superadmin", "adminsuper"]);
+
+  return (
+    markers.has(employeeNo) ||
+    markers.has(firstname) ||
+    markers.has(lastname) ||
+    markers.has(firstLast) ||
+    markers.has(lastFirst)
+  );
+};
+
 function clampDay(day: number, year: number, month: number): number {
   const maxDay = new Date(year, month + 1, 0).getDate();
   return Math.min(day, maxDay);
@@ -104,6 +153,10 @@ function resolveISODate(day: number, monthOffset: number, year: number, month: n
 
 export default function LeaveInformationModule() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeeSetupSearch, setEmployeeSetupSearch] = useState("");
+  const [employeeSetupPage, setEmployeeSetupPage] = useState(1);
+  const [employeeSetupItemsPerPage, setEmployeeSetupItemsPerPage] = useState(10);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<number>>(new Set());
   const [salaryPeriodSettings, setSalaryPeriodSettings] = useState<SalaryPeriodSettingDTO[]>([]);
   const [selectedSettingId, setSelectedSettingId] = useState<number | "">("");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -119,11 +172,51 @@ export default function LeaveInformationModule() {
   const [ledgerEmployee, setLedgerEmployee] = useState<{ emp: Employee | null; name: string; id: number } | null>(null);
   const [ledgerRecords, setLedgerRecords] = useState<LeaveInfoDTO[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [queueItems, setQueueItems] = useState<LeaveProcessQueueItemDTO[]>([]);
+  const [queueOffset, setQueueOffset] = useState(0);
+  const queueFeedRef = useRef<HTMLDivElement>(null);
+  const queuePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load employees and salary period settings
+  // Load employees for setup and specific-employee search (exclude admin/super roles).
   useEffect(() => {
-    const stored = localStorageUtil.getEmployees();
-    if (stored && stored.length > 0) setEmployees(stored);
+    const loadEmployees = async () => {
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employees/basicInfo`);
+        if (!res.ok) throw new Error("Failed to load employees");
+
+        const data: EmployeeBasicInfoDTO[] = await res.json();
+        const normalized: Employee[] = data
+          .filter((e) => !isSystemPrivilegedEmployee(e))
+          .map((e) => {
+            const fullName = (e.fullName && e.fullName.trim().length > 0)
+              ? e.fullName.trim()
+              : [e.lastname, e.firstname, e.suffix].filter(Boolean).join(", ");
+
+            return {
+              employeeId: String(e.employeeId),
+              employeeNo: e.employeeNo ?? "",
+              fullName: fullName || `Employee #${e.employeeId}`,
+              role: e.role ?? "",
+              biometricNo: "",
+              isSearched: false,
+              isCleared: false,
+            };
+          })
+          .sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+        setEmployees(normalized);
+        setSelectedEmployeeIds(new Set(normalized.map((e) => Number(e.employeeId))));
+      } catch {
+        // Fallback to local storage if API is temporarily unavailable.
+        const stored = localStorageUtil
+          .getEmployees()
+          .filter((e) => !isSystemPrivilegedEmployee(e));
+        setEmployees(stored);
+        setSelectedEmployeeIds(new Set(stored.map((e) => Number(e.employeeId))));
+      }
+    };
+
+    loadEmployees();
   }, []);
 
   useEffect(() => {
@@ -152,6 +245,65 @@ export default function LeaveInformationModule() {
     );
   }, [empSearch, employees]);
 
+  const filteredEmployeeSetup = useMemo(() => {
+    const q = employeeSetupSearch.trim().toLowerCase();
+    if (!q) return employees;
+    return employees.filter(
+      (e) =>
+        e.fullName.toLowerCase().includes(q) ||
+        e.employeeNo.toLowerCase().includes(q)
+    );
+  }, [employees, employeeSetupSearch]);
+
+  const employeeSetupTotalPages = Math.max(1, Math.ceil(filteredEmployeeSetup.length / employeeSetupItemsPerPage));
+  const employeeSetupStartIndex = (employeeSetupPage - 1) * employeeSetupItemsPerPage;
+  const employeeSetupRows = filteredEmployeeSetup.slice(
+    employeeSetupStartIndex,
+    employeeSetupStartIndex + employeeSetupItemsPerPage
+  );
+
+  useEffect(() => {
+    setEmployeeSetupPage(1);
+  }, [employeeSetupSearch, employeeSetupItemsPerPage]);
+
+  const stopQueuePolling = useCallback(() => {
+    if (queuePollRef.current != null) {
+      clearInterval(queuePollRef.current);
+      queuePollRef.current = null;
+    }
+  }, []);
+
+  const startQueuePolling = useCallback((jobId: string) => {
+    stopQueuePolling();
+    let offset = 0;
+    queuePollRef.current = setInterval(async () => {
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-information/process-queue/${jobId}?from=${offset}`);
+        if (!res.ok) return;
+        const items: LeaveProcessQueueItemDTO[] = await res.json();
+        if (!items.length) return;
+
+        setQueueItems((prev) => [...prev, ...items]);
+        offset = items[items.length - 1].seqNo + 1;
+        setQueueOffset(offset);
+
+        setTimeout(() => {
+          if (queueFeedRef.current) {
+            queueFeedRef.current.scrollTop = queueFeedRef.current.scrollHeight;
+          }
+        }, 40);
+      } catch {
+        // Ignore transient queue polling errors.
+      }
+    }, 1200);
+  }, [stopQueuePolling]);
+
+  useEffect(() => {
+    return () => {
+      stopQueuePolling();
+    };
+  }, [stopQueuePolling]);
+
   // Resolve dates from selected setting + month + year
   const resolvedDates = useMemo<{ start: string; end: string } | null>(() => {
     if (selectedSettingId === "") return null;
@@ -175,17 +327,25 @@ export default function LeaveInformationModule() {
       const res = await fetchWithAuth(url);
       if (!res.ok) throw new Error("Failed to fetch leave information");
       const data: LeaveInfoDTO[] = await res.json();
-      setRecords(data);
+      const allowedIds = new Set(employees.map((e) => Number(e.employeeId)));
+      const filtered = employees.length > 0
+        ? data.filter((r) => allowedIds.has(Number(r.employeeId)))
+        : data;
+      setRecords(filtered);
     } catch {
       Toast.fire({ icon: "error", title: "Could not load leave information" });
     } finally {
       setIsLoading(false);
     }
-  }, [resolvedDates, viewAllYear, selectedYear]);
+  }, [resolvedDates, viewAllYear, selectedYear, employees]);
 
   const handleProcess = async () => {
     if (!resolvedDates) {
       Swal.fire({ icon: "warning", title: "Select a salary period setting, month, and year first" });
+      return;
+    }
+    if (scope === "ALL" && selectedEmployeeIds.size === 0) {
+      Swal.fire({ icon: "warning", title: "Select at least one employee in Employee Setup" });
       return;
     }
     if (scope === "EMPLOYEE" && !selectedEmployee) {
@@ -204,12 +364,19 @@ export default function LeaveInformationModule() {
 
     setIsProcessing(true);
     try {
+      setQueueItems([]);
+      setQueueOffset(0);
+
       const payload = {
         salaryPeriodSettingId: selectedSettingId,
         cutoffStartDate: resolvedDates.start,
         cutoffEndDate: resolvedDates.end,
         scope,
         employeeId: scope === "EMPLOYEE" ? Number(selectedEmployee!.employeeId) : null,
+        selectedEmployeeIds:
+          scope === "ALL" && selectedEmployeeIds.size < employees.length
+            ? Array.from(selectedEmployeeIds)
+            : null,
         processedById: localStorageUtil.getEmployeeId(),
       };
       const startRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-information/process-batch`, {
@@ -222,6 +389,8 @@ export default function LeaveInformationModule() {
       if (!started.jobId) {
         throw new Error(started.message || "Failed to start leave processing job");
       }
+
+      startQueuePolling(started.jobId);
 
       Swal.fire({
         title: "Processing Leave Information",
@@ -258,6 +427,8 @@ export default function LeaveInformationModule() {
         }
       }
 
+      stopQueuePolling();
+
       Swal.close();
 
       if (!latestStatus) {
@@ -285,6 +456,7 @@ export default function LeaveInformationModule() {
       await Swal.fire({ title: "Processing Complete", html, icon: "success", width: 600 });
       fetchPeriodRecords();
     } catch (err) {
+      stopQueuePolling();
       Swal.fire({ icon: "error", title: "Processing failed", text: String(err) });
     } finally {
       setIsProcessing(false);
@@ -345,6 +517,38 @@ export default function LeaveInformationModule() {
       fetchPeriodRecords();
     } catch (err) {
       Swal.fire({ icon: "error", title: "Delete failed", text: String(err) });
+    }
+  };
+
+  const handlePrintLeaveCard = async (employeeId: number, employeeName?: string) => {
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/leave-information/report/${employeeId}?year=${selectedYear}`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to generate leave card report.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `LeaveCard_${employeeId}_${selectedYear}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      await Swal.fire({
+        icon: "error",
+        title: "Print Failed",
+        text: err instanceof Error
+          ? err.message
+          : `Unable to generate leave card for ${employeeName ?? `employee #${employeeId}`}.`,
+      });
     }
   };
 
@@ -499,6 +703,12 @@ export default function LeaveInformationModule() {
                   </div>
                 )}
 
+                {scope === "ALL" && (
+                  <span style={{ fontSize: "0.82rem", color: "#475569" }}>
+                    Selected: <strong>{selectedEmployeeIds.size}</strong> / <strong>{employees.length}</strong>
+                  </span>
+                )}
+
                 {/* Action buttons */}
                 <button
                   onClick={fetchPeriodRecords}
@@ -511,13 +721,152 @@ export default function LeaveInformationModule() {
 
                 <button
                   onClick={handleProcess}
-                  disabled={!resolvedDates || isProcessing}
+                  disabled={!resolvedDates || isProcessing || (scope === "ALL" && selectedEmployeeIds.size === 0)}
                   className={styles.submitButton}
                   style={{ margin: 0 }}
                 >
                   {isProcessing ? "Processing..." : "Process Leave"}
                 </button>
               </div>
+
+              {/* Employee Setup (ALL scope) */}
+              {scope === "ALL" && (
+                <div style={{ marginTop: "1rem", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.75rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.7rem", marginBottom: "0.6rem" }}>
+                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Employee Setup (exclude admin/super)</h4>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                      <input
+                        type="text"
+                        placeholder="Search employee..."
+                        value={employeeSetupSearch}
+                        onChange={(e) => setEmployeeSetupSearch(e.target.value)}
+                        className={styles.searchInput}
+                        style={{ minWidth: 220, margin: 0 }}
+                      />
+                      <button
+                        type="button"
+                        className={styles.clearButton}
+                        style={{ margin: 0, background: "#334155", color: "#fff", border: "none" }}
+                        onClick={() => setSelectedEmployeeIds(new Set(employees.map((e) => Number(e.employeeId))))}
+                      >
+                        Select All
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.clearButton}
+                        style={{ margin: 0, background: "#64748b", color: "#fff", border: "none" }}
+                        onClick={() => setSelectedEmployeeIds(new Set())}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ overflowX: "auto", maxHeight: 220, overflowY: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
+                      <thead>
+                        <tr style={{ background: "#f1f5f9", position: "sticky", top: 0 }}>
+                          <th style={{ ...th, textAlign: "center", width: 40 }}>
+                            <input
+                              type="checkbox"
+                              checked={employees.length > 0 && selectedEmployeeIds.size === employees.length}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedEmployeeIds(new Set(employees.map((emp) => Number(emp.employeeId))));
+                                else setSelectedEmployeeIds(new Set());
+                              }}
+                            />
+                          </th>
+                          <th style={th}>Employee No</th>
+                          <th style={th}>Employee Name</th>
+                          <th style={th}>Role</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {employeeSetupRows.map((emp) => {
+                          const id = Number(emp.employeeId);
+                          const checked = selectedEmployeeIds.has(id);
+                          return (
+                            <tr key={emp.employeeId} style={{ borderBottom: "1px solid #e2e8f0", background: checked ? undefined : "#f8fafc" }}>
+                              <td style={{ ...td, textAlign: "center" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    setSelectedEmployeeIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (e.target.checked) next.add(id);
+                                      else next.delete(id);
+                                      return next;
+                                    });
+                                  }}
+                                />
+                              </td>
+                              <td style={td}>{emp.employeeNo}</td>
+                              <td style={td}>{emp.fullName}</td>
+                              <td style={td}>{emp.role || "-"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.55rem", fontSize: "0.78rem", color: "#64748b" }}>
+                    <span>
+                      Showing {filteredEmployeeSetup.length === 0 ? 0 : employeeSetupStartIndex + 1}
+                      -{Math.min(employeeSetupStartIndex + employeeSetupItemsPerPage, filteredEmployeeSetup.length)} of {filteredEmployeeSetup.length}
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <label>Rows</label>
+                      <select value={employeeSetupItemsPerPage} onChange={(e) => setEmployeeSetupItemsPerPage(Number(e.target.value))} className={styles.inputField} style={{ width: 70, padding: "0.2rem" }}>
+                        {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                      <button type="button" className={styles.clearButton} style={{ margin: 0, padding: "0.2rem 0.5rem" }} disabled={employeeSetupPage === 1} onClick={() => setEmployeeSetupPage((p) => Math.max(1, p - 1))}>Prev</button>
+                      <span>Page {employeeSetupPage} of {employeeSetupTotalPages}</span>
+                      <button type="button" className={styles.clearButton} style={{ margin: 0, padding: "0.2rem 0.5rem" }} disabled={employeeSetupPage >= employeeSetupTotalPages} onClick={() => setEmployeeSetupPage((p) => Math.min(employeeSetupTotalPages, p + 1))}>Next</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Async Queue Feed (payroll-like) */}
+              {(isProcessing || queueItems.length > 0) && (
+                <div style={{ marginTop: "0.9rem", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.65rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
+                    <h4 style={{ margin: 0, fontSize: "0.9rem" }}>Async Processing Queue</h4>
+                    <span style={{ fontSize: "0.78rem", color: "#64748b" }}>Offset: {queueOffset}</span>
+                  </div>
+                  <div ref={queueFeedRef} style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 6 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc", position: "sticky", top: 0 }}>
+                          <th style={th}>#</th>
+                          <th style={th}>Employee</th>
+                          <th style={th}>Status</th>
+                          <th style={th}>Message</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {queueItems.map((q) => (
+                          <tr key={q.seqNo} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <td style={td}>{q.seqNo}</td>
+                            <td style={td}>{q.employeeNo} - {q.employeeName}</td>
+                            <td style={{ ...td, fontWeight: 700, color: q.status === "OK" ? "#15803d" : q.status === "SKIPPED" ? "#ca8a04" : "#dc2626" }}>
+                              {q.status}
+                            </td>
+                            <td style={td}>{q.message}</td>
+                          </tr>
+                        ))}
+                        {queueItems.length === 0 && (
+                          <tr>
+                            <td style={{ ...td, color: "#6b7280" }} colSpan={4}>Waiting for queue items...</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Results Table */}
@@ -592,6 +941,7 @@ export default function LeaveInformationModule() {
                             </td>
                             <td style={td}>
                               <div style={{ display: "flex", gap: "0.3rem", flexWrap: "nowrap" }}>
+                                <button onClick={() => handlePrintLeaveCard(r.employeeId, r.employeeName)} style={btnCard}>Card</button>
                                 {!r.isLocked && (
                                   <button onClick={() => handleLock(r.leaveInformationId)} style={btnLock}>Lock</button>
                                 )}
@@ -627,7 +977,10 @@ export default function LeaveInformationModule() {
           <div style={{ background: "#fff", borderRadius: 8, padding: "1.5rem", maxWidth: 960, width: "95vw", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
               <h3 style={{ margin: 0 }}>Leave Ledger — {ledgerEmployee.name}</h3>
-              <button onClick={closeLedger} style={{ background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, padding: "4px 12px", cursor: "pointer" }}>Close</button>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button onClick={() => handlePrintLeaveCard(ledgerEmployee.id, ledgerEmployee.name)} style={btnCard}>Leave Card</button>
+                <button onClick={closeLedger} style={{ background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, padding: "4px 12px", cursor: "pointer" }}>Close</button>
+              </div>
             </div>
             {ledgerLoading && <p>Loading ledger...</p>}
             {!ledgerLoading && ledgerRecords.length === 0 && <p>No historical records found.</p>}
@@ -685,6 +1038,7 @@ export default function LeaveInformationModule() {
 const th: React.CSSProperties = { padding: "6px 10px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap", borderBottom: "2px solid #cbd5e1" };
 const td: React.CSSProperties = { padding: "5px 10px", verticalAlign: "middle" };
 const tdNum: React.CSSProperties = { ...td, textAlign: "right" };
+const btnCard: React.CSSProperties = { padding: "2px 7px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.72rem" };
 const btnLock: React.CSSProperties = { padding: "2px 7px", background: "#ca8a04", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.72rem" };
 const btnUnlock: React.CSSProperties = { ...btnLock, background: "#6b7280" };
 const btnDelete: React.CSSProperties = { ...btnLock, background: "#dc2626" };

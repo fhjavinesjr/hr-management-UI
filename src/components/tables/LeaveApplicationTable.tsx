@@ -20,11 +20,12 @@ interface LeaveApplicationTableProps {
   data: LeaveRecord[];
   onEdit?: (record: LeaveRecord) => void;
   onDelete?: (record: LeaveRecord) => void;
+  onPrint?: (record: LeaveRecord) => void;
   canEdit?: boolean;
   canDelete?: boolean;
 }
 
-export default function LeaveApplicationTable({ data, onEdit, onDelete, canEdit = true, canDelete = true }: LeaveApplicationTableProps) {
+export default function LeaveApplicationTable({ data, onEdit, onDelete, onPrint, canEdit = true, canDelete = true }: LeaveApplicationTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
@@ -128,6 +129,14 @@ export default function LeaveApplicationTable({ data, onEdit, onDelete, canEdit 
                 </span>
               </td>
               <td className={tableStyles.actionCell}>
+                {(record.status === "Approved" || record.status === "Disapproved") && (
+                  <button
+                    className={styles.printBtn}
+                    onClick={() => onPrint?.(record)}
+                  >
+                    Print
+                  </button>
+                )}
                 {canEdit && (
                   <button
                     className={tableStyles.editBtn}
