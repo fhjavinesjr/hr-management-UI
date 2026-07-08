@@ -614,6 +614,36 @@ export default function HRLeaveApplicationModule() {
     });
   };
 
+  const handlePrintMonetizationForm = async (record: MonetizationRecord) => {
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/leave-monetization/report/${record.id}`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to generate leave monetization report.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `LeaveMonetization_${record.id}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      await Swal.fire({
+        icon: "error",
+        title: "Print Failed",
+        text: err instanceof Error ? err.message : "Unable to generate leave monetization report.",
+      });
+    }
+  };
+
   const handleCreateMonetization = async (e: React.FormEvent) => {
     e.preventDefault();
     const isUpdate = editingMonetizationId !== null;
@@ -908,6 +938,7 @@ export default function HRLeaveApplicationModule() {
                       data={filteredMonetizations}
                       onEdit={handleEditMonetization}
                       onDelete={handleDeleteMonetization}
+                      onPrint={handlePrintMonetizationForm}
                       canEdit={canEdit}
                       canDelete={canDelete}
                     />

@@ -259,6 +259,32 @@ export default function HROvertimeRequestModule() {
     }
   };
 
+  const handlePrint = async (id?: number, status?: string) => {
+    if (!id) return;
+    const normalizedStatus = (status ?? "").toLowerCase();
+    if (normalizedStatus !== "approved" && normalizedStatus !== "disapproved") {
+      Toast.fire({ icon: "warning", title: "Only approved/disapproved requests can be printed" });
+      return;
+    }
+
+    try {
+      const response = await fetchWithAuth(`${API_BASE_URL_HRM}/api/overtime-request/report/${id}`);
+      if (!response.ok) throw new Error("Failed to generate overtime report");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `OvertimeAuthorization_${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      Swal.fire({ icon: "error", title: "Print failed", text: String(error) });
+    }
+  };
+
   const handleClear = () => {
     setSearch("");
     setSelectedEmployee(null);
@@ -400,6 +426,9 @@ export default function HROvertimeRequestModule() {
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
+                                {(r.status === "Approved" || r.status === "Disapproved") && (
+                                  <button onClick={() => handlePrint(r.overtimeRequestId, r.status)} style={btnPrint}>Print</button>
+                                )}
                                 {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
                                 {canDelete && <button onClick={() => handleDelete(r.overtimeRequestId!)} style={btnDelete}>Delete</button>}
                               </td>
@@ -483,5 +512,6 @@ export default function HROvertimeRequestModule() {
 
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
+const btnPrint: React.CSSProperties = { padding: "3px 8px", background: "#065f46", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
 const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
 const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };

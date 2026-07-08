@@ -453,7 +453,13 @@ export default function HROfficialEngagementModule() {
                     <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
-                        <input type="date" value={form.dateFiled} readOnly className={styles.inputField} />
+                        <input
+                          type="date"
+                          value={form.dateFiled}
+                          onChange={(e) => setForm({ ...form, dateFiled: e.target.value })}
+                          className={styles.inputField}
+                          required
+                        />
                       </div>
                       <div className={styles.formGroup}>
                         <label>Official Type</label>

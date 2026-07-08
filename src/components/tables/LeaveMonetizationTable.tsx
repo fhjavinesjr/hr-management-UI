@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import tableStyles from "@/styles/tables.module.scss";
+import styles from "@/styles/LeaveApplication.module.scss";
 
 interface MonetizationRecord {
   id: number;
@@ -31,6 +32,7 @@ interface LeaveMonetizationTableProps {
   data: MonetizationRecord[];
   onEdit?: (record: MonetizationRecord) => void;
   onDelete?: (record: MonetizationRecord) => void;
+  onPrint?: (record: MonetizationRecord) => void;
   canEdit?: boolean;
   canDelete?: boolean;
 }
@@ -51,7 +53,7 @@ function fmt(val: number | null | undefined): string {
 const th: React.CSSProperties = { padding: "8px 10px", background: "#f0f0f0", border: "1px solid #ddd", whiteSpace: "nowrap", textAlign: "left", fontSize: "0.82rem" };
 const td: React.CSSProperties = { padding: "6px 10px", border: "1px solid #ddd", whiteSpace: "nowrap", fontSize: "0.82rem" };
 
-export default function LeaveMonetizationTable({ data, onEdit, onDelete, canEdit = true, canDelete = true }: LeaveMonetizationTableProps) {
+export default function LeaveMonetizationTable({ data, onEdit, onDelete, onPrint, canEdit = true, canDelete = true }: LeaveMonetizationTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const pageSizeOptions = [25, 50, 100, 300, 500];
@@ -83,7 +85,7 @@ export default function LeaveMonetizationTable({ data, onEdit, onDelete, canEdit
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <table className={styles.table}>
           <thead>
             <tr>
               <th style={th}>Employee</th>
@@ -126,14 +128,18 @@ export default function LeaveMonetizationTable({ data, onEdit, onDelete, canEdit
                 </td>
                 <td style={td}>{record.recommendingOfficer ?? "—"}</td>
                 <td style={td}>{record.approvedBy ?? "—"}</td>
-                <td style={{ ...td, display: "flex", gap: "4px", flexWrap: "wrap", alignItems: "center" }}>
-                  {record.recommendationStatus === "Pending" && record.approvalStatus === "Pending" ? (
-                    <>
-                      {canEdit && <button className={tableStyles.editBtn} onClick={() => onEdit?.(record)}>Edit</button>}
-                      {canDelete && <button className={tableStyles.deleteBtn} onClick={() => onDelete?.(record)}>Delete</button>}
-                      {!canEdit && !canDelete && "-"}
-                    </>
-                  ) : "—"}
+                <td className={tableStyles.actionCell}>
+                  {(record.approvalStatus === "Approved" || record.approvalStatus === "Disapproved") && (
+                    <button
+                      className={styles.printBtn}
+                      onClick={() => onPrint?.(record)}
+                    >
+                      Print
+                    </button>
+                  )}
+                  {canEdit && <button className={tableStyles.editBtn} onClick={() => onEdit?.(record)}>Edit</button>}
+                  {canDelete && <button className={tableStyles.deleteBtn} onClick={() => onDelete?.(record)}>Delete</button>}
+                  {!canEdit && !canDelete && "-"}
                 </td>
               </tr>
             ))}
