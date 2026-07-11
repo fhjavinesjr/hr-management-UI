@@ -268,6 +268,32 @@ export default function HRPassSlipModule() {
     setActiveTab("table");
   };
 
+
+  const handlePrint = async (passSlipId?: number) => {
+    if (!passSlipId) {
+      Swal.fire({ icon: "warning", title: "No record selected", text: "Please select a valid pass slip record to print." });
+      return;
+    }
+
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/pass-slip/report/${passSlipId}`);
+      if (!res.ok) {
+        const message = await res.text().catch(() => "");
+        throw new Error(message || `Failed to generate pass slip (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Print Failed",
+        text: err instanceof Error ? err.message : "Unable to generate the selected Pass Slip.",
+      });
+    }
+  };
+
   const statusBadge = (status: string) => {
     const color =
       status === "Approved" ? "#16a34a" :
@@ -394,9 +420,9 @@ export default function HRPassSlipModule() {
                               <td style={td}>{r.details}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>
+                                <button onClick={() => handlePrint(r.passSlipId)} style={btnPrint}>Print</button>
                                 {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
                                 {canDelete && <button onClick={() => handleDelete(r.passSlipId!)} style={btnDelete}>Delete</button>}
-                                {!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
                           ))}
@@ -406,6 +432,7 @@ export default function HRPassSlipModule() {
                   )}
                 </>
               )}
+
 
               {activeTab === "apply" && (
                 <>
@@ -491,5 +518,6 @@ export default function HRPassSlipModule() {
 // Inline table cell styles
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
+const btnPrint: React.CSSProperties = { padding: "3px 8px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
 const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
 const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
