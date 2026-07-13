@@ -9,7 +9,9 @@ import tableStyles from "@/styles/tables.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
-import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
+import ApprovalSection, {
+  ApprovalSectionData,
+} from "@/lib/approvalSection/approvalSection";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 
@@ -53,7 +55,9 @@ export default function HRCompensatoryTimeOffModule() {
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null,
+  );
   const [userRole, setUserRole] = useState<string | null>(null);
   const [records, setRecords] = useState<CtoDTO[]>([]);
   const [cocBalance, setCocBalance] = useState<number | null>(null);
@@ -74,7 +78,9 @@ export default function HRCompensatoryTimeOffModule() {
     approvalMessage: "",
     dueExigencyService: false,
   });
-  const [approvalInitialValues, setApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
+  const [approvalInitialValues, setApprovalInitialValues] = useState<
+    Partial<ApprovalSectionData> | undefined
+  >(undefined);
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState<FormState>({
     dateFiled: today,
@@ -91,13 +97,24 @@ export default function HRCompensatoryTimeOffModule() {
     const empNo = localStorageUtil.getEmployeeNo();
     const employeeId = localStorageUtil.getEmployeeId();
     setUserRole(role);
-    if (empNo && ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
-      const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
+    if (
+      empNo &&
+      ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
+    ) {
+      const empFromList = stored?.find((e) => e.employeeNo === empNo) ?? null;
       if (empFromList) {
         setSelectedEmployee(empFromList);
         setSearch(`[${empFromList.employeeNo}] ${empFromList.fullName}`);
       } else if (fullname) {
-        const own: Employee = { employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false };
+        const own: Employee = {
+          employeeId: String(employeeId ?? ""),
+          employeeNo: empNo,
+          fullName: fullname,
+          role: role ?? "",
+          biometricNo: "",
+          isSearched: false,
+          isCleared: false,
+        };
         setSelectedEmployee(own);
         setSearch(`[${empNo}] ${fullname}`);
       }
@@ -109,7 +126,7 @@ export default function HRCompensatoryTimeOffModule() {
     return employees.filter(
       (e) =>
         e.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        e.employeeNo.toLowerCase().includes(search.toLowerCase())
+        e.employeeNo.toLowerCase().includes(search.toLowerCase()),
     );
   }, [search, employees]);
 
@@ -120,13 +137,21 @@ export default function HRCompensatoryTimeOffModule() {
       return true;
     });
   }, [records, dateFrom, dateTo]);
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRecords.length / itemsPerPage),
+  );
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedRecords = filteredRecords.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedRecords = filteredRecords.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
 
   const fetchBalance = useCallback(async (empId: string | number) => {
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/coc/balance/${empId}`);
+      const res = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/coc/balance/${empId}`,
+      );
       if (!res.ok) return;
       const data = await res.json();
       setCocBalance(data.availableHours ?? 0);
@@ -138,7 +163,9 @@ export default function HRCompensatoryTimeOffModule() {
   const fetchRecords = useCallback(async (emp: Employee) => {
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/cto/get-all/${emp.employeeId}`);
+      const res = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/cto/get-all/${emp.employeeId}`,
+      );
       if (!res.ok) throw new Error("Failed to fetch CTO records");
       const data: CtoDTO[] = await res.json();
       setRecords(data);
@@ -159,13 +186,19 @@ export default function HRCompensatoryTimeOffModule() {
     }
   }, [selectedEmployee, fetchRecords, fetchBalance]);
 
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const isUpdate = editingId !== null;
     if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
-      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to perform this action." });
+      Swal.fire({
+        icon: "warning",
+        title: "Access denied",
+        text: "You do not have permission to perform this action.",
+      });
       return;
     }
     if (!selectedEmployee) {
@@ -173,8 +206,11 @@ export default function HRCompensatoryTimeOffModule() {
       return;
     }
     const hrs = parseFloat(form.hoursUsed);
-    if (isNaN(hrs) || hrs <= 0) {
-      Swal.fire({ icon: "warning", title: "Enter valid hours to offset" });
+    if (![4, 8].includes(hrs)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Select either 4 hours (half day) or 8 hours (whole day)",
+      });
       return;
     }
     if (cocBalance !== null && hrs > cocBalance) {
@@ -204,18 +240,44 @@ export default function HRCompensatoryTimeOffModule() {
         ? `${API_BASE_URL_HRM}/api/cto/update/${editingId}`
         : `${API_BASE_URL_HRM}/api/cto/create`;
       const method = isUpdate ? "PUT" : "POST";
-      const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
+      const res = await fetchWithAuth(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: isUpdate ? "CTO record updated" : "CTO application filed successfully" });
-      setForm({ dateFiled: today, dateOfOffset: today, hoursUsed: "8", reason: "" });
+      Toast.fire({
+        icon: "success",
+        title: isUpdate
+          ? "CTO record updated"
+          : "CTO application filed successfully",
+      });
+      setForm({
+        dateFiled: today,
+        dateOfOffset: today,
+        hoursUsed: "8",
+        reason: "",
+      });
       setEditingId(null);
       setApprovalInitialValues(undefined);
-      setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+      setApprovalData({
+        recommendationStatus: "Pending",
+        recommendationMessage: "",
+        recommendingApprovalById: null,
+        authorizedOfficialId: null,
+        approvedById: null,
+        approvedStatus: "Pending",
+        approvalMessage: "",
+        dueExigencyService: false,
+      });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
       fetchBalance(selectedEmployee.employeeId);
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed to file CTO application", text: err instanceof Error ? err.message : String(err) });
+      Swal.fire({
+        icon: "error",
+        title: "Failed to file CTO application",
+        text: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -223,7 +285,11 @@ export default function HRCompensatoryTimeOffModule() {
 
   const handleEdit = (r: CtoDTO) => {
     if (!canEdit) {
-      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to edit records." });
+      Swal.fire({
+        icon: "warning",
+        title: "Access denied",
+        text: "You do not have permission to edit records.",
+      });
       return;
     }
     setForm({
@@ -243,14 +309,18 @@ export default function HRCompensatoryTimeOffModule() {
       dueExigencyService: false,
     };
     setApprovalInitialValues(initVals);
-    setApprovalData(prev => ({ ...prev, ...initVals }));
+    setApprovalData((prev) => ({ ...prev, ...initVals }));
     setEditingId(r.ctoId!);
     setActiveTab("apply");
   };
 
   const handleDelete = async (ctoId: number) => {
     if (!canDelete) {
-      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to delete records." });
+      Swal.fire({
+        icon: "warning",
+        title: "Access denied",
+        text: "You do not have permission to delete records.",
+      });
       return;
     }
     const confirm = await Swal.fire({
@@ -262,10 +332,16 @@ export default function HRCompensatoryTimeOffModule() {
     });
     if (!confirm.isConfirmed) return;
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/cto/delete/${ctoId}`, { method: "DELETE" });
+      const res = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/cto/delete/${ctoId}`,
+        { method: "DELETE" },
+      );
       if (!res.ok) throw new Error(await res.text());
       Toast.fire({ icon: "success", title: "Record deleted" });
-      if (selectedEmployee) { fetchRecords(selectedEmployee); fetchBalance(selectedEmployee.employeeId); }
+      if (selectedEmployee) {
+        fetchRecords(selectedEmployee);
+        fetchBalance(selectedEmployee.employeeId);
+      }
     } catch (err) {
       Swal.fire({ icon: "error", title: "Delete failed", text: String(err) });
     }
@@ -279,7 +355,16 @@ export default function HRCompensatoryTimeOffModule() {
     setShowSuggestions(false);
     setEditingId(null);
     setApprovalInitialValues(undefined);
-    setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+    setApprovalData({
+      recommendationStatus: "Pending",
+      recommendationMessage: "",
+      recommendingApprovalById: null,
+      authorizedOfficialId: null,
+      approvedById: null,
+      approvedStatus: "Pending",
+      approvalMessage: "",
+      dueExigencyService: false,
+    });
     setDateFrom("");
     setDateTo("");
     setCurrentPage(1);
@@ -288,9 +373,16 @@ export default function HRCompensatoryTimeOffModule() {
 
   const statusBadge = (status: string) => {
     const color =
-      status === "Approved" ? "#16a34a" :
-      status === "Disapproved" ? "#dc2626" : "#ca8a04";
-    return <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>{status}</span>;
+      status === "Approved"
+        ? "#16a34a"
+        : status === "Disapproved"
+          ? "#dc2626"
+          : "#ca8a04";
+    return (
+      <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>
+        {status}
+      </span>
+    );
   };
 
   return (
@@ -303,16 +395,36 @@ export default function HRCompensatoryTimeOffModule() {
         <div className={modalStyles.modalBody}>
           <div className={styles.EmploymentRecord}>
             <div className={styles.stickyHeader}>
-              <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1rem",
+                  alignItems: "flex-end",
+                  flexWrap: "wrap",
+                }}
+              >
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date From</label>
-                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className={styles.searchInput}
+                  />
                 </div>
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date To</label>
-                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className={styles.searchInput}
+                  />
                 </div>
-                <div className={styles.formGroup} style={{ flex: 1, minWidth: "220px", position: "relative" }}>
+                <div
+                  className={styles.formGroup}
+                  style={{ flex: 1, minWidth: "220px", position: "relative" }}
+                >
                   <label>Search Employee</label>
                   <input
                     id="cto-employee"
@@ -320,14 +432,23 @@ export default function HRCompensatoryTimeOffModule() {
                     list={"cto-employee-list"}
                     placeholder="Employee No / Last Name"
                     value={search}
-                    readOnly={(!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)}
+                    readOnly={
+                      (!canAdd && !canEdit) ||
+                      (canAdd && !canEdit) ||
+                      (!canAdd && canEdit)
+                    }
                     onChange={(e) => {
-                      if ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)) return;
+                      if (
+                        (!canAdd && !canEdit) ||
+                        (canAdd && !canEdit) ||
+                        (!canAdd && canEdit)
+                      )
+                        return;
                       setSearch(e.target.value);
                       const match = employees.find(
                         (emp) =>
                           `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
-                          e.target.value.toLowerCase()
+                          e.target.value.toLowerCase(),
                       );
                       if (match) {
                         setSelectedEmployee(match);
@@ -338,7 +459,7 @@ export default function HRCompensatoryTimeOffModule() {
                     className={styles.searchInput}
                     style={{ width: "100%" }}
                   />
-                  {(
+                  {
                     <datalist id="cto-employee-list">
                       {employees.map((emp) => (
                         <option
@@ -347,12 +468,29 @@ export default function HRCompensatoryTimeOffModule() {
                         />
                       ))}
                     </datalist>
-                  )}
+                  }
                 </div>
-                <div style={{ alignSelf: "flex-end", marginBottom: "20px", marginLeft: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <button onClick={handleClear} className={styles.clearButton}>Clear</button>
+                <div
+                  style={{
+                    alignSelf: "flex-end",
+                    marginBottom: "20px",
+                    marginLeft: "1rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <button onClick={handleClear} className={styles.clearButton}>
+                    Clear
+                  </button>
                   {cocBalance !== null && (
-                    <span style={{ fontWeight: 700, color: cocBalance <= 0 ? "#dc2626" : "#2563eb", fontSize: "0.9rem" }}>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: cocBalance <= 0 ? "#dc2626" : "#2563eb",
+                        fontSize: "0.9rem",
+                      }}
+                    >
                       Available COC Balance: {cocBalance.toFixed(2)} hrs
                     </span>
                   )}
@@ -360,36 +498,122 @@ export default function HRCompensatoryTimeOffModule() {
               </div>
 
               <div className={styles.tabsHeader}>
-                <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>Records</button>
-                {(canAdd || canEdit) && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File CTO</button>}
+                <button
+                  className={activeTab === "table" ? styles.active : ""}
+                  onClick={() => setActiveTab("table")}
+                >
+                  Records
+                </button>
+                {(canAdd || canEdit) && (
+                  <button
+                    className={activeTab === "apply" ? styles.active : ""}
+                    onClick={() => {
+                      setEditingId(null);
+                      setApprovalInitialValues(undefined);
+                      setApprovalData({
+                        recommendationStatus: "Pending",
+                        recommendationMessage: "",
+                        recommendingApprovalById: null,
+                        authorizedOfficialId: null,
+                        approvedById: null,
+                        approvedStatus: "Pending",
+                        approvalMessage: "",
+                        dueExigencyService: false,
+                      });
+                      setActiveTab("apply");
+                    }}
+                  >
+                    File CTO
+                  </button>
+                )}
               </div>
             </div>
 
             <div className={styles.tabContent}>
               {activeTab === "table" && (
                 <>
-                  <h3>{selectedEmployee ? `CTO Records — ${selectedEmployee.fullName}` : "Search and select an employee"}</h3>
+                  <h3>
+                    {selectedEmployee
+                      ? `CTO Records — ${selectedEmployee.fullName}`
+                      : "Search and select an employee"}
+                  </h3>
                   {isLoading && <p>Loading...</p>}
-                  {!isLoading && selectedEmployee && records.length === 0 && <p>No CTO records found.</p>}
+                  {!isLoading && selectedEmployee && records.length === 0 && (
+                    <p>No CTO records found.</p>
+                  )}
                   <div className={tableStyles.paginationContainer}>
                     <div className={tableStyles.paginationLeft}>
                       <label>Rows per page: </label>
-                      <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
-                        {[25, 50, 100, 300, 500].map((s) => <option key={s} value={s}>{s}</option>)}
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {[25, 50, 100, 300, 500].map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
                       </select>
-                      <span className={tableStyles.recordInfo}>Showing {filteredRecords.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredRecords.length)} of {filteredRecords.length}</span>
+                      <span className={tableStyles.recordInfo}>
+                        Showing{" "}
+                        {filteredRecords.length === 0 ? 0 : startIndex + 1} to{" "}
+                        {Math.min(
+                          startIndex + itemsPerPage,
+                          filteredRecords.length,
+                        )}{" "}
+                        of {filteredRecords.length}
+                      </span>
                     </div>
                     <div className={tableStyles.paginationRight}>
-                      <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className={tableStyles.paginationBtn}>First</button>
-                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={tableStyles.paginationBtn}>Previous</button>
-                      <span className={tableStyles.pageIndicator}>Page {currentPage} of {totalPages}</span>
-                      <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Next</button>
-                      <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Last</button>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className={tableStyles.paginationBtn}
+                      >
+                        First
+                      </button>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Previous
+                      </button>
+                      <span className={tableStyles.pageIndicator}>
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Next
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Last
+                      </button>
                     </div>
                   </div>
                   {!isLoading && filteredRecords.length > 0 && (
                     <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "0.85rem",
+                        }}
+                      >
                         <thead>
                           <tr style={{ background: "#f1f5f9" }}>
                             <th style={th}>Date Filed</th>
@@ -404,15 +628,37 @@ export default function HRCompensatoryTimeOffModule() {
                         </thead>
                         <tbody>
                           {paginatedRecords.map((r) => (
-                            <tr key={r.ctoId} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <tr
+                              key={r.ctoId}
+                              style={{ borderBottom: "1px solid #e2e8f0" }}
+                            >
                               <td style={td}>{r.dateFiled}</td>
                               <td style={td}>{r.dateOfOffset}</td>
                               <td style={td}>{r.hoursUsed}</td>
-                              <td style={td}>{r.cocBalanceAtFiling?.toFixed(2) ?? "—"}</td>
+                              <td style={td}>
+                                {r.cocBalanceAtFiling?.toFixed(2) ?? "—"}
+                              </td>
                               <td style={td}>{r.reason}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
-                              <td style={td}>{canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}{canDelete && <button onClick={() => handleDelete(r.ctoId!)} style={btnDelete}>Delete</button>}{!canEdit && !canDelete && "-"}
+                              <td style={td}>
+                                {canEdit && (
+                                  <button
+                                    onClick={() => handleEdit(r)}
+                                    style={btnEdit}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    onClick={() => handleDelete(r.ctoId!)}
+                                    style={btnDelete}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                                {!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
                           ))}
@@ -425,46 +671,105 @@ export default function HRCompensatoryTimeOffModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File CTO Application{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
+                  <h3>
+                    File CTO Application
+                    {selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}
+                    {editingId ? " (Editing)" : ""}
+                  </h3>
                   {cocBalance !== null && (
-                    <p style={{ color: cocBalance <= 0 ? "#dc2626" : "#15803d", fontWeight: 600, marginBottom: "0.5rem" }}>
+                    <p
+                      style={{
+                        color: cocBalance <= 0 ? "#dc2626" : "#15803d",
+                        fontWeight: 600,
+                        marginBottom: "0.5rem",
+                      }}
+                    >
                       Available COC Balance: {cocBalance.toFixed(2)} hrs
                     </p>
                   )}
-                  {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
+                  {!selectedEmployee && (
+                    <p style={{ color: "#dc2626" }}>
+                      Please search and select an employee first.
+                    </p>
+                  )}
                   {selectedEmployee && (editingId ? canEdit : canAdd) && (
-                    <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
+                    <form
+                      onSubmit={handleSubmit}
+                      style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}
+                    >
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
-                        <input type="date" value={form.dateFiled} onChange={(e) => setForm({ ...form, dateFiled: e.target.value })} className={styles.inputField} required />
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>Date of Offset (Day to take off)</label>
-                        <input type="date" value={form.dateOfOffset} onChange={(e) => setForm({ ...form, dateOfOffset: e.target.value })} className={styles.inputField} required />
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>Hours to Use</label>
                         <input
-                          type="number"
-                          step="0.5"
-                          min="0.5"
-                          max={cocBalance ?? 24}
-                          value={form.hoursUsed}
-                          onChange={(e) => setForm({ ...form, hoursUsed: e.target.value })}
+                          type="date"
+                          value={form.dateFiled}
+                          onChange={(e) =>
+                            setForm({ ...form, dateFiled: e.target.value })
+                          }
                           className={styles.inputField}
                           required
                         />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Date of Offset (Day to take off)</label>
+                        <input
+                          type="date"
+                          min={today}
+                          value={form.dateOfOffset}
+                          onChange={(e) =>
+                            setForm({ ...form, dateOfOffset: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Hours to Use</label>
+                        <select
+                          value={form.hoursUsed}
+                          onChange={(e) =>
+                            setForm({ ...form, hoursUsed: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        >
+                          <option value="4">4 hours — Half day</option>
+                          <option value="8">8 hours — Whole day</option>
+                        </select>
                         {cocBalance !== null && (
-                          <small style={{ color: "#6b7280" }}>Maximum: {cocBalance.toFixed(2)} hrs</small>
+                          <small style={{ color: "#6b7280" }}>
+                            Single-date CTO allows 4 or 8 hours. Available:{" "}
+                            {cocBalance.toFixed(2)} hrs
+                          </small>
                         )}
                       </div>
                       <div className={styles.formGroup}>
                         <label>Reason</label>
-                        <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={styles.inputField} rows={3} required />
+                        <textarea
+                          value={form.reason}
+                          onChange={(e) =>
+                            setForm({ ...form, reason: e.target.value })
+                          }
+                          className={styles.inputField}
+                          rows={3}
+                          required
+                        />
                       </div>
-                      <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
+                      <ApprovalSection
+                        key={editingId ?? 0}
+                        initialValues={approvalInitialValues}
+                        onDataChange={setApprovalData}
+                        showAuthorizedOfficial={false}
+                        showDueExigency={false}
+                      />
                       <div style={{ display: "flex", gap: "0.75rem" }}>
-                        <button type="submit" disabled={isSubmitting || (cocBalance !== null && cocBalance <= 0)} className={styles.submitButton}>
+                        <button
+                          type="submit"
+                          disabled={
+                            isSubmitting ||
+                            (cocBalance !== null && cocBalance <= 0)
+                          }
+                          className={styles.submitButton}
+                        >
                           {isSubmitting ? "Saving..." : "Save"}
                         </button>
                         <button
@@ -492,7 +797,10 @@ export default function HRCompensatoryTimeOffModule() {
                     </form>
                   )}
                   {selectedEmployee && !(editingId ? canEdit : canAdd) && (
-                    <p style={{ color: "#dc2626" }}>You do not have permission to {editingId ? "edit" : "create"} CTO records.</p>
+                    <p style={{ color: "#dc2626" }}>
+                      You do not have permission to{" "}
+                      {editingId ? "edit" : "create"} CTO records.
+                    </p>
                   )}
                 </>
               )}
@@ -504,8 +812,32 @@ export default function HRCompensatoryTimeOffModule() {
   );
 }
 
-const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
-const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
-const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
-
+const th: React.CSSProperties = {
+  padding: "8px 12px",
+  textAlign: "left",
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+const td: React.CSSProperties = {
+  padding: "6px 12px",
+  verticalAlign: "middle",
+};
+const btnEdit: React.CSSProperties = {
+  padding: "3px 8px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  marginRight: "4px",
+};
+const btnDelete: React.CSSProperties = {
+  padding: "3px 8px",
+  background: "#6b7280",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: "0.75rem",
+};

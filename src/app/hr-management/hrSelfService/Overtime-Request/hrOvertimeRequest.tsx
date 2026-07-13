@@ -9,7 +9,9 @@ import tableStyles from "@/styles/tables.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
-import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
+import ApprovalSection, {
+  ApprovalSectionData,
+} from "@/lib/approvalSection/approvalSection";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 
@@ -28,6 +30,12 @@ interface OvertimeRequestDTO {
   recommendationStatus?: string | null;
   recommendedById?: number | null;
   recommendationRemarks?: string | null;
+  workType?: string;
+  authorityReference?: string;
+  emergencyPostFiling?: boolean;
+  emergencyJustification?: string;
+  breakMinutes?: number;
+  netAuthorizedHours?: number;
 }
 
 interface FormState {
@@ -35,6 +43,11 @@ interface FormState {
   dateTimeFrom: string;
   dateTimeTo: string;
   purpose: string;
+  workType: string;
+  authorityReference: string;
+  emergencyPostFiling: boolean;
+  emergencyJustification: string;
+  breakMinutes: string;
 }
 
 const Toast = Swal.mixin({
@@ -46,14 +59,16 @@ const Toast = Swal.mixin({
 });
 
 export default function HROvertimeRequestModule() {
-  const canAdd    = localStorageUtil.canAdd("hrm.ss.overtimeReq");
-  const canEdit   = localStorageUtil.canEdit("hrm.ss.overtimeReq");
+  const canAdd = localStorageUtil.canAdd("hrm.ss.overtimeReq");
+  const canEdit = localStorageUtil.canEdit("hrm.ss.overtimeReq");
   const canDelete = localStorageUtil.canDelete("hrm.ss.overtimeReq");
   const [activeTab, setActiveTab] = useState<"table" | "apply">("table");
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null,
+  );
   const [userRole, setUserRole] = useState<string | null>(null);
   const [records, setRecords] = useState<OvertimeRequestDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -73,7 +88,9 @@ export default function HROvertimeRequestModule() {
     approvalMessage: "",
     dueExigencyService: false,
   });
-  const [approvalInitialValues, setApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
+  const [approvalInitialValues, setApprovalInitialValues] = useState<
+    Partial<ApprovalSectionData> | undefined
+  >(undefined);
 
   const today = new Date().toISOString().split("T")[0];
   const nowLocal = () => {
@@ -87,6 +104,11 @@ export default function HROvertimeRequestModule() {
     dateTimeFrom: nowLocal(),
     dateTimeTo: nowLocal(),
     purpose: "",
+    workType: "REGULAR_OVERTIME",
+    authorityReference: "",
+    emergencyPostFiling: false,
+    emergencyJustification: "",
+    breakMinutes: "0",
   });
 
   useEffect(() => {
@@ -97,13 +119,24 @@ export default function HROvertimeRequestModule() {
     const empNo = localStorageUtil.getEmployeeNo();
     const employeeId = localStorageUtil.getEmployeeId();
     setUserRole(role);
-    if (empNo && ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
-      const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
+    if (
+      empNo &&
+      ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
+    ) {
+      const empFromList = stored?.find((e) => e.employeeNo === empNo) ?? null;
       if (empFromList) {
         setSelectedEmployee(empFromList);
         setSearch(`[${empFromList.employeeNo}] ${empFromList.fullName}`);
       } else if (fullname) {
-        const own: Employee = { employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false };
+        const own: Employee = {
+          employeeId: String(employeeId ?? ""),
+          employeeNo: empNo,
+          fullName: fullname,
+          role: role ?? "",
+          biometricNo: "",
+          isSearched: false,
+          isCleared: false,
+        };
         setSelectedEmployee(own);
         setSearch(`[${empNo}] ${fullname}`);
       }
@@ -115,7 +148,7 @@ export default function HROvertimeRequestModule() {
     return employees.filter(
       (e) =>
         e.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        e.employeeNo.toLowerCase().includes(search.toLowerCase())
+        e.employeeNo.toLowerCase().includes(search.toLowerCase()),
     );
   }, [search, employees]);
 
@@ -126,9 +159,15 @@ export default function HROvertimeRequestModule() {
       return true;
     });
   }, [records, dateFrom, dateTo]);
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRecords.length / itemsPerPage),
+  );
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedRecords = filteredRecords.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedRecords = filteredRecords.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
 
   const duration = useMemo(() => {
     if (!form.dateTimeFrom || !form.dateTimeTo) return null;
@@ -142,7 +181,9 @@ export default function HROvertimeRequestModule() {
   const fetchRecords = useCallback(async (emp: Employee) => {
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/overtime-request/get-all/${emp.employeeId}`);
+      const res = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/overtime-request/get-all/${emp.employeeId}`,
+      );
       if (!res.ok) throw new Error("Failed to fetch overtime requests");
       const data: OvertimeRequestDTO[] = await res.json();
       setRecords(data);
@@ -161,7 +202,9 @@ export default function HROvertimeRequestModule() {
     }
   }, [selectedEmployee, fetchRecords]);
 
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,12 +212,18 @@ export default function HROvertimeRequestModule() {
       Swal.fire({ icon: "warning", title: "No employee selected" });
       return;
     }
-    if (!duration || duration.hours <= 0 && duration.minutes <= 0) {
-      Swal.fire({ icon: "warning", title: "End time must be after start time" });
+    if (!duration || (duration.hours <= 0 && duration.minutes <= 0)) {
+      Swal.fire({
+        icon: "warning",
+        title: "End time must be after start time",
+      });
       return;
     }
     if (!form.purpose.trim()) {
-      Swal.fire({ icon: "warning", title: "Purpose / justification is required" });
+      Swal.fire({
+        icon: "warning",
+        title: "Purpose / justification is required",
+      });
       return;
     }
     setIsSubmitting(true);
@@ -185,6 +234,11 @@ export default function HROvertimeRequestModule() {
         dateTimeFrom: form.dateTimeFrom.replace("T", " ") + ":00",
         dateTimeTo: form.dateTimeTo.replace("T", " ") + ":00",
         purpose: form.purpose,
+        workType: form.workType,
+        authorityReference: form.authorityReference,
+        emergencyPostFiling: form.emergencyPostFiling,
+        emergencyJustification: form.emergencyJustification,
+        breakMinutes: Number(form.breakMinutes || 0),
         status: approvalData.approvedStatus || "Pending",
         approvedById: approvalData.approvedById,
         approvalRemarks: approvalData.approvalMessage,
@@ -197,17 +251,48 @@ export default function HROvertimeRequestModule() {
         ? `${API_BASE_URL_HRM}/api/overtime-request/update/${editingId}`
         : `${API_BASE_URL_HRM}/api/overtime-request/create`;
       const method = isUpdate ? "PUT" : "POST";
-      const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
+      const res = await fetchWithAuth(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: isUpdate ? "Overtime request updated" : "Overtime request filed successfully" });
-      setForm({ dateFiled: today, dateTimeFrom: nowLocal(), dateTimeTo: nowLocal(), purpose: "" });
+      Toast.fire({
+        icon: "success",
+        title: isUpdate
+          ? "Overtime request updated"
+          : "Overtime request filed successfully",
+      });
+      setForm({
+        dateFiled: today,
+        dateTimeFrom: nowLocal(),
+        dateTimeTo: nowLocal(),
+        purpose: "",
+        workType: "REGULAR_OVERTIME",
+        authorityReference: "",
+        emergencyPostFiling: false,
+        emergencyJustification: "",
+        breakMinutes: "0",
+      });
       setEditingId(null);
       setApprovalInitialValues(undefined);
-      setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+      setApprovalData({
+        recommendationStatus: "Pending",
+        recommendationMessage: "",
+        recommendingApprovalById: null,
+        authorizedOfficialId: null,
+        approvedById: null,
+        approvedStatus: "Pending",
+        approvalMessage: "",
+        dueExigencyService: false,
+      });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed to file overtime request", text: String(err) });
+      Swal.fire({
+        icon: "error",
+        title: "Failed to file overtime request",
+        text: String(err),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -223,6 +308,11 @@ export default function HROvertimeRequestModule() {
       dateTimeFrom: toLocal(r.dateTimeFrom as unknown as string),
       dateTimeTo: toLocal(r.dateTimeTo as unknown as string),
       purpose: r.purpose,
+      workType: r.workType ?? "REGULAR_OVERTIME",
+      authorityReference: r.authorityReference ?? "",
+      emergencyPostFiling: r.emergencyPostFiling ?? false,
+      emergencyJustification: r.emergencyJustification ?? "",
+      breakMinutes: String(r.breakMinutes ?? 0),
     });
     const initVals: Partial<ApprovalSectionData> = {
       approvedStatus: r.status ?? "Pending",
@@ -235,7 +325,7 @@ export default function HROvertimeRequestModule() {
       dueExigencyService: false,
     };
     setApprovalInitialValues(initVals);
-    setApprovalData(prev => ({ ...prev, ...initVals }));
+    setApprovalData((prev) => ({ ...prev, ...initVals }));
     setEditingId(r.overtimeRequestId!);
     setActiveTab("apply");
   };
@@ -250,7 +340,10 @@ export default function HROvertimeRequestModule() {
     });
     if (!confirm.isConfirmed) return;
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/overtime-request/delete/${id}`, { method: "DELETE" });
+      const res = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/overtime-request/delete/${id}`,
+        { method: "DELETE" },
+      );
       if (!res.ok) throw new Error(await res.text());
       Toast.fire({ icon: "success", title: "Record deleted" });
       if (selectedEmployee) fetchRecords(selectedEmployee);
@@ -263,12 +356,17 @@ export default function HROvertimeRequestModule() {
     if (!id) return;
     const normalizedStatus = (status ?? "").toLowerCase();
     if (normalizedStatus !== "approved" && normalizedStatus !== "disapproved") {
-      Toast.fire({ icon: "warning", title: "Only approved/disapproved requests can be printed" });
+      Toast.fire({
+        icon: "warning",
+        title: "Only approved/disapproved requests can be printed",
+      });
       return;
     }
 
     try {
-      const response = await fetchWithAuth(`${API_BASE_URL_HRM}/api/overtime-request/report/${id}`);
+      const response = await fetchWithAuth(
+        `${API_BASE_URL_HRM}/api/overtime-request/report/${id}`,
+      );
       if (!response.ok) throw new Error("Failed to generate overtime report");
 
       const blob = await response.blob();
@@ -292,7 +390,16 @@ export default function HROvertimeRequestModule() {
     setShowSuggestions(false);
     setEditingId(null);
     setApprovalInitialValues(undefined);
-    setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+    setApprovalData({
+      recommendationStatus: "Pending",
+      recommendationMessage: "",
+      recommendingApprovalById: null,
+      authorizedOfficialId: null,
+      approvedById: null,
+      approvedStatus: "Pending",
+      approvalMessage: "",
+      dueExigencyService: false,
+    });
     setDateFrom("");
     setDateTo("");
     setCurrentPage(1);
@@ -301,9 +408,16 @@ export default function HROvertimeRequestModule() {
 
   const statusBadge = (status: string) => {
     const color =
-      status === "Approved" ? "#16a34a" :
-      status === "Disapproved" ? "#dc2626" : "#ca8a04";
-    return <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>{status}</span>;
+      status === "Approved"
+        ? "#16a34a"
+        : status === "Disapproved"
+          ? "#dc2626"
+          : "#ca8a04";
+    return (
+      <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>
+        {status}
+      </span>
+    );
   };
 
   const fmtDateTime = (dt: string | null | undefined) => {
@@ -321,16 +435,36 @@ export default function HROvertimeRequestModule() {
         <div className={modalStyles.modalBody}>
           <div className={styles.EmploymentRecord}>
             <div className={styles.stickyHeader}>
-              <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1rem",
+                  alignItems: "flex-end",
+                  flexWrap: "wrap",
+                }}
+              >
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date From</label>
-                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className={styles.searchInput}
+                  />
                 </div>
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date To</label>
-                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className={styles.searchInput}
+                  />
                 </div>
-                <div className={styles.formGroup} style={{ flex: 1, minWidth: "220px", position: "relative" }}>
+                <div
+                  className={styles.formGroup}
+                  style={{ flex: 1, minWidth: "220px", position: "relative" }}
+                >
                   <label>Search Employee</label>
                   <input
                     id="overtime-employee"
@@ -338,14 +472,23 @@ export default function HROvertimeRequestModule() {
                     list={"overtime-employee-list"}
                     placeholder="Employee No / Last Name"
                     value={search}
-                    readOnly={(!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)}
+                    readOnly={
+                      (!canAdd && !canEdit) ||
+                      (canAdd && !canEdit) ||
+                      (!canAdd && canEdit)
+                    }
                     onChange={(e) => {
-                      if ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)) return;
+                      if (
+                        (!canAdd && !canEdit) ||
+                        (canAdd && !canEdit) ||
+                        (!canAdd && canEdit)
+                      )
+                        return;
                       setSearch(e.target.value);
                       const match = employees.find(
                         (emp) =>
                           `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
-                          e.target.value.toLowerCase()
+                          e.target.value.toLowerCase(),
                       );
                       if (match) {
                         setSelectedEmployee(match);
@@ -356,7 +499,7 @@ export default function HROvertimeRequestModule() {
                     className={styles.searchInput}
                     style={{ width: "100%" }}
                   />
-                  {(
+                  {
                     <datalist id="overtime-employee-list">
                       {employees.map((emp) => (
                         <option
@@ -365,50 +508,144 @@ export default function HROvertimeRequestModule() {
                         />
                       ))}
                     </datalist>
-                  )}
+                  }
                 </div>
-                <div style={{ alignSelf: "flex-end", marginBottom: "20px", marginLeft: "1rem" }}>
-                  <button onClick={handleClear} className={styles.clearButton}>Clear</button>
+                <div
+                  style={{
+                    alignSelf: "flex-end",
+                    marginBottom: "20px",
+                    marginLeft: "1rem",
+                  }}
+                >
+                  <button onClick={handleClear} className={styles.clearButton}>
+                    Clear
+                  </button>
                 </div>
               </div>
 
               <div className={styles.tabsHeader}>
-                <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>Records</button>
-                {canAdd && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File Request</button>}
+                <button
+                  className={activeTab === "table" ? styles.active : ""}
+                  onClick={() => setActiveTab("table")}
+                >
+                  Records
+                </button>
+                {canAdd && (
+                  <button
+                    className={activeTab === "apply" ? styles.active : ""}
+                    onClick={() => {
+                      setEditingId(null);
+                      setApprovalInitialValues(undefined);
+                      setApprovalData({
+                        recommendationStatus: "Pending",
+                        recommendationMessage: "",
+                        recommendingApprovalById: null,
+                        authorizedOfficialId: null,
+                        approvedById: null,
+                        approvedStatus: "Pending",
+                        approvalMessage: "",
+                        dueExigencyService: false,
+                      });
+                      setActiveTab("apply");
+                    }}
+                  >
+                    File Request
+                  </button>
+                )}
               </div>
             </div>
 
             <div className={styles.tabContent}>
               {activeTab === "table" && (
                 <>
-                  <h3>{selectedEmployee ? `Overtime Requests — ${selectedEmployee.fullName}` : "Search and select an employee"}</h3>
+                  <h3>
+                    {selectedEmployee
+                      ? `Overtime Requests — ${selectedEmployee.fullName}`
+                      : "Search and select an employee"}
+                  </h3>
                   {isLoading && <p>Loading...</p>}
-                  {!isLoading && selectedEmployee && records.length === 0 && <p>No overtime request records found.</p>}
+                  {!isLoading && selectedEmployee && records.length === 0 && (
+                    <p>No overtime request records found.</p>
+                  )}
                   <div className={tableStyles.paginationContainer}>
                     <div className={tableStyles.paginationLeft}>
                       <label>Rows per page: </label>
-                      <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
-                        {[25, 50, 100, 300, 500].map((s) => <option key={s} value={s}>{s}</option>)}
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {[25, 50, 100, 300, 500].map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
                       </select>
-                      <span className={tableStyles.recordInfo}>Showing {filteredRecords.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredRecords.length)} of {filteredRecords.length}</span>
+                      <span className={tableStyles.recordInfo}>
+                        Showing{" "}
+                        {filteredRecords.length === 0 ? 0 : startIndex + 1} to{" "}
+                        {Math.min(
+                          startIndex + itemsPerPage,
+                          filteredRecords.length,
+                        )}{" "}
+                        of {filteredRecords.length}
+                      </span>
                     </div>
                     <div className={tableStyles.paginationRight}>
-                      <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className={tableStyles.paginationBtn}>First</button>
-                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={tableStyles.paginationBtn}>Previous</button>
-                      <span className={tableStyles.pageIndicator}>Page {currentPage} of {totalPages}</span>
-                      <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Next</button>
-                      <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Last</button>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className={tableStyles.paginationBtn}
+                      >
+                        First
+                      </button>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Previous
+                      </button>
+                      <span className={tableStyles.pageIndicator}>
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Next
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Last
+                      </button>
                     </div>
                   </div>
                   {!isLoading && filteredRecords.length > 0 && (
                     <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "0.85rem",
+                        }}
+                      >
                         <thead>
                           <tr style={{ background: "#f1f5f9" }}>
                             <th style={th}>Date Filed</th>
                             <th style={th}>From</th>
                             <th style={th}>To</th>
-                            <th style={th}>Total Hours</th>
+                            <th style={th}>Authorized Hours</th>
                             <th style={th}>Purpose</th>
                             <th style={th}>Status</th>
                             <th style={th}>Remarks</th>
@@ -417,20 +654,47 @@ export default function HROvertimeRequestModule() {
                         </thead>
                         <tbody>
                           {paginatedRecords.map((r) => (
-                            <tr key={r.overtimeRequestId} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <tr
+                              key={r.overtimeRequestId}
+                              style={{ borderBottom: "1px solid #e2e8f0" }}
+                            >
                               <td style={td}>{r.dateFiled}</td>
                               <td style={td}>{fmtDateTime(r.dateTimeFrom)}</td>
                               <td style={td}>{fmtDateTime(r.dateTimeTo)}</td>
-                              <td style={td}>{r.totalHours?.toFixed(2)} hrs</td>
+                              <td style={td}>{(r.netAuthorizedHours ?? r.totalHours ?? 0).toFixed(2)} hrs</td>
                               <td style={td}>{r.purpose}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
-                                {(r.status === "Approved" || r.status === "Disapproved") && (
-                                  <button onClick={() => handlePrint(r.overtimeRequestId, r.status)} style={btnPrint}>Print</button>
+                                {(r.status === "Approved" ||
+                                  r.status === "Disapproved") && (
+                                  <button
+                                    onClick={() =>
+                                      handlePrint(r.overtimeRequestId, r.status)
+                                    }
+                                    style={btnPrint}
+                                  >
+                                    Print
+                                  </button>
                                 )}
-                                {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
-                                {canDelete && <button onClick={() => handleDelete(r.overtimeRequestId!)} style={btnDelete}>Delete</button>}
+                                {canEdit && (
+                                  <button
+                                    onClick={() => handleEdit(r)}
+                                    style={btnEdit}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    onClick={() =>
+                                      handleDelete(r.overtimeRequestId!)
+                                    }
+                                    style={btnDelete}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -443,37 +707,192 @@ export default function HROvertimeRequestModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File Overtime Request{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
-                  {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
+                  <h3>
+                    File Overtime Request
+                    {selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}
+                    {editingId ? " (Editing)" : ""}
+                  </h3>
+                  {!selectedEmployee && (
+                    <p style={{ color: "#dc2626" }}>
+                      Please search and select an employee first.
+                    </p>
+                  )}
                   {selectedEmployee && (
-                    <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
+                    <form
+                      onSubmit={handleSubmit}
+                      style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}
+                    >
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
-                        <input type="date" value={form.dateFiled} onChange={(e) => setForm({ ...form, dateFiled: e.target.value })} className={styles.inputField} required />
+                        <input
+                          type="date"
+                          value={form.dateFiled}
+                          onChange={(e) =>
+                            setForm({ ...form, dateFiled: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Duty / Work Type</label>
+                        <select
+                          value={form.workType}
+                          onChange={(e) =>
+                            setForm({ ...form, workType: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        >
+                          <option value="REGULAR_OVERTIME">
+                            Regular Workday Overtime
+                          </option>
+                          <option value="HOLIDAY_DUTY">Holiday Duty</option>
+                          <option value="DAY_OFF_DUTY">
+                            Scheduled Day-Off Duty
+                          </option>
+                          <option value="REST_DAY_DUTY">Rest-Day Duty</option>
+                        </select>
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Authority / Office Order Reference</label>
+                        <input
+                          value={form.authorityReference}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              authorityReference: e.target.value,
+                            })
+                          }
+                          className={styles.inputField}
+                          placeholder="e.g. Office Order No. 2026-015"
+                          required
+                        />
                       </div>
                       <div className={styles.formGroup}>
                         <label>Inclusive Date &amp; Time — From</label>
-                        <input type="datetime-local" value={form.dateTimeFrom} onChange={(e) => setForm({ ...form, dateTimeFrom: e.target.value })} className={styles.inputField} required />
+                        <input
+                          type="datetime-local"
+                          value={form.dateTimeFrom}
+                          onChange={(e) =>
+                            setForm({ ...form, dateTimeFrom: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        />
                       </div>
                       <div className={styles.formGroup}>
                         <label>Inclusive Date &amp; Time — To</label>
-                        <input type="datetime-local" value={form.dateTimeTo} min={form.dateTimeFrom} onChange={(e) => setForm({ ...form, dateTimeTo: e.target.value })} className={styles.inputField} required />
+                        <input
+                          type="datetime-local"
+                          value={form.dateTimeTo}
+                          min={form.dateTimeFrom}
+                          onChange={(e) =>
+                            setForm({ ...form, dateTimeTo: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        />
                       </div>
+                      <div className={styles.formGroup}>
+                        <label>Non-creditable Break (minutes)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={form.breakMinutes}
+                          onChange={(e) =>
+                            setForm({ ...form, breakMinutes: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        />
+                      </div>
+                      <label
+                        style={{
+                          display: "flex",
+                          gap: "0.5rem",
+                          alignItems: "center",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.emergencyPostFiling}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              emergencyPostFiling: e.target.checked,
+                            })
+                          }
+                        />{" "}
+                        Emergency / Post-filing authority
+                      </label>
+                      {form.emergencyPostFiling && (
+                        <div className={styles.formGroup}>
+                          <label>Emergency / Post-filing Justification</label>
+                          <textarea
+                            value={form.emergencyJustification}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                emergencyJustification: e.target.value,
+                              })
+                            }
+                            className={styles.inputField}
+                            rows={2}
+                            required
+                          />
+                        </div>
+                      )}
                       {duration && (
                         <div className={styles.formGroup}>
                           <label>Total Overtime (auto-computed)</label>
-                          <div style={{ padding: "0.4rem 0.6rem", background: "#f1f5f9", borderRadius: 4, fontSize: "0.9rem" }}>
+                          <div
+                            style={{
+                              padding: "0.4rem 0.6rem",
+                              background: "#f1f5f9",
+                              borderRadius: 4,
+                              fontSize: "0.9rem",
+                            }}
+                          >
                             {duration.hours} hr(s) {duration.minutes} min(s)
+                            raw; net authorized:{" "}
+                            {Math.max(
+                              0,
+                              (duration.hours * 60 +
+                                duration.minutes -
+                                Number(form.breakMinutes || 0)) /
+                                60,
+                            ).toFixed(2)}{" "}
+                            hr(s)
                           </div>
                         </div>
                       )}
                       <div className={styles.formGroup}>
                         <label>Purpose / Justification</label>
-                        <textarea value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} className={styles.inputField} rows={3} required />
+                        <textarea
+                          value={form.purpose}
+                          onChange={(e) =>
+                            setForm({ ...form, purpose: e.target.value })
+                          }
+                          className={styles.inputField}
+                          rows={3}
+                          required
+                        />
                       </div>
-                      <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
+                      <ApprovalSection
+                        key={editingId ?? 0}
+                        initialValues={approvalInitialValues}
+                        onDataChange={setApprovalData}
+                        showAuthorizedOfficial={false}
+                        showDueExigency={false}
+                      />
                       <div style={{ display: "flex", gap: "0.75rem" }}>
-                        <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className={styles.submitButton}
+                        >
                           {isSubmitting ? "Saving..." : "Save"}
                         </button>
                         <button
@@ -510,8 +929,42 @@ export default function HROvertimeRequestModule() {
   );
 }
 
-const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
-const btnPrint: React.CSSProperties = { padding: "3px 8px", background: "#065f46", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
-const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
-const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
+const th: React.CSSProperties = {
+  padding: "8px 12px",
+  textAlign: "left",
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+const td: React.CSSProperties = {
+  padding: "6px 12px",
+  verticalAlign: "middle",
+};
+const btnPrint: React.CSSProperties = {
+  padding: "3px 8px",
+  background: "#065f46",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  marginRight: "4px",
+};
+const btnEdit: React.CSSProperties = {
+  padding: "3px 8px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  marginRight: "4px",
+};
+const btnDelete: React.CSSProperties = {
+  padding: "3px 8px",
+  background: "#6b7280",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: "0.75rem",
+};
