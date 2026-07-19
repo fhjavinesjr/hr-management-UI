@@ -35,6 +35,10 @@ export default function LeaveApplicationTable({ data, onEdit, onDelete, onPrint,
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = data.slice(startIndex, endIndex);
   const safeTotalPages = Math.max(1, totalPages);
+  // HRM maintenance actions are permission-based only. Do not combine these
+  // flags with record.status; finalized and cancelled rows remain maintainable.
+  const showAdminEdit = canEdit;
+  const showAdminDelete = canDelete;
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
@@ -137,7 +141,7 @@ export default function LeaveApplicationTable({ data, onEdit, onDelete, onPrint,
                     Print
                   </button>
                 )}
-                {canEdit && (
+                {showAdminEdit && (
                   <button
                     className={tableStyles.editBtn}
                     onClick={() => onEdit?.(record)}
@@ -145,7 +149,7 @@ export default function LeaveApplicationTable({ data, onEdit, onDelete, onPrint,
                     Edit
                   </button>
                 )}
-                {canDelete && (
+                {showAdminDelete && (
                   <button
                     className={tableStyles.deleteBtn}
                     onClick={() => onDelete?.(record)}
@@ -153,7 +157,7 @@ export default function LeaveApplicationTable({ data, onEdit, onDelete, onPrint,
                     Delete
                   </button>
                 )}
-                {!canEdit && !canDelete && "-"}
+                {!showAdminEdit && !showAdminDelete && "-"}
               </td>
             </tr>
           ))}

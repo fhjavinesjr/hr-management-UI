@@ -329,7 +329,8 @@ export default function HRTimeCorrectionModule() {
   const statusBadge = (status: string) => {
     const color =
       status === "Approved" ? "#16a34a" :
-      status === "Disapproved" ? "#dc2626" : "#ca8a04";
+      status === "Disapproved" ? "#dc2626" :
+      status === "Cancelled" ? "#6b7280" : "#ca8a04";
     return <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>{status}</span>;
   };
 
@@ -449,7 +450,11 @@ export default function HRTimeCorrectionModule() {
                               <td style={td}>{r.correctedTimeOut}</td>
                               <td style={td}>{r.reason}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
-                              <td style={td}>{canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}{canDelete && <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>}{!canEdit && !canDelete && "-"}
+                              <td style={td}>
+                                {/* HRM Edit/Delete intentionally have no status condition. */}
+                                {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
+                                {canDelete && <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>}
+                                {!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
                           ))}

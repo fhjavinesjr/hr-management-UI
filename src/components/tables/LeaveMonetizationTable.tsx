@@ -60,6 +60,9 @@ export default function LeaveMonetizationTable({ data, onEdit, onDelete, onPrint
   const totalPages = Math.max(1, Math.ceil(data.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
+  // Deliberately independent of recommendation/approval status for HRM admin.
+  const showAdminEdit = canEdit;
+  const showAdminDelete = canDelete;
 
   const handlePageChange = (newPage: number) => setCurrentPage(Math.max(1, Math.min(newPage, totalPages)));
 
@@ -137,9 +140,9 @@ export default function LeaveMonetizationTable({ data, onEdit, onDelete, onPrint
                       Print
                     </button>
                   )}
-                  {canEdit && <button className={tableStyles.editBtn} onClick={() => onEdit?.(record)}>Edit</button>}
-                  {canDelete && <button className={tableStyles.deleteBtn} onClick={() => onDelete?.(record)}>Delete</button>}
-                  {!canEdit && !canDelete && "-"}
+                  {showAdminEdit && <button className={tableStyles.editBtn} onClick={() => onEdit?.(record)}>Edit</button>}
+                  {showAdminDelete && <button className={tableStyles.deleteBtn} onClick={() => onDelete?.(record)}>Delete</button>}
+                  {!showAdminEdit && !showAdminDelete && "-"}
                 </td>
               </tr>
             ))}

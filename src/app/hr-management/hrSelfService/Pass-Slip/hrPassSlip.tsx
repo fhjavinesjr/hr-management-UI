@@ -297,7 +297,8 @@ export default function HRPassSlipModule() {
   const statusBadge = (status: string) => {
     const color =
       status === "Approved" ? "#16a34a" :
-      status === "Disapproved" ? "#dc2626" : "#ca8a04";
+      status === "Disapproved" ? "#dc2626" :
+      status === "Cancelled" ? "#6b7280" : "#ca8a04";
     return (
       <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>{status}</span>
     );
@@ -420,6 +421,7 @@ export default function HRPassSlipModule() {
                               <td style={td}>{r.details}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>
+                                {/* HRM Edit/Delete intentionally have no status condition. */}
                                 <button onClick={() => handlePrint(r.passSlipId)} style={btnPrint}>Print</button>
                                 {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
                                 {canDelete && <button onClick={() => handleDelete(r.passSlipId!)} style={btnDelete}>Delete</button>}

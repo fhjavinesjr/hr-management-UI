@@ -377,6 +377,8 @@ export default function HRCompensatoryTimeOffModule() {
         ? "#16a34a"
         : status === "Disapproved"
           ? "#dc2626"
+          : status === "Cancelled"
+            ? "#6b7280"
           : "#ca8a04";
     return (
       <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>
@@ -642,6 +644,7 @@ export default function HRCompensatoryTimeOffModule() {
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
+                                {/* HRM Edit/Delete intentionally have no status condition. */}
                                 {canEdit && (
                                   <button
                                     onClick={() => handleEdit(r)}

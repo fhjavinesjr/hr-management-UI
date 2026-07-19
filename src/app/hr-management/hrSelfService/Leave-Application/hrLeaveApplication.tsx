@@ -433,43 +433,18 @@ export default function HRLeaveApplicationModule() {
       commutation: leave.commutation || null,
       details: leave.details || null,
       
-      // Keep existing status if it's already Approved/Disapproved, otherwise use form or default
-      status: (editingRecord?.status && editingRecord.status !== "Pending")
-        ? editingRecord.status
-        : (leave.status || "Pending"),
+      // HRM is authoritative: the selected final status replaces the old
+      // value even when the record was already Approved or Disapproved.
+      status: leave.approvedStatus || leave.status || "Pending",
 
-      // Use the form's value if it's a valid ID/string, otherwise preserve editingRecord's value
-      recommendingApprovalById: (leave.recommendingApprovalById && leave.recommendingApprovalById > 0)
-        ? leave.recommendingApprovalById 
-        : (editingRecord?.recommendingApprovalById ?? null),
-
-      authorizedOfficialId: (leave.authorizedOfficialId && leave.authorizedOfficialId > 0)
-        ? leave.authorizedOfficialId 
-        : (editingRecord?.authorizedOfficialId ?? null),
-
-      approvedById: (leave.approvedById && leave.approvedById > 0)
-        ? leave.approvedById 
-        : (editingRecord?.approvedById ?? null),
-
-      recommendationStatus: leave.recommendationStatus && leave.recommendationStatus !== ""
-        ? leave.recommendationStatus 
-        : (editingRecord?.recommendationStatus || "Pending"),
-
-      recommendationMessage: (leave.recommendationMessage && leave.recommendationMessage !== "")
-        ? leave.recommendationMessage 
-        : (editingRecord?.recommendationMessage ?? null),
-
-      approvedStatus: leave.approvedStatus && leave.approvedStatus !== ""
-        ? leave.approvedStatus 
-        : (editingRecord?.approvedStatus || "Pending"),
-
-      approvalMessage: (leave.approvalMessage && leave.approvalMessage !== "")
-        ? leave.approvalMessage 
-        : (editingRecord?.approvalMessage ?? null),
-
-      dueExigencyService: leave.dueExigencyService !== undefined 
-        ? leave.dueExigencyService 
-        : (editingRecord?.dueExigencyService ?? null),
+      recommendingApprovalById: leave.recommendingApprovalById ?? null,
+      authorizedOfficialId: leave.authorizedOfficialId ?? null,
+      approvedById: leave.approvedById ?? null,
+      recommendationStatus: leave.recommendationStatus || "Pending",
+      recommendationMessage: leave.recommendationMessage ?? null,
+      approvedStatus: leave.approvedStatus || "Pending",
+      approvalMessage: leave.approvalMessage ?? null,
+      dueExigencyService: leave.dueExigencyService ?? false,
     };
 
     try {
@@ -498,14 +473,8 @@ export default function HRLeaveApplicationModule() {
     }
     const raw = rawDtos.find((d) => d.leaveApplicationId === record.id);
 
-    // FALLBACK LOGIC: If individual statuses are Pending or empty, use the main table status ("Approved")
-    const initialRecommendationStatus = raw?.recommendationStatus && raw.recommendationStatus !== "Pending"
-      ? raw.recommendationStatus 
-      : (record.status || "Pending");
-
-    const initialApprovedStatus = raw?.approvedStatus && raw.approvedStatus !== "Pending"
-      ? raw.approvedStatus 
-      : (record.status || "Pending");
+    const initialRecommendationStatus = raw?.recommendationStatus || "Pending";
+    const initialApprovedStatus = raw?.approvedStatus || record.status || "Pending";
 
     setEditingRecord({
       id: record.id,
@@ -520,9 +489,9 @@ export default function HRLeaveApplicationModule() {
       recommendingApprovalById: raw?.recommendingApprovalById ?? null,
       authorizedOfficialId: raw?.authorizedOfficialId ?? null,
       approvedById: raw?.approvedById ?? null,
-      recommendationStatus: initialRecommendationStatus, // Updated
+      recommendationStatus: initialRecommendationStatus,
       recommendationMessage: raw?.recommendationMessage ?? "",
-      approvedStatus: initialApprovedStatus,             // Updated
+      approvedStatus: initialApprovedStatus,
       approvalMessage: raw?.approvalMessage ?? "",
       dueExigencyService: raw?.dueExigencyService ?? false,
     });

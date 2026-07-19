@@ -32,8 +32,8 @@ interface CocDTO {
   recommendedById?: number | null;
   recommendationRemarks?: string | null;
   currentBalance?: number;
-  actualHoursWorked?: number;
-  cocMultiplier?: number;
+  actualHoursWorked?: number | null;
+  cocMultiplier?: number | null;
 }
 
 interface OvertimeRequestDTO {
@@ -54,6 +54,8 @@ interface FormState {
   reason: string;
   workType: string;
   overtimeRequestId: string; // "" when not selected
+  actualHoursWorked: string;
+  cocMultiplier: string;
 }
 
 const Toast = Swal.mixin({
@@ -110,7 +112,22 @@ export default function HRCompensatoryOvertimeCreditModule() {
     reason: "",
     workType: "",
     overtimeRequestId: "",
+    actualHoursWorked: "",
+    cocMultiplier: "",
   });
+
+  const workTypeOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...approvedOTRequests.map((request) => request.workType ?? ""),
+            form.workType,
+          ].filter(Boolean),
+        ),
+      ),
+    [approvedOTRequests, form.workType],
+  );
 
   // Load employees from localStorage
   useEffect(() => {
@@ -277,6 +294,28 @@ export default function HRCompensatoryOvertimeCreditModule() {
       Swal.fire({ icon: "warning", title: "Enter valid hours worked" });
       return;
     }
+
+    const desiredRecommendation = (
+      approvalData.recommendationStatus || "Pending"
+    ).toLowerCase();
+    const desiredFinalStatus = (
+      approvalData.approvedStatus || "Pending"
+    ).toLowerCase();
+    const wantsRecommendation =
+      desiredRecommendation === "approved" ||
+      desiredRecommendation === "recommended";
+    const wantsFinalDecision =
+      desiredFinalStatus === "approved" ||
+      desiredFinalStatus === "disapproved";
+
+    if (wantsRecommendation && !approvalData.recommendingApprovalById) {
+      Swal.fire({ icon: "warning", title: "Select the IS recommending officer" });
+      return;
+    }
+    if (wantsFinalDecision && !approvalData.approvedById) {
+      Swal.fire({ icon: "warning", title: "Select the final approving officer" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload: CocDTO = {
@@ -289,6 +328,12 @@ export default function HRCompensatoryOvertimeCreditModule() {
         overtimeRequestId: form.overtimeRequestId
           ? Number(form.overtimeRequestId)
           : null,
+        actualHoursWorked: form.actualHoursWorked
+          ? Number(form.actualHoursWorked)
+          : undefined,
+        cocMultiplier: form.cocMultiplier
+          ? Number(form.cocMultiplier)
+          : undefined,
         status: approvalData.approvedStatus || "Pending",
         approvedById: approvalData.approvedById,
         approvalRemarks: approvalData.approvalMessage,
@@ -296,19 +341,65 @@ export default function HRCompensatoryOvertimeCreditModule() {
         recommendedById: approvalData.recommendingApprovalById,
         recommendationRemarks: approvalData.recommendationMessage,
       };
-      const isUpdate = editingId !== null;
-      const url = isUpdate
-        ? `${API_BASE_URL_HRM}/api/coc/update/${editingId}`
-        : `${API_BASE_URL_HRM}/api/coc/create`;
-      const method = isUpdate ? "PUT" : "POST";
-      const res = await fetchWithAuth(url, {
-        method,
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      const send = async (
+        url: string,
+        method: "POST" | "PUT",
+        body: unknown,
+      ) => {
+        const response = await fetchWithAuth(url, {
+          method,
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || `Request failed with HTTP ${response.status}`);
+        }
+        return response;
+      };
+
+      let savedId = editingId;
+
+      if (editingId === null) {
+        const response = await send(
+          `${API_BASE_URL_HRM}/api/coc/create`,
+          "POST",
+          {
+            ...payload,
+            status: "Pending",
+            approvedById: null,
+            approvalRemarks: null,
+            recommendationStatus: "Pending",
+            recommendedById: null,
+            recommendationRemarks: null,
+          },
+        );
+        const metadata = (await response.json()) as { metaId?: number };
+        savedId = metadata.metaId ?? null;
+      } else {
+        // HRM maintenance is independent of record status and applies the
+        // exact recommendation/final status selected by the administrator.
+        await send(
+          `${API_BASE_URL_HRM}/api/coc/hrm-update/${editingId}`,
+          "PUT",
+          payload,
+        );
+      }
+
+      if (!savedId) throw new Error("COC record ID is missing.");
+
+      if (editingId === null) {
+        // Creation first uses the employee-safe Pending state, then this HRM
+        // endpoint applies the administrator's selected workflow values.
+        await send(
+          `${API_BASE_URL_HRM}/api/coc/hrm-update/${savedId}`,
+          "PUT",
+          payload,
+        );
+      }
+
       Toast.fire({
         icon: "success",
-        title: isUpdate
+        title: editingId !== null
           ? "COC record updated"
           : "COC application filed successfully",
       });
@@ -319,6 +410,8 @@ export default function HRCompensatoryOvertimeCreditModule() {
         reason: "",
         workType: "",
         overtimeRequestId: "",
+        actualHoursWorked: "",
+        cocMultiplier: "",
       });
       await fetchApprovedAuthorities(selectedEmployee.employeeId);
       setEditingId(null);
@@ -339,7 +432,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
     } catch (err) {
       Swal.fire({
         icon: "error",
-        title: "Failed to file COC application",
+        title: "Failed to save COC record",
         text: String(err),
       });
     } finally {
@@ -359,6 +452,12 @@ export default function HRCompensatoryOvertimeCreditModule() {
       reason: r.reason ?? "",
       workType: r.workType ?? "",
       overtimeRequestId: currentOvertimeRequestId,
+      actualHoursWorked:
+        r.actualHoursWorked != null
+          ? String(r.actualHoursWorked)
+          : "",
+      cocMultiplier:
+        r.cocMultiplier != null ? String(r.cocMultiplier) : "",
     });
 
     const initVals: Partial<ApprovalSectionData> = {
@@ -397,7 +496,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
     if (!confirm.isConfirmed) return;
     try {
       const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/coc/delete/${cocId}`,
+        `${API_BASE_URL_HRM}/api/coc/hrm-delete/${cocId}`,
         { method: "DELETE" },
       );
       if (!res.ok) throw new Error(await res.text());
@@ -472,6 +571,8 @@ export default function HRCompensatoryOvertimeCreditModule() {
         ? "#16a34a"
         : status === "Disapproved"
           ? "#dc2626"
+          : status === "Cancelled"
+            ? "#6b7280"
           : "#ca8a04";
     return (
       <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>
@@ -608,6 +709,16 @@ export default function HRCompensatoryOvertimeCreditModule() {
                     className={activeTab === "apply" ? styles.active : ""}
                     onClick={() => {
                       setEditingId(null);
+                      setForm({
+                        dateFiled: today,
+                        dateWorked: today,
+                        hoursWorked: "0",
+                        reason: "",
+                        workType: "",
+                        overtimeRequestId: "",
+                        actualHoursWorked: "",
+                        cocMultiplier: "",
+                      });
                       setApprovalInitialValues(undefined);
                       setApprovalData({
                         recommendationStatus: "Pending",
@@ -736,14 +847,17 @@ export default function HRCompensatoryOvertimeCreditModule() {
                               <td style={td}>{r.dateWorked}</td>
                               <td style={td}>{r.hoursWorked}</td>
                               <td style={td}>
-                                {r.workType === "HOLIDAY_DUTY"
-                                  ? "Holiday Duty"
-                                  : "Overtime"}
+                                {(r.workType || "OVERTIME")
+                                  .replaceAll("_", " ")
+                                  .replace(/\b\w/g, (letter) =>
+                                    letter.toUpperCase(),
+                                  )}
                               </td>
                               <td style={td}>{r.reason}</td>
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
+                                {/* HRM Edit/Delete intentionally have no status condition. */}
                                 {(r.status === "Approved" ||
                                   r.status === "Disapproved") && (
                                   <button
@@ -784,9 +898,8 @@ export default function HRCompensatoryOvertimeCreditModule() {
               {activeTab === "apply" && (
                 <>
                   <h3>
-                    File COC Application
+                    {editingId ? "Edit COC Record" : "File COC Application"}
                     {selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}
-                    {editingId ? " (Editing)" : ""}
                   </h3>
                   {!selectedEmployee && (
                     <p style={{ color: "#dc2626" }}>
@@ -798,6 +911,22 @@ export default function HRCompensatoryOvertimeCreditModule() {
                       onSubmit={handleSubmit}
                       style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}
                     >
+                      {editingId && (
+                        <div
+                          style={{
+                            padding: "0.65rem 0.75rem",
+                            border: "1px solid #bfdbfe",
+                            borderRadius: 6,
+                            background: "#eff6ff",
+                            color: "#1e3a8a",
+                            fontSize: "0.8rem",
+                          }}
+                        >
+                          HRM administrative edit is available for every COC
+                          status. Saving applies the recommendation and final
+                          status currently selected below.
+                        </div>
+                      )}
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
                         <input
@@ -853,6 +982,8 @@ export default function HRCompensatoryOvertimeCreditModule() {
                                         hoursWorked: "0",
                                         workType: "",
                                         reason: "",
+                                        actualHoursWorked: "",
+                                        cocMultiplier: "",
                                       }),
                                 }));
                                 if (!value || !selectedEmployee) return;
@@ -882,6 +1013,12 @@ export default function HRCompensatoryOvertimeCreditModule() {
                                     hoursWorked: String(preview.creditedHours),
                                     workType: preview.workType,
                                     reason: selectedAuthority?.purpose ?? "",
+                                    actualHoursWorked: String(
+                                      preview.actualHoursWorked,
+                                    ),
+                                    cocMultiplier: String(
+                                      preview.cocMultiplier,
+                                    ),
                                   }));
                                   Toast.fire({
                                     icon: "success",
@@ -903,6 +1040,8 @@ export default function HRCompensatoryOvertimeCreditModule() {
                                     hoursWorked: "0",
                                     workType: "",
                                     reason: "",
+                                    actualHoursWorked: "",
+                                    cocMultiplier: "",
                                   }));
                                 }
                               }}
@@ -912,6 +1051,16 @@ export default function HRCompensatoryOvertimeCreditModule() {
                               <option value="">
                                 — Select Approved Authority —
                               </option>
+                              {form.overtimeRequestId &&
+                                !approvedOTRequests.some(
+                                  (ot) =>
+                                    String(ot.overtimeRequestId) ===
+                                    form.overtimeRequestId,
+                                ) && (
+                                  <option value={form.overtimeRequestId}>
+                                    Saved approved authority #{form.overtimeRequestId}
+                                  </option>
+                                )}
                               {approvedOTRequests.map((ot) => (
                                 <option
                                   key={ot.overtimeRequestId}
@@ -931,48 +1080,107 @@ export default function HRCompensatoryOvertimeCreditModule() {
                         </div>
                       }
                       <div className={styles.formGroup}>
-                        <label>Work Type (from approved authority)</label>
-                        <input
-                          type="text"
-                          value={
-                            form.workType
-                              ? form.workType.replaceAll("_", " ")
-                              : ""
-                          }
-                          placeholder="Select an approved authority first"
-                          className={styles.inputField}
-                          readOnly
-                          required
-                        />
+                        <label>
+                          Work Type {editingId
+                            ? "(HRM editable)"
+                            : "(from approved authority)"}
+                        </label>
+                        {editingId ? (
+                          <select
+                            value={form.workType}
+                            onChange={(e) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                workType: e.target.value,
+                              }))
+                            }
+                            className={styles.inputField}
+                            required
+                          >
+                            <option value="" disabled>
+                              Select work type
+                            </option>
+                            {workTypeOptions.map((workType) => (
+                              <option key={workType} value={workType}>
+                                {workType.replaceAll("_", " ")}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={
+                              form.workType
+                                ? form.workType.replaceAll("_", " ")
+                                : ""
+                            }
+                            placeholder="Select an approved authority first"
+                            className={styles.inputField}
+                            readOnly
+                            required
+                          />
+                        )}
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Date Worked (from approved authority)</label>
+                        <label>
+                          Date Worked {editingId
+                            ? "(HRM editable)"
+                            : "(from approved authority)"}
+                        </label>
                         <input
                           type="date"
                           value={form.dateWorked}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              dateWorked: e.target.value,
+                            }))
+                          }
                           className={styles.inputField}
-                          readOnly
+                          readOnly={!editingId}
                           required
                         />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>COC Hours to Credit (auto-computed)</label>
+                        <label>
+                          COC Hours to Credit {editingId
+                            ? "(HRM editable)"
+                            : "(auto-computed)"}
+                        </label>
                         <input
                           type="number"
+                          min="0.01"
+                          step="0.01"
                           value={form.hoursWorked}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              hoursWorked: e.target.value,
+                            }))
+                          }
                           className={styles.inputField}
-                          readOnly
+                          readOnly={!editingId}
                           required
                         />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Purpose / Justification (from approved authority)</label>
+                        <label>
+                          Purpose / Justification {editingId
+                            ? "(HRM editable)"
+                            : "(from approved authority)"}
+                        </label>
                         <textarea
                           value={form.reason}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              reason: e.target.value,
+                            }))
+                          }
                           placeholder="Select an approved authority first"
                           className={styles.inputField}
                           rows={3}
-                          readOnly
+                          readOnly={!editingId}
                           required
                         />
                       </div>

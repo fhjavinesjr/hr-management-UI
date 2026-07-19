@@ -24,6 +24,20 @@ interface ApprovalSectionProps {
   showDueExigency?: boolean;
 }
 
+const normalizeCancelled = (value: string | null | undefined) => {
+  const normalized = (value ?? "Pending").trim();
+  return ["cancel", "canceled", "cancelled"].includes(normalized.toLowerCase())
+    ? "Cancelled"
+    : normalized;
+};
+
+const recommendationValueForForm = (value: string | null | undefined) => {
+  const normalized = normalizeCancelled(value);
+  // The database/workflow endpoint may store "Recommended", while the shared
+  // HRM control labels the officer's positive recommendation as "Approved".
+  return normalized.toLowerCase() === "recommended" ? "Approved" : normalized;
+};
+
 export default function ApprovalSection({ employees: propEmployees, initialValues, onDataChange, showAuthorizedOfficial = true, showDueExigency = true }: ApprovalSectionProps = {}) {
   const [employees, setEmployees] = useState<Employee[]>(propEmployees ?? []);
 
@@ -71,9 +85,17 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
   // Populate from initialValues (e.g. when editing a record)
   useEffect(() => {
     if (!initialValues) return;
-    if (initialValues.recommendationStatus !== undefined) setRecommendationStatus(initialValues.recommendationStatus ?? "");
+    const normalizedRecommendation = recommendationValueForForm(
+      initialValues.recommendationStatus,
+    );
+    const normalizedFinal = normalizeCancelled(initialValues.approvedStatus);
+    if (initialValues.recommendationStatus !== undefined) {
+      setRecommendationStatus(normalizedRecommendation);
+    }
     if (initialValues.recommendationMessage !== undefined) setRecommendationMessage(initialValues.recommendationMessage ?? "");
-    if (initialValues.approvedStatus !== undefined) setApprovedStatus(initialValues.approvedStatus ?? "");
+    if (initialValues.approvedStatus !== undefined) {
+      setApprovedStatus(normalizedFinal);
+    }
     if (initialValues.approvalMessage !== undefined) setApprovalMessage(initialValues.approvalMessage ?? "");
     if (initialValues.dueExigencyService !== undefined) setDueExigencyService(initialValues.dueExigencyService ?? false);
     if (initialValues.recommendingApprovalById !== undefined) {
@@ -89,6 +111,20 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
       recommendingApprovalById: initialValues.recommendingApprovalById ?? null,
       authorizedOfficialId: initialValues.authorizedOfficialId ?? null,
       approvedById: initialValues.approvedById ?? null,
+    });
+
+    // Keep the parent payload synchronized with the normalized selectable
+    // values even when the administrator does not touch the dropdown again.
+    onDataChange?.({
+      recommendingApprovalById:
+        initialValues.recommendingApprovalById ?? null,
+      authorizedOfficialId: initialValues.authorizedOfficialId ?? null,
+      approvedById: initialValues.approvedById ?? null,
+      recommendationStatus: normalizedRecommendation,
+      recommendationMessage: initialValues.recommendationMessage ?? "",
+      approvedStatus: normalizedFinal,
+      approvalMessage: initialValues.approvalMessage ?? "",
+      dueExigencyService: initialValues.dueExigencyService ?? false,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues, employees]);
@@ -123,7 +159,7 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
           <option value="Pending">Pending</option>
           <option value="Approved">Approved</option>
           <option value="Disapproved">Disapproved</option>
-          <option value="Cancel">Cancel</option>
+          <option value="Cancelled">Cancelled</option>
         </select>
       </div>
 
@@ -212,7 +248,7 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
             <option value="Disapproved">Disapproved</option>
-            <option value="Cancel">Cancel</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
         </div>
         {showDueExigency && (

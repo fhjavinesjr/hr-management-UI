@@ -1,7 +1,7 @@
 "use client";
 
 import { runtimeConfig } from "@/lib/utils/runtimeConfig";
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
 import styles from "@/styles/EmploymentRecord.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
@@ -14,6 +14,25 @@ import ApprovalSection, {
 } from "@/lib/approvalSection/approvalSection";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
+const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
+const API_BASE_URL_TIMEKEEPING = runtimeConfig.getApiUrl("timekeeping");
+
+const SPECIAL_DUTY_TYPES = ["HOLIDAY_DUTY", "DAY_OFF_DUTY", "REST_DAY_DUTY"];
+
+interface TimeShiftDTO {
+  tsCode: string;
+  tsName?: string;
+  timeIn: string;
+  breakOut?: string | null;
+  breakIn?: string | null;
+  timeOut: string;
+}
+
+interface WorkScheduleDTO {
+  tsCode?: string | null;
+  wsDateTime: string;
+  isDayOff?: boolean;
+}
 
 interface OvertimeRequestDTO {
   overtimeRequestId?: number;
@@ -31,6 +50,7 @@ interface OvertimeRequestDTO {
   recommendedById?: number | null;
   recommendationRemarks?: string | null;
   workType?: string;
+  dutyShiftCode?: string | null;
   authorityReference?: string;
   emergencyPostFiling?: boolean;
   emergencyJustification?: string;
@@ -44,11 +64,69 @@ interface FormState {
   dateTimeTo: string;
   purpose: string;
   workType: string;
+  dutyShiftCode: string;
   authorityReference: string;
   emergencyPostFiling: boolean;
   emergencyJustification: string;
   breakMinutes: string;
 }
+
+const clockMinutes = (value?: string | null) => {
+  if (!value) return null;
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+const localDateKey = (value?: string | null) => {
+  const match = value?.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+};
+
+const toLocalDateTimeValue = (date: Date) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+
+const formatWorkScheduleParameter = (value: Date) =>
+  `${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}-${value.getFullYear()} ${pad2(value.getHours())}:${pad2(value.getMinutes())}:${pad2(value.getSeconds())}`;
+
+const parseWorkScheduleDateTime = (value: string) => {
+  const match = value?.match(/^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+  if (match) {
+    return new Date(
+      Number(match[3]),
+      Number(match[1]) - 1,
+      Number(match[2]),
+      Number(match[4]),
+      Number(match[5]),
+      Number(match[6]),
+    );
+  }
+  return new Date(value);
+};
+
+const shiftDateTimes = (dateKey: string, shift: TimeShiftDTO) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const timeIn = clockMinutes(shift.timeIn);
+  const timeOut = clockMinutes(shift.timeOut);
+  if (!year || !month || !day || timeIn === null || timeOut === null) return null;
+
+  const from = new Date(year, month - 1, day, 0, 0, 0, 0);
+  from.setMinutes(timeIn);
+  const to = new Date(year, month - 1, day, 0, 0, 0, 0);
+  to.setMinutes(timeOut);
+  if (to <= from) to.setDate(to.getDate() + 1);
+  return { from: toLocalDateTimeValue(from), to: toLocalDateTimeValue(to) };
+};
+
+const shiftBreakMinutes = (shift: TimeShiftDTO) => {
+  const start = clockMinutes(shift.breakOut);
+  const end = clockMinutes(shift.breakIn);
+  if (start === null || end === null) return 0;
+  return end >= start ? end - start : end + 24 * 60 - start;
+};
 
 const Toast = Swal.mixin({
   toast: true,
@@ -73,6 +151,10 @@ export default function HROvertimeRequestModule() {
   const [records, setRecords] = useState<OvertimeRequestDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [timeShifts, setTimeShifts] = useState<TimeShiftDTO[]>([]);
+  const [timeSuggestionMessage, setTimeSuggestionMessage] = useState("");
+  const [regularSuggestionVersion, setRegularSuggestionVersion] = useState(0);
+  const processedRegularSuggestion = useRef(0);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,11 +174,11 @@ export default function HROvertimeRequestModule() {
     Partial<ApprovalSectionData> | undefined
   >(undefined);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDateKey();
   const nowLocal = () => {
     const now = new Date();
     now.setSeconds(0, 0);
-    return now.toISOString().slice(0, 16);
+    return toLocalDateTimeValue(now);
   };
 
   const [form, setForm] = useState<FormState>({
@@ -105,11 +187,195 @@ export default function HROvertimeRequestModule() {
     dateTimeTo: nowLocal(),
     purpose: "",
     workType: "REGULAR_OVERTIME",
+    dutyShiftCode: "",
     authorityReference: "",
     emergencyPostFiling: false,
     emergencyJustification: "",
     breakMinutes: "0",
   });
+
+  const applyDutyShiftSuggestion = useCallback((shiftCode: string, dateKey?: string) => {
+    const shift = timeShifts.find((item) => item.tsCode === shiftCode);
+    if (!shift) {
+      setTimeSuggestionMessage(shiftCode ? "The selected Duty Shift could not be loaded." : "");
+      return;
+    }
+    const suggestion = shiftDateTimes(dateKey ?? localDateKey(form.dateTimeFrom), shift);
+    if (!suggestion) {
+      setTimeSuggestionMessage("The selected Duty Shift has an invalid time-in or time-out.");
+      return;
+    }
+    setForm((current) => ({
+      ...current,
+      dutyShiftCode: shiftCode,
+      dateTimeFrom: suggestion.from,
+      dateTimeTo: suggestion.to,
+      breakMinutes: String(shiftBreakMinutes(shift)),
+    }));
+    setTimeSuggestionMessage(
+      `Suggested from Duty Shift ${shift.tsCode}: ${shift.timeIn}–${shift.timeOut}. The officer may adjust the inclusive dates, times, and break.`,
+    );
+  }, [form.dateTimeFrom, timeShifts]);
+
+  const requestRegularSuggestion = useCallback(() => {
+    setRegularSuggestionVersion((version) => version + 1);
+  }, []);
+
+  useEffect(() => {
+    if (
+      form.workType !== "REGULAR_OVERTIME" ||
+      regularSuggestionVersion === 0 ||
+      processedRegularSuggestion.current === regularSuggestionVersion ||
+      timeShifts.length === 0 ||
+      !selectedEmployee
+    ) return;
+
+    processedRegularSuggestion.current = regularSuggestionVersion;
+    const dateKey = localDateKey(form.dateTimeFrom);
+    const [year, month, day] = dateKey.split("-").map(Number);
+    const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 0);
+    let cancelled = false;
+
+    const loadSuggestion = async () => {
+      setTimeSuggestionMessage("Checking the employee's assigned Work Schedule…");
+      try {
+        const params = new URLSearchParams({
+          employeeId: String(selectedEmployee.employeeId),
+          monthStart: formatWorkScheduleParameter(dayStart),
+          monthEnd: formatWorkScheduleParameter(dayEnd),
+        });
+        const response = await fetchWithAuth(
+          `${API_BASE_URL_TIMEKEEPING}/api/getListByEmployeeAndDateRange/work-schedule?${params.toString()}`,
+        );
+        if (!response.ok && response.status !== 204) {
+          throw new Error(`Work Schedule checker returned HTTP ${response.status}.`);
+        }
+        const schedules: WorkScheduleDTO[] = response.status === 204 ? [] : await response.json();
+        const candidates = schedules
+          .filter((schedule) => !schedule.isDayOff && schedule.tsCode)
+          .map((schedule) => {
+            const shift = timeShifts.find(
+              (item) => item.tsCode.trim().toUpperCase() === schedule.tsCode!.trim().toUpperCase(),
+            );
+            if (!shift) return null;
+            const scheduleDate = parseWorkScheduleDateTime(schedule.wsDateTime);
+            if (Number.isNaN(scheduleDate.getTime())) return null;
+            const scheduleKey = `${scheduleDate.getFullYear()}-${pad2(scheduleDate.getMonth() + 1)}-${pad2(scheduleDate.getDate())}`;
+            if (scheduleKey !== dateKey) return null;
+            const bounds = shiftDateTimes(dateKey, shift);
+            return bounds ? { shift, bounds } : null;
+          })
+          .filter((candidate): candidate is { shift: TimeShiftDTO; bounds: { from: string; to: string } } => candidate !== null)
+          .sort((left, right) => new Date(right.bounds.to).getTime() - new Date(left.bounds.to).getTime());
+
+        if (cancelled) return;
+        const selected = candidates[0];
+        if (!selected) {
+          setTimeSuggestionMessage("No working Time Shift is plotted for this employee on the selected date.");
+          return;
+        }
+        setForm((current) => {
+          if (current.workType !== "REGULAR_OVERTIME" || localDateKey(current.dateTimeFrom) !== dateKey) return current;
+          return { ...current, dateTimeFrom: selected.bounds.to, dateTimeTo: "", breakMinutes: "0" };
+        });
+        setTimeSuggestionMessage(
+          `Suggested overtime start after assigned shift ${selected.shift.tsCode} ends at ${selected.shift.timeOut}. Enter the expected overtime end.`,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setTimeSuggestionMessage(
+            error instanceof Error ? error.message : "Unable to load the assigned Work Schedule.",
+          );
+        }
+      }
+    };
+    void loadSuggestion();
+    return () => { cancelled = true; };
+  }, [form.dateTimeFrom, form.workType, regularSuggestionVersion, selectedEmployee, timeShifts]);
+
+  useEffect(() => {
+    if (activeTab === "apply" && editingId === null && selectedEmployee && form.workType === "REGULAR_OVERTIME") {
+      requestRegularSuggestion();
+    }
+  }, [activeTab, editingId, selectedEmployee?.employeeId]);
+
+  const handleWorkTypeChange = (workType: string) => {
+    const dateKey = localDateKey(form.dateTimeFrom);
+    setTimeSuggestionMessage("");
+    if (workType === "REGULAR_OVERTIME") {
+      setForm((current) => ({
+        ...current,
+        workType,
+        dutyShiftCode: "",
+        breakMinutes: "0",
+        ...(editingId === null ? { dateTimeFrom: `${dateKey}T00:00`, dateTimeTo: "" } : {}),
+      }));
+      if (editingId === null) requestRegularSuggestion();
+      else setTimeSuggestionMessage("Saved inclusive dates were retained. Use Reapply suggestion only if the schedule should replace them.");
+      return;
+    }
+    setForm((current) => ({ ...current, workType, dutyShiftCode: "" }));
+  };
+
+  const handleDutyShiftChange = (shiftCode: string) => {
+    const shift = timeShifts.find((item) => item.tsCode === shiftCode);
+    setForm((current) => ({
+      ...current,
+      dutyShiftCode: shiftCode,
+      breakMinutes: shift ? String(shiftBreakMinutes(shift)) : "0",
+    }));
+    if (!shiftCode) {
+      setTimeSuggestionMessage("");
+    } else if (editingId === null) {
+      applyDutyShiftSuggestion(shiftCode);
+    } else {
+      setTimeSuggestionMessage("Duty Shift selected; the request's saved inclusive dates were retained. Use Reapply suggestion only when appropriate.");
+    }
+  };
+
+  const handleDateTimeFromChange = (value: string) => {
+    if (!value) {
+      setForm((current) => ({ ...current, dateTimeFrom: "" }));
+      return;
+    }
+    const oldDate = localDateKey(form.dateTimeFrom);
+    const newDate = localDateKey(value);
+    if (editingId === null && newDate !== oldDate && SPECIAL_DUTY_TYPES.includes(form.workType) && form.dutyShiftCode) {
+      applyDutyShiftSuggestion(form.dutyShiftCode, newDate);
+      return;
+    }
+    if (editingId === null && newDate !== oldDate && form.workType === "REGULAR_OVERTIME") {
+      setForm((current) => ({ ...current, dateTimeFrom: value, dateTimeTo: "" }));
+      requestRegularSuggestion();
+      return;
+    }
+    setForm((current) => ({ ...current, dateTimeFrom: value }));
+  };
+
+  const reapplyTimeSuggestion = () => {
+    if (SPECIAL_DUTY_TYPES.includes(form.workType) && form.dutyShiftCode) {
+      applyDutyShiftSuggestion(form.dutyShiftCode);
+    } else if (form.workType === "REGULAR_OVERTIME") {
+      requestRegularSuggestion();
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTimeShifts = async () => {
+      try {
+        const response = await fetchWithAuth(`${API_BASE_URL_ADMINISTRATIVE}/api/getAll/time-shift`);
+        if (!response.ok) throw new Error();
+        const data: TimeShiftDTO[] = await response.json();
+        if (!cancelled) setTimeShifts(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setTimeShifts([]);
+      }
+    };
+    void loadTimeShifts();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const stored = localStorageUtil.getEmployees();
@@ -226,6 +492,32 @@ export default function HROvertimeRequestModule() {
       });
       return;
     }
+    if (SPECIAL_DUTY_TYPES.includes(form.workType) && !form.dutyShiftCode) {
+      Swal.fire({ icon: "warning", title: "Duty Shift is required for non-working-day duty" });
+      return;
+    }
+
+    // A new emergency filing uses the dedicated override-create endpoint.
+    // Existing records remain editable through the HRM maintenance endpoint,
+    // which applies the administrator's selected workflow values directly.
+    const isEmergencyOverride = Boolean(
+      form.emergencyPostFiling && editingId === null,
+    );
+    const desiredRecommendation = (approvalData.recommendationStatus || "Pending").toLowerCase();
+    const desiredFinalStatus = (approvalData.approvedStatus || "Pending").toLowerCase();
+    const wantsRecommendation =
+      desiredRecommendation === "approved" || desiredRecommendation === "recommended";
+    const wantsFinalDecision =
+      desiredFinalStatus === "approved" || desiredFinalStatus === "disapproved";
+
+    if (!isEmergencyOverride && wantsRecommendation && !approvalData.recommendingApprovalById) {
+      Swal.fire({ icon: "warning", title: "Select the IS recommending officer" });
+      return;
+    }
+    if (!isEmergencyOverride && wantsFinalDecision && !approvalData.approvedById) {
+      Swal.fire({ icon: "warning", title: "Select the final approving officer" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload: OvertimeRequestDTO = {
@@ -235,6 +527,7 @@ export default function HROvertimeRequestModule() {
         dateTimeTo: form.dateTimeTo.replace("T", " ") + ":00",
         purpose: form.purpose,
         workType: form.workType,
+        dutyShiftCode: form.dutyShiftCode || null,
         authorityReference: form.authorityReference,
         emergencyPostFiling: form.emergencyPostFiling,
         emergencyJustification: form.emergencyJustification,
@@ -246,19 +539,71 @@ export default function HROvertimeRequestModule() {
         recommendedById: approvalData.recommendingApprovalById,
         recommendationRemarks: approvalData.recommendationMessage,
       };
-      const isUpdate = editingId !== null;
-      const url = isUpdate
-        ? `${API_BASE_URL_HRM}/api/overtime-request/update/${editingId}`
-        : `${API_BASE_URL_HRM}/api/overtime-request/create`;
-      const method = isUpdate ? "PUT" : "POST";
-      const res = await fetchWithAuth(url, {
-        method,
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(await res.text());
+
+      const send = async (url: string, method: "POST" | "PUT", body: unknown) => {
+        const response = await fetchWithAuth(url, {
+          method,
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || `Request failed with HTTP ${response.status}`);
+        }
+        return response;
+      };
+
+      let savedId = editingId;
+
+      if (isEmergencyOverride) {
+        const response = await send(
+          `${API_BASE_URL_HRM}/api/overtime-request/admin-override/create`,
+          "POST",
+          payload,
+        );
+        const metadata = (await response.json()) as { metaId?: number };
+        savedId = metadata.metaId ?? null;
+      } else if (editingId === null) {
+        const response = await send(
+          `${API_BASE_URL_HRM}/api/overtime-request/create`,
+          "POST",
+          {
+            ...payload,
+            status: "Pending",
+            approvedById: null,
+            approvalRemarks: null,
+            recommendationStatus: "Pending",
+            recommendedById: null,
+            recommendationRemarks: null,
+          },
+        );
+        const metadata = (await response.json()) as { metaId?: number };
+        savedId = metadata.metaId ?? null;
+      } else {
+        // HRM maintenance edit is status-independent and applies the exact
+        // recommendation/final status selected by the administrator.
+        await send(
+          `${API_BASE_URL_HRM}/api/overtime-request/hrm-update/${editingId}`,
+          "PUT",
+          payload,
+        );
+      }
+
+      if (!savedId) throw new Error("Overtime request ID is missing.");
+
+      if (!isEmergencyOverride && editingId === null) {
+        // Normal create is intentionally Pending for the employee-safe API.
+        // Apply the HRM-selected workflow values through the admin endpoint
+        // immediately after the record ID is returned.
+        await send(
+          `${API_BASE_URL_HRM}/api/overtime-request/hrm-update/${savedId}`,
+          "PUT",
+          payload,
+        );
+      }
+
       Toast.fire({
         icon: "success",
-        title: isUpdate
+        title: editingId !== null
           ? "Overtime request updated"
           : "Overtime request filed successfully",
       });
@@ -268,11 +613,13 @@ export default function HROvertimeRequestModule() {
         dateTimeTo: nowLocal(),
         purpose: "",
         workType: "REGULAR_OVERTIME",
+        dutyShiftCode: "",
         authorityReference: "",
         emergencyPostFiling: false,
         emergencyJustification: "",
         breakMinutes: "0",
       });
+      setTimeSuggestionMessage("");
       setEditingId(null);
       setApprovalInitialValues(undefined);
       setApprovalData({
@@ -309,16 +656,21 @@ export default function HROvertimeRequestModule() {
       dateTimeTo: toLocal(r.dateTimeTo as unknown as string),
       purpose: r.purpose,
       workType: r.workType ?? "REGULAR_OVERTIME",
+      dutyShiftCode: r.dutyShiftCode ?? "",
       authorityReference: r.authorityReference ?? "",
       emergencyPostFiling: r.emergencyPostFiling ?? false,
       emergencyJustification: r.emergencyJustification ?? "",
       breakMinutes: String(r.breakMinutes ?? 0),
     });
+    setTimeSuggestionMessage("Saved inclusive dates and times are shown. Approval review will not replace them automatically.");
     const initVals: Partial<ApprovalSectionData> = {
       approvedStatus: r.status ?? "Pending",
       approvalMessage: r.approvalRemarks ?? "",
       approvedById: r.approvedById ?? null,
-      recommendationStatus: r.recommendationStatus ?? "Pending",
+      recommendationStatus:
+        (r.recommendationStatus ?? "Pending").toLowerCase() === "recommended"
+          ? "Approved"
+          : r.recommendationStatus ?? "Pending",
       recommendationMessage: r.recommendationRemarks ?? "",
       recommendingApprovalById: r.recommendedById ?? null,
       authorizedOfficialId: null,
@@ -333,6 +685,7 @@ export default function HROvertimeRequestModule() {
   const handleDelete = async (id: number) => {
     const confirm = await Swal.fire({
       title: "Delete this overtime request?",
+      text: "HRM deletion is allowed regardless of workflow status and cannot be undone.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Delete",
@@ -341,7 +694,7 @@ export default function HROvertimeRequestModule() {
     if (!confirm.isConfirmed) return;
     try {
       const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/overtime-request/delete/${id}`,
+        `${API_BASE_URL_HRM}/api/overtime-request/hrm-delete/${id}`,
         { method: "DELETE" },
       );
       if (!res.ok) throw new Error(await res.text());
@@ -403,19 +756,32 @@ export default function HROvertimeRequestModule() {
     setDateFrom("");
     setDateTo("");
     setCurrentPage(1);
+    setTimeSuggestionMessage("");
     setActiveTab("table");
   };
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (status: string, recommendationStatus?: string | null) => {
+    const displayStatus =
+      status === "Pending" && ["recommended", "approved"].includes(
+        recommendationStatus?.toLowerCase() ?? "",
+      )
+        ? "For Final Approval"
+        : status === "Pending"
+          ? "For IS Recommendation"
+          : status;
     const color =
       status === "Approved"
         ? "#16a34a"
         : status === "Disapproved"
           ? "#dc2626"
-          : "#ca8a04";
+          : status === "Cancelled"
+            ? "#6b7280"
+          : displayStatus === "For Final Approval"
+            ? "#2563eb"
+            : "#ca8a04";
     return (
       <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>
-        {status}
+        {displayStatus}
       </span>
     );
   };
@@ -663,9 +1029,10 @@ export default function HROvertimeRequestModule() {
                               <td style={td}>{fmtDateTime(r.dateTimeTo)}</td>
                               <td style={td}>{(r.netAuthorizedHours ?? r.totalHours ?? 0).toFixed(2)} hrs</td>
                               <td style={td}>{r.purpose}</td>
-                              <td style={td}>{statusBadge(r.status)}</td>
+                              <td style={td}>{statusBadge(r.status, r.recommendationStatus)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
+                                {/* HRM Edit/Delete intentionally have no status condition. */}
                                 {(r.status === "Approved" ||
                                   r.status === "Disapproved") && (
                                   <button
@@ -738,9 +1105,7 @@ export default function HROvertimeRequestModule() {
                         <label>Duty / Work Type</label>
                         <select
                           value={form.workType}
-                          onChange={(e) =>
-                            setForm({ ...form, workType: e.target.value })
-                          }
+                          onChange={(e) => handleWorkTypeChange(e.target.value)}
                           className={styles.inputField}
                           required
                         >
@@ -754,6 +1119,27 @@ export default function HROvertimeRequestModule() {
                           <option value="REST_DAY_DUTY">Rest-Day Duty</option>
                         </select>
                       </div>
+                      {SPECIAL_DUTY_TYPES.includes(form.workType) && (
+                        <div className={styles.formGroup}>
+                          <label>Duty Shift Template</label>
+                          <select
+                            value={form.dutyShiftCode}
+                            onChange={(e) => handleDutyShiftChange(e.target.value)}
+                            className={styles.inputField}
+                            required
+                          >
+                            <option value="">Select configured duty shift</option>
+                            {timeShifts.map((shift) => (
+                              <option key={shift.tsCode} value={shift.tsCode}>
+                                {shift.tsCode}{shift.tsName ? ` — ${shift.tsName}` : ""} ({shift.timeIn}–{shift.timeOut})
+                              </option>
+                            ))}
+                          </select>
+                          <span style={{ color: "#64748b", fontSize: "0.8rem" }}>
+                            Used as the expected duty plan; it does not replace the regular Work Schedule or Day-Off marker.
+                          </span>
+                        </div>
+                      )}
                       <div className={styles.formGroup}>
                         <label>Authority / Office Order Reference</label>
                         <input
@@ -774,9 +1160,7 @@ export default function HROvertimeRequestModule() {
                         <input
                           type="datetime-local"
                           value={form.dateTimeFrom}
-                          onChange={(e) =>
-                            setForm({ ...form, dateTimeFrom: e.target.value })
-                          }
+                          onChange={(e) => handleDateTimeFromChange(e.target.value)}
                           className={styles.inputField}
                           required
                         />
@@ -794,6 +1178,18 @@ export default function HROvertimeRequestModule() {
                           required
                         />
                       </div>
+                      <div style={{ marginTop: "-0.35rem", color: "#64748b", fontSize: "0.8rem" }}>
+                        {timeSuggestionMessage && <span>{timeSuggestionMessage}</span>}
+                        {(form.workType === "REGULAR_OVERTIME" || (SPECIAL_DUTY_TYPES.includes(form.workType) && form.dutyShiftCode)) && (
+                          <button
+                            type="button"
+                            onClick={reapplyTimeSuggestion}
+                            style={{ marginLeft: timeSuggestionMessage ? "0.45rem" : 0, border: 0, padding: 0, color: "#2563eb", background: "transparent", cursor: "pointer", textDecoration: "underline", fontSize: "0.8rem" }}
+                          >
+                            Reapply suggestion
+                          </button>
+                        )}
+                      </div>
                       <div className={styles.formGroup}>
                         <label>Non-creditable Break (minutes)</label>
                         <input
@@ -807,6 +1203,9 @@ export default function HROvertimeRequestModule() {
                           className={styles.inputField}
                           required
                         />
+                        <span style={{ color: "#64748b", fontSize: "0.8rem" }}>
+                          Auto-filled from the selected Duty Shift&apos;s break-out and break-in; the authorized officer may adjust it when the actual approved interval requires a different deduction.
+                        </span>
                       </div>
                       <label
                         style={{
@@ -827,6 +1226,11 @@ export default function HROvertimeRequestModule() {
                         />{" "}
                         Emergency / Post-filing authority
                       </label>
+                      <span style={{ color: "#64748b", fontSize: "0.8rem", marginTop: "-0.45rem" }}>
+                        {editingId === null
+                          ? "For a new HRM filing, this is the authorized administrative override path. Employee Portal post-filing requests remain in the normal IS-to-Final workflow."
+                          : "Existing Portal post-filing requests retain the normal IS recommendation and final approval workflow."}
+                      </span>
                       {form.emergencyPostFiling && (
                         <div className={styles.formGroup}>
                           <label>Emergency / Post-filing Justification</label>
