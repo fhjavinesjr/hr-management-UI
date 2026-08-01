@@ -16,6 +16,7 @@ import useSalaryPeriodRange from "@/lib/utils/useSalaryPeriodRange";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
+const MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE = 10;
 
 interface LeaveRecord {
   id: number;
@@ -632,6 +633,14 @@ export default function HRLeaveApplicationModule() {
       Swal.fire("Validation", "Please enter at least some days to monetize.", "warning");
       return;
     }
+    if (noOfDaysVL > MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE || noOfDaysSL > MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE) {
+      Swal.fire(
+        "Validation",
+        `You may monetize at most ${MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE} VL days and ${MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE} SL days per filing.`,
+        "warning",
+      );
+      return;
+    }
     const payload = {
       employeeId: Number(selectedEmployee.employeeId),
       dateFiled: monetizationForm.dateFiled || new Date().toISOString().split("T")[0],
@@ -871,14 +880,14 @@ export default function HRLeaveApplicationModule() {
                           onChange={(e) => setMonetizationForm((f) => ({ ...f, dateFiled: e.target.value }))} />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>VL Days to Monetize <small>(deducted first per CSC rules)</small></label>
-                        <input type="number" min={0} step={0.5} className={styles.searchInput}
+                        <label>VL Days to Monetize <small>(maximum 10 days)</small></label>
+                        <input type="number" min={0} max={MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE} step={0.5} className={styles.searchInput}
                           placeholder="0" value={monetizationForm.noOfDaysVL}
                           onChange={(e) => setMonetizationForm((f) => ({ ...f, noOfDaysVL: e.target.value }))} />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>SL Days to Monetize</label>
-                        <input type="number" min={0} step={0.5} className={styles.searchInput}
+                        <label>SL Days to Monetize <small>(maximum 10 days)</small></label>
+                        <input type="number" min={0} max={MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE} step={0.5} className={styles.searchInput}
                           placeholder="0" value={monetizationForm.noOfDaysSL}
                           onChange={(e) => setMonetizationForm((f) => ({ ...f, noOfDaysSL: e.target.value }))} />
                       </div>
