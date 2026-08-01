@@ -15,6 +15,7 @@ export const AUTH_CONFIG = {
     "/employee-portal/registration",
     "/hr-management/login",
     "/hr-management/registration",
+    "/hr-management/sso",
   ],
 
   get INACTIVITY_LIMIT() {

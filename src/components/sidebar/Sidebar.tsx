@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { authLogout } from "@/lib/utils/authLogout";
 import { useRouter } from "next/navigation";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
+import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 
 
 const menuItems = [
@@ -114,13 +115,19 @@ const menuItems = [
 const otherItems = [
   {
     id: 1,
+    icon: "/dashboard.png",
+    label: "Employee Portal",
+    action: "portal",
+  },
+  {
+    id: 2,
     icon: "/help.png",
     label: "Help",
     goto: "/hr-management",
     isActive: false,
   },
   {
-    id: 2,
+    id: 3,
     icon: "/logout.png",
     label: "Logout",
     action: "logout",
@@ -160,7 +167,10 @@ export default function Sidebar() {
               label={item.label}
               isActive={pathname === item.goto}
               onClick={() => {
-                if (item.action === "logout") {
+                if (item.action === "portal") {
+                  const portalUrl = runtimeConfig.getUiUrl("employee-portal").replace(/\/+$/, "");
+                  window.location.assign(`${portalUrl}/employee-portal/dashboard`);
+                } else if (item.action === "logout") {
                   authLogout();
                   router.replace("/time-keeping/login");
                 } else if (item.goto) {
