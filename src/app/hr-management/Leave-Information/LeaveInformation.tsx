@@ -83,6 +83,16 @@ interface EmployeeBasicInfoDTO {
   suffix?: string;
   fullName?: string;
   role?: string;
+  isExcludedFromPayroll?: boolean;
+}
+
+interface PermissionRulesetDTO {
+  permissionId: number;
+  permissionName: string;
+}
+
+interface RoleMetadata {
+  name: string;
 }
 
 interface LeaveProcessJobStatusDTO {
@@ -111,15 +121,24 @@ const normalizeIdentity = (value?: string | null): string => {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 };
 
+const normalizeRoleKey = (value?: string | null): string =>
+  (value ?? "").trim().replace(/^ROLE_/i, "");
+
+const resolveRoleMetadata = (
+  role: string | null | undefined,
+  rolesById: Map<string, RoleMetadata>
+): RoleMetadata => {
+  const storedRole = (role ?? "").trim();
+  return rolesById.get(normalizeRoleKey(storedRole)) ?? {
+    name: storedRole,
+  };
+};
+
 const isSystemPrivilegedEmployee = (employee: {
-  role?: string | null;
   employeeNo?: string | null;
   firstname?: string | null;
   lastname?: string | null;
 }): boolean => {
-  const role = (employee.role ?? "").trim().toLowerCase();
-  if (role.includes("admin") || role.includes("super")) return true;
-
   const employeeNo = normalizeIdentity(employee.employeeNo);
   const firstname = normalizeIdentity(employee.firstname);
   const lastname = normalizeIdentity(employee.lastname);
@@ -177,42 +196,60 @@ export default function LeaveInformationModule() {
   const queueFeedRef = useRef<HTMLDivElement>(null);
   const queuePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load employees for setup and specific-employee search (exclude admin/super roles).
+  // Use the same active, non-contractual employee population as regular payroll.
   useEffect(() => {
     const loadEmployees = async () => {
+      let rolesById = new Map<string, RoleMetadata>();
+
       try {
-        const res = await fetchWithAuth(`${API_BASE_URL_HRM}/api/employees/basicInfo`);
+        const [res, permissionRes] = await Promise.all([
+          fetchWithAuth(`${API_BASE_URL_HRM}/api/employee/payroll-info/bulk`),
+          fetchWithAuth(`${API_BASE_URL_ADMINISTRATIVE}/api/permission/get-all`).catch(() => null),
+        ]);
+
+        if (permissionRes?.ok) {
+          const permissionRulesets: PermissionRulesetDTO[] = await permissionRes.json();
+          rolesById = new Map(
+            permissionRulesets.map((permission) => [
+              String(permission.permissionId),
+              {
+                name: permission.permissionName,
+              },
+            ])
+          );
+        }
+
         if (!res.ok) throw new Error("Failed to load employees");
 
         const data: EmployeeBasicInfoDTO[] = await res.json();
-        const normalized: Employee[] = data
-          .filter((e) => !isSystemPrivilegedEmployee(e))
+        const mappedEmployees: Employee[] = data
+          .filter((e) => !Boolean(e.isExcludedFromPayroll) && !isSystemPrivilegedEmployee(e))
           .map((e) => {
             const fullName = (e.fullName && e.fullName.trim().length > 0)
               ? e.fullName.trim()
               : [e.lastname, e.firstname, e.suffix].filter(Boolean).join(", ");
+            const role = resolveRoleMetadata(e.role, rolesById);
 
             return {
               employeeId: String(e.employeeId),
               employeeNo: e.employeeNo ?? "",
               fullName: fullName || `Employee #${e.employeeId}`,
-              role: e.role ?? "",
+              role: role.name,
               biometricNo: "",
               isSearched: false,
               isCleared: false,
             };
-          })
-          .sort((a, b) => a.fullName.localeCompare(b.fullName));
+          });
+        const normalized = Array.from(
+          new Map(mappedEmployees.map((employee) => [employee.employeeId, employee])).values()
+        ).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
         setEmployees(normalized);
         setSelectedEmployeeIds(new Set(normalized.map((e) => Number(e.employeeId))));
       } catch {
-        // Fallback to local storage if API is temporarily unavailable.
-        const stored = localStorageUtil
-          .getEmployees()
-          .filter((e) => !isSystemPrivilegedEmployee(e));
-        setEmployees(stored);
-        setSelectedEmployeeIds(new Set(stored.map((e) => Number(e.employeeId))));
+        setEmployees([]);
+        setSelectedEmployeeIds(new Set());
+        Toast.fire({ icon: "error", title: "Could not load regular employees from HR Management" });
       }
     };
 
@@ -373,10 +410,7 @@ export default function LeaveInformationModule() {
         cutoffEndDate: resolvedDates.end,
         scope,
         employeeId: scope === "EMPLOYEE" ? Number(selectedEmployee!.employeeId) : null,
-        selectedEmployeeIds:
-          scope === "ALL" && selectedEmployeeIds.size < employees.length
-            ? Array.from(selectedEmployeeIds)
-            : null,
+        selectedEmployeeIds: scope === "ALL" ? Array.from(selectedEmployeeIds) : null,
         processedById: localStorageUtil.getEmployeeId(),
       };
       const startRes = await fetchWithAuth(`${API_BASE_URL_HRM}/api/leave-information/process-batch`, {
@@ -733,7 +767,7 @@ export default function LeaveInformationModule() {
               {scope === "ALL" && (
                 <div style={{ marginTop: "1rem", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.75rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.7rem", marginBottom: "0.6rem" }}>
-                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Employee Setup (exclude admin/super)</h4>
+                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Regular Employee Setup (exclude system accounts)</h4>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                       <input
                         type="text"

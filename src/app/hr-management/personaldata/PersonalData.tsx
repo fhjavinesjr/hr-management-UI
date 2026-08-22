@@ -1990,6 +1990,18 @@ export default function PersonalData({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    const editingExistingEmployee = selectedEmployee?.isSearched === true;
+    if (editingExistingEmployee ? !canEdit : !canAdd) {
+      await Swal.fire({
+        icon: "error",
+        title: "Permission denied",
+        text: editingExistingEmployee
+          ? "You do not have permission to edit this employee record."
+          : "You do not have permission to add an employee record.",
+      });
+      return;
+    }
+
     let employeeUrl = `${API_BASE_URL_HRM}/api/employee/register`;
     let personalDataUrl = `${API_BASE_URL_HRM}/api/create/personal-data`;
     let submitMethod = "POST";
@@ -4255,15 +4267,26 @@ export default function PersonalData({
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className={styles.editBtn}
-            onClick={handleEditToggle}
-          >
-            {selectedEmployee && selectedEmployee.isSearched === true
-              ? "Edit"
-              : "New"}
-          </button>
+          <>
+            {(!selectedEmployee || selectedEmployee.isSearched !== true) && canAdd && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={handleEditToggle}
+              >
+                New
+              </button>
+            )}
+            {selectedEmployee && selectedEmployee.isSearched === true && canEdit && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={handleEditToggle}
+              >
+                Edit
+              </button>
+            )}
+          </>
         )}
       </div>
     </form>
