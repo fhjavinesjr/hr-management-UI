@@ -42,11 +42,17 @@ export async function GET(): Promise<Response> {
     }
   }
 
-  const bootstrapUrl = (
-    process.env.HRIS_CONFIG_BOOTSTRAP_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE ??
-    ""
-  ).trim().replace(/\/$/, "");
+  // Separate-module development can run this UI before the Administrative
+  // service is available. In that mode the NEXT_PUBLIC_* values below are the
+  // intended fallbacks, so only contact a centralized bootstrap when it is
+  // explicitly configured. Production retains the Administrative API fallback
+  // for existing packaged/cloud deployments.
+  const explicitBootstrapUrl = process.env.HRIS_CONFIG_BOOTSTRAP_URL?.trim() ?? "";
+  const productionBootstrapFallback = process.env.NODE_ENV === "production"
+    ? process.env.NEXT_PUBLIC_API_BASE_URL_ADMINISTRATIVE?.trim() ?? ""
+    : "";
+  const bootstrapUrl = (explicitBootstrapUrl || productionBootstrapFallback)
+    .replace(/\/$/, "");
 
   if (bootstrapUrl) {
     try {

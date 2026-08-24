@@ -7,6 +7,7 @@ import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import Swal from "sweetalert2";
 import { toCustomFormat, toDateInputValue, formatMMDDYYYY } from "@/lib/utils/dateFormatUtils";
 import { formatMoneyInput } from "@/lib/utils/formatMoney";
+import { openAppointmentReport } from "@/lib/utils/openAppointmentReport";
 import { Employee } from "@/lib/types/Employee";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 import {
@@ -80,7 +81,6 @@ export default function EmployeeAppointment({
   selectedEmployee,
   employeeAppointments,
   fetchEmploymentRecords,
-  userRole,
   canEdit = false,
   canAdd = false,
 }: Props) {
@@ -88,6 +88,7 @@ export default function EmployeeAppointment({
   const [plantillaList, setPlantillaList] = useState<PlantillaDTO[]>([]);
   const [natureList, setNatureList] = useState<NatureOfAppointmentDTO[]>([]);
   const [selectedPositionId, setSelectedPositionId] = useState<string>("");
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const emptyForm: Appointment = {
     employeeAppointmentId: "",
@@ -539,6 +540,25 @@ export default function EmployeeAppointment({
     saveOrUpdate();
   };
 
+  const handlePrint = async () => {
+    if (!form.employeeAppointmentId || isPrinting) {
+      return;
+    }
+    try {
+      setIsPrinting(true);
+      await openAppointmentReport(form.employeeAppointmentId);
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Print Failed",
+        err instanceof Error ? err.message : "Unable to generate the personnel action report.",
+        "error",
+      );
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   return (
     <div className={styles.CurrentAppointmentWrapper}>
       <form className={styles.CurrentAppointment} onSubmit={handleSubmit}>
@@ -577,6 +597,16 @@ export default function EmployeeAppointment({
                   }}
                 >
                   Edit
+                </button>
+              )}
+              {form.employeeAppointmentId && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={handlePrint}
+                  disabled={isPrinting}
+                >
+                  {isPrinting ? "Opening..." : "Print"}
                 </button>
               )}
             </>
@@ -699,6 +729,16 @@ export default function EmployeeAppointment({
                   }}
                 >
                   Edit
+                </button>
+              )}
+              {form.employeeAppointmentId && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={handlePrint}
+                  disabled={isPrinting}
+                >
+                  {isPrinting ? "Opening..." : "Print"}
                 </button>
               )}
             </>

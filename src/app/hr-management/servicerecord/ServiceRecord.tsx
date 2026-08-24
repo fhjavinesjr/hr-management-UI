@@ -11,6 +11,8 @@ import EmployeeAppointment, { Appointment } from "@/app/hr-management/employeeap
 import Swal from "sweetalert2";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import { toDateInputValue } from "@/lib/utils/dateFormatUtils";
+import { openAppointmentReport } from "@/lib/utils/openAppointmentReport";
+import { FaPrint } from "react-icons/fa";
 
 // toast mixin for bottom-right notifications
 const Toast = Swal.mixin({
@@ -51,7 +53,6 @@ export default function ServiceRecord({
   selectedEmployee,
   employeeAppointments,
   fetchEmploymentRecords,
-  userRole,
   canAdd = false,
   canEdit = false,
   canDelete = false,
@@ -63,6 +64,7 @@ export default function ServiceRecord({
   const [appointments, setAppointments] = useState<EmployeeAppointmentModel[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   const getNatureLabel = (id?: string | null) => {
     if (!id) {
@@ -235,6 +237,25 @@ export default function ServiceRecord({
     });
   };
 
+  const handlePrintAppointment = async (id?: string | null) => {
+    if (!id || printingId) {
+      return;
+    }
+    try {
+      setPrintingId(id);
+      await openAppointmentReport(id);
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Print Failed",
+        err instanceof Error ? err.message : "Unable to generate the personnel action report.",
+        "error",
+      );
+    } finally {
+      setPrintingId(null);
+    }
+  };
+
   return (
     <div className={styles.ServiceRecord}>
       {/* ADD BUTTON */}
@@ -302,6 +323,16 @@ export default function ServiceRecord({
                   <td>{a.salaryPerDay}</td>
                   <td>
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => handlePrintAppointment(a.employeeAppointmentId)}
+                        style={{ cursor: printingId ? "wait" : "pointer" }}
+                        title="Print Personnel Action"
+                        aria-label="Print Personnel Action"
+                        disabled={printingId !== null}
+                      >
+                        <FaPrint aria-hidden="true" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleShowDetails(a)}
