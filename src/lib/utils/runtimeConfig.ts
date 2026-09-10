@@ -70,6 +70,12 @@ const UI_ENV_MAP: Record<UiApp, string> = {
 };
 
 export const runtimeConfig = {
+  getAgencyId(): string {
+    const deployed = deployedConfig();
+    return deployed["primehr.agency.id"] ?? deployed.NEXT_PUBLIC_AGENCY_ID ??
+      (typeof window !== "undefined" ? localStorageUtil.getSystemConfig("primehr.agency.id") : null) ??
+      process.env.NEXT_PUBLIC_AGENCY_ID ?? "DEFAULT";
+  },
   getApiUrl(service: ApiService): string {
     const deployed = deployedConfig();
     const centralized = deployed[API_KEY_MAP[service]];

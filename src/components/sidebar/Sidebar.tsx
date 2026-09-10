@@ -12,6 +12,30 @@ import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 
 const menuItems = [
   {
+    id: 12,
+    icon: "/personal_info.png",
+    label: "Appointment Intake",
+    goto: "/hr-management/appointment-intakes",
+    isActive: false,
+    permKey: "hrm.appointment-intake",
+  },
+  {
+    id: 13,
+    icon: "/accounts.png",
+    label: "Onboarding Configuration",
+    goto: "/hr-management/onboarding-configuration",
+    isActive: false,
+    permKey: "hrm.onboarding-configuration",
+  },
+  {
+    id: 14,
+    icon: "/personal_info.png",
+    label: "Appointment & Onboarding Reports",
+    goto: "/hr-management/appointment-reports",
+    isActive: false,
+    permKeys: ["hrm.appointment-report", "hrm.onboarding-report", "hrm.appointment-documents"],
+  },
+  {
     id: 1,
     icon: "/personal_info.png",
     label: "Employment Record",
@@ -139,7 +163,10 @@ export default function Sidebar() {
   const router = useRouter();
   useEffect(() => {}, []); // keep effect hook for future use
 
-  const visibleMenuItems = menuItems.filter(item => localStorageUtil.canAccess(item.permKey));
+  const visibleMenuItems = menuItems.filter(item => Array.isArray(item.permKeys)
+    ? item.permKeys.some(key => { const permission = localStorageUtil.getFeaturePermission(key);
+      return permission.canAccess && permission.dataScope === "AGENCY_WIDE"; })
+    : typeof item.permKey === "string" && localStorageUtil.canAccess(item.permKey));
 
   return (
     <nav className={styles.Sidebar} role="navigation" aria-label="Main navigation">
