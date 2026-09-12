@@ -7,6 +7,7 @@ import modalStyles from "@/styles/Modal.module.scss";
 import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 import { Employee } from "@/lib/types/Employee";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { sanitizeDate, sanitizeText } from "@/lib/utils/inputSanitizers";
 
 const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
@@ -187,7 +188,28 @@ export default function LeaveApplication({
     >,
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "from") {
+      const sanitizedDate = sanitizeDate(value);
+      setForm((prev) => ({
+        ...prev,
+        from: sanitizedDate,
+        to: prev.to && sanitizedDate && prev.to < sanitizedDate ? "" : prev.to,
+      }));
+      return;
+    }
+
+    if (name === "to") {
+      const sanitizedDate = sanitizeDate(value);
+      if (!form.from || !sanitizedDate || sanitizedDate >= form.from) {
+        setForm((prev) => ({ ...prev, to: sanitizedDate }));
+      }
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "details" ? sanitizeText(value, 500) : value,
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -328,6 +350,7 @@ export default function LeaveApplication({
                 type="date"
                 name="to"
                 value={form.to}
+                min={form.from || undefined}
                 onChange={handleChange}
                 className={styles.inputBase}
                 required

@@ -11,6 +11,12 @@ import { openAppointmentReport } from "@/lib/utils/openAppointmentReport";
 import { Employee } from "@/lib/types/Employee";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 import {
+  sanitizeDate,
+  sanitizeDecimal,
+  sanitizeNumbers,
+  sanitizeText,
+} from "@/lib/utils/inputSanitizers";
+import {
   fetchAllNatureList,
   fetchPlantillaByJobPosition,
   fetchAllJobPositions,
@@ -247,7 +253,13 @@ export default function EmployeeAppointment({
       return;
     }
 
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const sanitizedValue = name === "appointmentIssuedDate"
+      ? sanitizeDate(value)
+      : name === "details"
+        ? sanitizeText(value, 500)
+        : value;
+
+    setForm((prev) => ({ ...prev, [name]: sanitizedValue }));
   };
 
   // -------------------- Handle Job Position selection --------------------
@@ -457,7 +469,7 @@ export default function EmployeeAppointment({
   };
 
   const handleAssumptionToDutyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = e.target.value; // "YYYY-MM-DD"
+    const newDate = sanitizeDate(e.target.value); // "YYYY-MM-DD"
 
     // Update the form immediately so the UI stays controlled
     setForm((prev) => ({ ...prev, assumptionToDutyDate: newDate }));
