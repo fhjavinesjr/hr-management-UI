@@ -8,6 +8,14 @@ import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/appr
 import { Employee } from "@/lib/types/Employee";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import { sanitizeDate, sanitizeText } from "@/lib/utils/inputSanitizers";
+import {
+  leaveDetailKind,
+  parseLeaveDetails,
+  serializeLeaveDetails,
+  SICK_LOCATION_OPTIONS,
+  STUDY_LEAVE_OPTIONS,
+  VACATION_LOCATION_OPTIONS,
+} from "@/lib/utils/leaveFormDetails";
 
 const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
@@ -88,6 +96,7 @@ const initialFormState = {
   from: "",
   to: "",
   commutation: "notRequested",
+  detailOption: "",
   details: "",
   noOfDays: "",
 };
@@ -131,13 +140,15 @@ export default function LeaveApplication({
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     if (editRecord) {
+      const parsedDetails = parseLeaveDetails(editRecord.leaveType || "", editRecord.details || "");
       setForm({
         dateFiled: editRecord.dateFiled || today,
         leaveType: editRecord.leaveType || "",
         from: editRecord.from || "",
         to: editRecord.to || "",
         commutation: editRecord.commutation || "notRequested",
-        details: editRecord.details || "",
+        detailOption: parsedDetails.option,
+        details: parsedDetails.details,
         noOfDays: editRecord.noOfDays != null ? String(editRecord.noOfDays) : "",
       });
     } else {
@@ -179,6 +190,7 @@ export default function LeaveApplication({
   }, [employeeId]);
 
   const balInfo = balanceLabelFor(form.leaveType);
+  const detailKind = leaveDetailKind(form.leaveType);
   const displayBalance = balInfo && balance ? (balance[balInfo.key] as number | null) : null;
   const vlForForcedDisplay = form.leaveType === "Forced Leave" && balance ? balance.vacationLeaveBalance : null;
 
@@ -188,6 +200,10 @@ export default function LeaveApplication({
     >,
   ) => {
     const { name, value } = e.target;
+    if (name === "leaveType") {
+      setForm((prev) => ({ ...prev, leaveType: value, detailOption: "", details: "" }));
+      return;
+    }
     if (name === "from") {
       const sanitizedDate = sanitizeDate(value);
       setForm((prev) => ({
@@ -230,7 +246,7 @@ export default function LeaveApplication({
       leaveType: form.leaveType,
       status: approvalData.approvedStatus || editRecord?.status || "Pending",
       noOfDays: isMonetization ? form.noOfDays : "",
-      details: form.details,
+      details: serializeLeaveDetails(detailKind, form.detailOption, form.details),
       commutation: form.commutation,
       recommendingApprovalById: approvalData.recommendingApprovalById,
       authorizedOfficialId: approvalData.authorizedOfficialId,
@@ -406,17 +422,72 @@ export default function LeaveApplication({
           </div>
         )}
 
-        {/* Details */}
-        <div className={styles.formGroup}>
-          <label>Details</label>
-          <textarea
-            name="details"
-            value={form.details}
-            onChange={handleChange}
-            placeholder="Enter details..."
-            required
-          />
-        </div>
+        {detailKind === "study" && (
+          <div className={styles.formGroup}>
+            <label>In Case of Study Leave</label>
+            <select
+              name="detailOption"
+              value={form.detailOption}
+              onChange={handleChange}
+              className={styles.selectBase}
+              required
+            >
+              <option value="" disabled>Select</option>
+              {STUDY_LEAVE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {(detailKind === "vacation" || detailKind === "sick") && (
+          <div className={`${styles.formGroup} ${styles.detailFieldsGroup}`}>
+            <label>Where Leave Will Be Spent In Case Of</label>
+            <div className={styles.detailRow}>
+              <label htmlFor="leave-detail-option">
+                {detailKind === "vacation" ? "In Case of VL" : "In Case of SL"}
+              </label>
+              <select
+                id="leave-detail-option"
+                name="detailOption"
+                value={form.detailOption}
+                onChange={handleChange}
+                required
+              >
+                <option value="" disabled>Select</option>
+                {(detailKind === "vacation" ? VACATION_LOCATION_OPTIONS : SICK_LOCATION_OPTIONS)
+                  .map((option) => (
+                    <option key={option} value={option}>{option} (specify)</option>
+                  ))}
+              </select>
+              <input
+                type="text"
+                name="details"
+                value={form.details}
+                onChange={handleChange}
+                placeholder={detailKind === "vacation" ? "Specify location" : "Specify illness"}
+                maxLength={450}
+                required
+              />
+            </div>
+          </div>
+        )}
+
+        {(detailKind === "women" || detailKind === "general") && (
+          <div className={styles.formGroup}>
+            <label>
+              {detailKind === "women" ? "Illness (specify)" : "Details"}
+            </label>
+            <textarea
+              name="details"
+              value={form.details}
+              onChange={handleChange}
+              placeholder={detailKind === "general" ? "Enter details..." : "Specify illness..."}
+              required
+              maxLength={500}
+            />
+          </div>
+        )}
 
         {/* Approval Section */}
         <div style={{ marginTop: "2rem" }}>

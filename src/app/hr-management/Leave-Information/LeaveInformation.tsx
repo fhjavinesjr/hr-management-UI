@@ -341,15 +341,21 @@ export default function LeaveInformationModule() {
     };
   }, [stopQueuePolling]);
 
-  // Resolve dates from selected setting + month + year
+  // The selected month is the posting period. Leave processing uses the previous
+  // calendar month's attendance, independently of payroll cutoff offsets.
   const resolvedDates = useMemo<{ start: string; end: string } | null>(() => {
     if (selectedSettingId === "") return null;
     const setting = salaryPeriodSettings.find((s) => s.salaryPeriodSettingId === selectedSettingId);
     if (!setting) return null;
-    const start = resolveISODate(setting.cutoffStartDay, setting.cutoffStartMonthOffset, selectedYear, selectedMonth);
-    const end = resolveISODate(setting.cutoffEndDay, setting.cutoffEndMonthOffset, selectedYear, selectedMonth);
+    const start = resolveISODate(1, 0, selectedYear, selectedMonth);
+    const end = resolveISODate(31, 0, selectedYear, selectedMonth);
     return { start, end };
   }, [selectedSettingId, selectedYear, selectedMonth, salaryPeriodSettings]);
+
+  const attendanceDates = useMemo(() => ({
+    start: resolveISODate(1, -1, selectedYear, selectedMonth),
+    end: resolveISODate(31, -1, selectedYear, selectedMonth),
+  }), [selectedYear, selectedMonth]);
 
   const fetchPeriodRecords = useCallback(async () => {
     setIsLoading(true);
@@ -391,7 +397,7 @@ export default function LeaveInformationModule() {
     }
     const confirm = await Swal.fire({
       title: "Process Leave Information",
-      html: `<b>Period:</b> ${resolvedDates.start} → ${resolvedDates.end}<br/><b>Scope:</b> ${scope === "ALL" ? "All Employees" : selectedEmployee!.fullName}`,
+      html: `<b>Posting period:</b> ${resolvedDates.start} → ${resolvedDates.end}<br/><b>DTR cutoff:</b> ${attendanceDates.start} → ${attendanceDates.end}<br/><b>Scope:</b> ${scope === "ALL" ? "All Employees" : selectedEmployee!.fullName}`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Process",
@@ -676,7 +682,9 @@ export default function LeaveInformationModule() {
                 {/* Resolved dates preview — hidden when viewing all year */}
                 {resolvedDates && !viewAllYear && (
                   <div style={{ fontSize: "0.8rem", color: "#6b7280", paddingBottom: "0.3rem" }}>
-                    Period: <strong>{resolvedDates.start}</strong> → <strong>{resolvedDates.end}</strong>
+                    Posting period: <strong>{resolvedDates.start}</strong> → <strong>{resolvedDates.end}</strong>
+                    <br />
+                    DTR cutoff: <strong>{attendanceDates.start}</strong> → <strong>{attendanceDates.end}</strong>
                   </div>
                 )}
 

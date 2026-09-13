@@ -25,6 +25,28 @@ const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
 const MAX_MONETIZATION_DAYS_PER_LEAVE_TYPE = 10;
 
+const readApiError = async (response: Response, fallback: string) => {
+  const body = await response.text().catch(() => "");
+  if (!body.trim()) return fallback;
+
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (typeof parsed === "object" && parsed !== null) {
+      const error = parsed as { message?: unknown; error?: unknown };
+      if (typeof error.message === "string" && error.message.trim()) {
+        return error.message;
+      }
+      if (typeof error.error === "string" && error.error.trim()) {
+        return error.error;
+      }
+    }
+  } catch {
+    // Plain-text API errors are already suitable for display.
+  }
+
+  return body;
+};
+
 const sanitizeMonetizationDays = (value: string) => {
   const sanitized = sanitizeDecimal(value, 6);
   if (sanitized === "") return "";
@@ -157,7 +179,6 @@ export default function HRLeaveApplicationModule() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
     null,
   );
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<EditRecord | null>(null);
   const [rawDtos, setRawDtos] = useState<ApiLeaveDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -215,7 +236,6 @@ export default function HRLeaveApplicationModule() {
     const fullname = localStorageUtil.getEmployeeFullname();
     const empNo = localStorageUtil.getEmployeeNo();
     const employeeId = localStorageUtil.getEmployeeId();
-    setUserRole(role);
     if (
       empNo &&
       ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
@@ -799,10 +819,11 @@ export default function HRLeaveApplicationModule() {
     }
     const noOfDaysSL = parseFloat(monetizationForm.noOfDaysSL) || 0;
     const noOfDaysVL = parseFloat(monetizationForm.noOfDaysVL) || 0;
-    if (noOfDaysSL + noOfDaysVL <= 0) {
+    const totalDays = noOfDaysSL + noOfDaysVL;
+    if (totalDays < 10) {
       Swal.fire(
         "Validation",
-        "Please enter at least some days to monetize.",
+        `Leave monetization requires at least 10 total days. Total days entered: ${totalDays.toFixed(1)}.`,
         "warning",
       );
       return;
@@ -841,7 +862,9 @@ export default function HRLeaveApplicationModule() {
         method,
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        throw new Error(await readApiError(res, "Failed to save monetization."));
+      }
       Toast.fire({
         icon: "success",
         title: isUpdate ? "Monetization updated!" : "Monetization filed!",
@@ -1230,7 +1253,7 @@ export default function HRLeaveApplicationModule() {
                         />
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Total Days (min. 10 required)</label>
+                        <label>Total Days (minimum 10 days for this workflow)</label>
                         <input
                           type="text"
                           readOnly
