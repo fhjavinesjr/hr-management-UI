@@ -9,6 +9,7 @@ import tableStyles from "@/styles/tables.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { sanitizeDate, sanitizeText } from "@/lib/utils/inputSanitizers";
 import ApprovalSection, {
   ApprovalSectionData,
 } from "@/lib/approvalSection/approvalSection";
@@ -410,7 +411,13 @@ export default function HRCompensatoryTimeOffModule() {
                   <input
                     type="date"
                     value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
+                    onChange={(e) => {
+                      const sanitizedDate = sanitizeDate(e.target.value);
+                      setDateFrom(sanitizedDate);
+                      if (dateTo && sanitizedDate && dateTo < sanitizedDate) {
+                        setDateTo("");
+                      }
+                    }}
                     className={styles.searchInput}
                   />
                 </div>
@@ -419,7 +426,13 @@ export default function HRCompensatoryTimeOffModule() {
                   <input
                     type="date"
                     value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
+                    min={dateFrom || undefined}
+                    onChange={(e) => {
+                      const sanitizedDate = sanitizeDate(e.target.value);
+                      if (!dateFrom || !sanitizedDate || sanitizedDate >= dateFrom) {
+                        setDateTo(sanitizedDate);
+                      }
+                    }}
                     className={styles.searchInput}
                   />
                 </div>
@@ -750,7 +763,7 @@ export default function HRCompensatoryTimeOffModule() {
                         <textarea
                           value={form.reason}
                           onChange={(e) =>
-                            setForm({ ...form, reason: e.target.value })
+                            setForm({ ...form, reason: sanitizeText(e.target.value, 500) })
                           }
                           className={styles.inputField}
                           rows={3}

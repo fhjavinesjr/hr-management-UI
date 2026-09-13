@@ -9,9 +9,12 @@ import tableStyles from "@/styles/tables.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
-import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
+import ApprovalSection, {
+  ApprovalSectionData,
+} from "@/lib/approvalSection/approvalSection";
 import to12HourFormat from "@/lib/utils/convert24To12HrFormat";
 import Tstyle from "@/styles/TimeCorrection.module.scss";
+import { sanitizeText } from "@/lib/utils/inputSanitizers";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 
@@ -62,7 +65,9 @@ export default function HRTimeCorrectionModule() {
   const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null,
+  );
   const [userRole, setUserRole] = useState<string | null>(null);
   const [records, setRecords] = useState<TimeCorrectionDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +87,9 @@ export default function HRTimeCorrectionModule() {
     approvalMessage: "",
     dueExigencyService: false,
   });
-  const [approvalInitialValues, setApprovalInitialValues] = useState<Partial<ApprovalSectionData> | undefined>(undefined);
+  const [approvalInitialValues, setApprovalInitialValues] = useState<
+    Partial<ApprovalSectionData> | undefined
+  >(undefined);
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState<FormState>({
     dateFiled: today,
@@ -94,15 +101,23 @@ export default function HRTimeCorrectionModule() {
     reason: "",
   });
 
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+  const hours = Array.from({ length: 24 }, (_, i) =>
+    String(i).padStart(2, "0"),
+  );
+  const minutes = Array.from({ length: 60 }, (_, i) =>
+    String(i).padStart(2, "0"),
+  );
   const toTimeString = (t: TimeField) =>
     t.hour && t.minute ? `${t.hour}:${t.minute}:00` : null;
   const to12 = (t: TimeField) =>
     t.hour && t.minute ? to12HourFormat(`${t.hour}:${t.minute}`) : "";
 
   const renderTimeSelect = (
-    field: "correctedTimeIn" | "correctedBreakOut" | "correctedBreakIn" | "correctedTimeOut"
+    field:
+      | "correctedTimeIn"
+      | "correctedBreakOut"
+      | "correctedBreakIn"
+      | "correctedTimeOut",
   ) => {
     const val = form[field] as TimeField;
     return (
@@ -111,19 +126,31 @@ export default function HRTimeCorrectionModule() {
           <select
             className={Tstyle.timeSelect}
             value={val.hour}
-            onChange={(e) => setForm({ ...form, [field]: { ...val, hour: e.target.value } })}
+            onChange={(e) =>
+              setForm({ ...form, [field]: { ...val, hour: e.target.value } })
+            }
           >
             <option value="">--</option>
-            {hours.map((h) => <option key={h} value={h}>{h}</option>)}
+            {hours.map((h) => (
+              <option key={h} value={h}>
+                {h}
+              </option>
+            ))}
           </select>
           <span className={Tstyle.timeColon}>:</span>
           <select
             className={Tstyle.timeSelect}
             value={val.minute}
-            onChange={(e) => setForm({ ...form, [field]: { ...val, minute: e.target.value } })}
+            onChange={(e) =>
+              setForm({ ...form, [field]: { ...val, minute: e.target.value } })
+            }
           >
             <option value="">--</option>
-            {minutes.map((m) => <option key={m} value={m}>{m}</option>)}
+            {minutes.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
           </select>
         </div>
         {val.hour && val.minute && (
@@ -141,13 +168,24 @@ export default function HRTimeCorrectionModule() {
     const empNo = localStorageUtil.getEmployeeNo();
     const employeeId = localStorageUtil.getEmployeeId();
     setUserRole(role);
-    if (empNo && ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
-      const empFromList = stored?.find(e => e.employeeNo === empNo) ?? null;
+    if (
+      empNo &&
+      ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
+    ) {
+      const empFromList = stored?.find((e) => e.employeeNo === empNo) ?? null;
       if (empFromList) {
         setSelectedEmployee(empFromList);
         setSearch(`[${empFromList.employeeNo}] ${empFromList.fullName}`);
       } else if (fullname) {
-        const own: Employee = { employeeId: String(employeeId ?? ""), employeeNo: empNo, fullName: fullname, role: role ?? "", biometricNo: "", isSearched: false, isCleared: false };
+        const own: Employee = {
+          employeeId: String(employeeId ?? ""),
+          employeeNo: empNo,
+          fullName: fullname,
+          role: role ?? "",
+          biometricNo: "",
+          isSearched: false,
+          isCleared: false,
+        };
         setSelectedEmployee(own);
         setSearch(`[${empNo}] ${fullname}`);
       }
@@ -159,7 +197,7 @@ export default function HRTimeCorrectionModule() {
     return employees.filter(
       (e) =>
         e.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        e.employeeNo.toLowerCase().includes(search.toLowerCase())
+        e.employeeNo.toLowerCase().includes(search.toLowerCase()),
     );
   }, [search, employees]);
 
@@ -170,21 +208,30 @@ export default function HRTimeCorrectionModule() {
       return true;
     });
   }, [records, dateFrom, dateTo]);
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRecords.length / itemsPerPage),
+  );
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedRecords = filteredRecords.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedRecords = filteredRecords.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
 
   const fetchRecords = useCallback(async (emp: Employee) => {
     setIsLoading(true);
     try {
       const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/time-correction/get-all/${emp.employeeId}`
+        `${API_BASE_URL_HRM}/api/time-correction/get-all/${emp.employeeId}`,
       );
       if (!res.ok) throw new Error("Failed to fetch records");
       const data: TimeCorrectionDTO[] = await res.json();
       setRecords(data);
     } catch {
-      Toast.fire({ icon: "error", title: "Could not load time correction records" });
+      Toast.fire({
+        icon: "error",
+        title: "Could not load time correction records",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -195,13 +242,19 @@ export default function HRTimeCorrectionModule() {
     else setRecords([]);
   }, [selectedEmployee, fetchRecords]);
 
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFrom, dateTo, selectedEmployee, itemsPerPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const isUpdate = editingId !== null;
     if ((isUpdate && !canEdit) || (!isUpdate && !canAdd)) {
-      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to perform this action." });
+      Swal.fire({
+        icon: "warning",
+        title: "Access denied",
+        text: "You do not have permission to perform this action.",
+      });
       return;
     }
     if (!selectedEmployee) {
@@ -209,7 +262,10 @@ export default function HRTimeCorrectionModule() {
       return;
     }
     if (!form.reason.trim()) {
-      Swal.fire({ icon: "warning", title: "Please provide a reason for the correction" });
+      Swal.fire({
+        icon: "warning",
+        title: "Please provide a reason for the correction",
+      });
       return;
     }
     setIsSubmitting(true);
@@ -234,17 +290,46 @@ export default function HRTimeCorrectionModule() {
         ? `${API_BASE_URL_HRM}/api/time-correction/update/${editingId}`
         : `${API_BASE_URL_HRM}/api/time-correction/create`;
       const method = isUpdate ? "PUT" : "POST";
-      const res = await fetchWithAuth(url, { method, body: JSON.stringify(payload) });
+      const res = await fetchWithAuth(url, {
+        method,
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) throw new Error(await res.text());
-      Toast.fire({ icon: "success", title: isUpdate ? "Time correction updated" : "Time correction filed successfully" });
-      setForm({ dateFiled: today, workDate: today, correctedTimeIn: { hour: "08", minute: "00" }, correctedBreakOut: { hour: "", minute: "" }, correctedBreakIn: { hour: "", minute: "" }, correctedTimeOut: { hour: "17", minute: "00" }, reason: "" });
+      Toast.fire({
+        icon: "success",
+        title: isUpdate
+          ? "Time correction updated"
+          : "Time correction filed successfully",
+      });
+      setForm({
+        dateFiled: today,
+        workDate: today,
+        correctedTimeIn: { hour: "08", minute: "00" },
+        correctedBreakOut: { hour: "", minute: "" },
+        correctedBreakIn: { hour: "", minute: "" },
+        correctedTimeOut: { hour: "17", minute: "00" },
+        reason: "",
+      });
       setEditingId(null);
       setApprovalInitialValues(undefined);
-      setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+      setApprovalData({
+        recommendationStatus: "Pending",
+        recommendationMessage: "",
+        recommendingApprovalById: null,
+        authorizedOfficialId: null,
+        approvedById: null,
+        approvedStatus: "Pending",
+        approvalMessage: "",
+        dueExigencyService: false,
+      });
       setActiveTab("table");
       fetchRecords(selectedEmployee);
     } catch (err) {
-      Swal.fire({ icon: "error", title: "Failed to file time correction", text: err instanceof Error ? err.message : String(err) });
+      Swal.fire({
+        icon: "error",
+        title: "Failed to file time correction",
+        text: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -258,7 +343,11 @@ export default function HRTimeCorrectionModule() {
 
   const handleEdit = (r: TimeCorrectionDTO) => {
     if (!canEdit) {
-      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to edit records." });
+      Swal.fire({
+        icon: "warning",
+        title: "Access denied",
+        text: "You do not have permission to edit records.",
+      });
       return;
     }
     setForm({
@@ -281,14 +370,18 @@ export default function HRTimeCorrectionModule() {
       dueExigencyService: false,
     };
     setApprovalInitialValues(initVals);
-    setApprovalData(prev => ({ ...prev, ...initVals }));
+    setApprovalData((prev) => ({ ...prev, ...initVals }));
     setEditingId(r.timeCorrectionId!);
     setActiveTab("apply");
   };
 
   const handleDelete = async (id: number) => {
     if (!canDelete) {
-      Swal.fire({ icon: "warning", title: "Access denied", text: "You do not have permission to delete records." });
+      Swal.fire({
+        icon: "warning",
+        title: "Access denied",
+        text: "You do not have permission to delete records.",
+      });
       return;
     }
     const confirm = await Swal.fire({
@@ -302,7 +395,7 @@ export default function HRTimeCorrectionModule() {
     try {
       const res = await fetchWithAuth(
         `${API_BASE_URL_HRM}/api/time-correction/delete/${id}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
       if (!res.ok) throw new Error(await res.text());
       Toast.fire({ icon: "success", title: "Record deleted" });
@@ -319,7 +412,16 @@ export default function HRTimeCorrectionModule() {
     setShowSuggestions(false);
     setEditingId(null);
     setApprovalInitialValues(undefined);
-    setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false });
+    setApprovalData({
+      recommendationStatus: "Pending",
+      recommendationMessage: "",
+      recommendingApprovalById: null,
+      authorizedOfficialId: null,
+      approvedById: null,
+      approvedStatus: "Pending",
+      approvalMessage: "",
+      dueExigencyService: false,
+    });
     setDateFrom("");
     setDateTo("");
     setCurrentPage(1);
@@ -328,10 +430,18 @@ export default function HRTimeCorrectionModule() {
 
   const statusBadge = (status: string) => {
     const color =
-      status === "Approved" ? "#16a34a" :
-      status === "Disapproved" ? "#dc2626" :
-      status === "Cancelled" ? "#6b7280" : "#ca8a04";
-    return <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>{status}</span>;
+      status === "Approved"
+        ? "#16a34a"
+        : status === "Disapproved"
+          ? "#dc2626"
+          : status === "Cancelled"
+            ? "#6b7280"
+            : "#ca8a04";
+    return (
+      <span style={{ color, fontWeight: 600, fontSize: "0.8rem" }}>
+        {status}
+      </span>
+    );
   };
 
   return (
@@ -344,16 +454,37 @@ export default function HRTimeCorrectionModule() {
         <div className={modalStyles.modalBody}>
           <div className={styles.EmploymentRecord}>
             <div className={styles.stickyHeader}>
-              <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "1rem",
+                  alignItems: "flex-end",
+                  flexWrap: "wrap",
+                }}
+              >
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date From</label>
-                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className={styles.searchInput}
+                  />
                 </div>
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date To</label>
-                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className={styles.searchInput}
+                  />
                 </div>
-                <div className={styles.formGroup} style={{ flex: 1, minWidth: "220px", position: "relative" }}>
+                <div
+                  className={styles.formGroup}
+                  style={{ flex: 1, minWidth: "220px", position: "relative" }}
+                >
                   <label>Search Employee</label>
                   <input
                     id="timeCorrection-employee"
@@ -361,14 +492,23 @@ export default function HRTimeCorrectionModule() {
                     list={"timeCorrection-employee-list"}
                     placeholder="Employee No / Last Name"
                     value={search}
-                    readOnly={(!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)}
+                    readOnly={
+                      (!canAdd && !canEdit) ||
+                      (canAdd && !canEdit) ||
+                      (!canAdd && canEdit)
+                    }
                     onChange={(e) => {
-                      if ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit)) return;
+                      if (
+                        (!canAdd && !canEdit) ||
+                        (canAdd && !canEdit) ||
+                        (!canAdd && canEdit)
+                      )
+                        return;
                       setSearch(e.target.value);
                       const match = employees.find(
                         (emp) =>
                           `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
-                          e.target.value.toLowerCase()
+                          e.target.value.toLowerCase(),
                       );
                       if (match) {
                         setSelectedEmployee(match);
@@ -379,7 +519,7 @@ export default function HRTimeCorrectionModule() {
                     className={styles.searchInput}
                     style={{ width: "100%" }}
                   />
-                  {(
+                  {
                     <datalist id="timeCorrection-employee-list">
                       {employees.map((emp) => (
                         <option
@@ -388,44 +528,138 @@ export default function HRTimeCorrectionModule() {
                         />
                       ))}
                     </datalist>
-                  )}
+                  }
                 </div>
-                <div style={{ alignSelf: "flex-end", marginBottom: "20px", marginLeft: "1rem" }}>
-                  <button onClick={handleClear} className={styles.clearButton}>Clear</button>
+                <div
+                  style={{
+                    alignSelf: "flex-end",
+                    marginBottom: "20px",
+                    marginLeft: "1rem",
+                  }}
+                >
+                  <button onClick={handleClear} className={styles.clearButton}>
+                    Clear
+                  </button>
                 </div>
               </div>
 
               <div className={styles.tabsHeader}>
-                <button className={activeTab === "table" ? styles.active : ""} onClick={() => setActiveTab("table")}>List</button>
-                {(canAdd || canEdit) && <button className={activeTab === "apply" ? styles.active : ""} onClick={() => { setEditingId(null); setApprovalInitialValues(undefined); setApprovalData({ recommendationStatus: "Pending", recommendationMessage: "", recommendingApprovalById: null, authorizedOfficialId: null, approvedById: null, approvedStatus: "Pending", approvalMessage: "", dueExigencyService: false }); setActiveTab("apply"); }}>File TC</button>}
+                <button
+                  className={activeTab === "table" ? styles.active : ""}
+                  onClick={() => setActiveTab("table")}
+                >
+                  List
+                </button>
+                {(canAdd || canEdit) && (
+                  <button
+                    className={activeTab === "apply" ? styles.active : ""}
+                    onClick={() => {
+                      setEditingId(null);
+                      setApprovalInitialValues(undefined);
+                      setApprovalData({
+                        recommendationStatus: "Pending",
+                        recommendationMessage: "",
+                        recommendingApprovalById: null,
+                        authorizedOfficialId: null,
+                        approvedById: null,
+                        approvedStatus: "Pending",
+                        approvalMessage: "",
+                        dueExigencyService: false,
+                      });
+                      setActiveTab("apply");
+                    }}
+                  >
+                    File TC
+                  </button>
+                )}
               </div>
             </div>
 
             <div className={styles.tabContent}>
               {activeTab === "table" && (
                 <>
-                  <h3>{selectedEmployee ? `Time Corrections — ${selectedEmployee.fullName}` : "Search and select an employee"}</h3>
+                  <h3>
+                    {selectedEmployee
+                      ? `Time Corrections — ${selectedEmployee.fullName}`
+                      : "Search and select an employee"}
+                  </h3>
                   {isLoading && <p>Loading...</p>}
-                  {!isLoading && selectedEmployee && records.length === 0 && <p>No records found.</p>}
+                  {!isLoading && selectedEmployee && records.length === 0 && (
+                    <p>No records found.</p>
+                  )}
                   <div className={tableStyles.paginationContainer}>
                     <div className={tableStyles.paginationLeft}>
                       <label>Rows per page: </label>
-                      <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}>
-                        {[25, 50, 100, 300, 500].map((s) => <option key={s} value={s}>{s}</option>)}
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {[25, 50, 100, 300, 500].map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
                       </select>
-                      <span className={tableStyles.recordInfo}>Showing {filteredRecords.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredRecords.length)} of {filteredRecords.length}</span>
+                      <span className={tableStyles.recordInfo}>
+                        Showing{" "}
+                        {filteredRecords.length === 0 ? 0 : startIndex + 1} to{" "}
+                        {Math.min(
+                          startIndex + itemsPerPage,
+                          filteredRecords.length,
+                        )}{" "}
+                        of {filteredRecords.length}
+                      </span>
                     </div>
                     <div className={tableStyles.paginationRight}>
-                      <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className={tableStyles.paginationBtn}>First</button>
-                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={tableStyles.paginationBtn}>Previous</button>
-                      <span className={tableStyles.pageIndicator}>Page {currentPage} of {totalPages}</span>
-                      <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Next</button>
-                      <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className={tableStyles.paginationBtn}>Last</button>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className={tableStyles.paginationBtn}
+                      >
+                        First
+                      </button>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Previous
+                      </button>
+                      <span className={tableStyles.pageIndicator}>
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Next
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className={tableStyles.paginationBtn}
+                      >
+                        Last
+                      </button>
                     </div>
                   </div>
                   {!isLoading && filteredRecords.length > 0 && (
                     <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "0.85rem",
+                        }}
+                      >
                         <thead>
                           <tr style={{ background: "#f1f5f9" }}>
                             <th style={th}>Date Filed</th>
@@ -441,7 +675,10 @@ export default function HRTimeCorrectionModule() {
                         </thead>
                         <tbody>
                           {paginatedRecords.map((r) => (
-                            <tr key={r.timeCorrectionId} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <tr
+                              key={r.timeCorrectionId}
+                              style={{ borderBottom: "1px solid #e2e8f0" }}
+                            >
                               <td style={td}>{r.dateFiled}</td>
                               <td style={td}>{r.workDate}</td>
                               <td style={td}>{r.correctedTimeIn}</td>
@@ -452,8 +689,24 @@ export default function HRTimeCorrectionModule() {
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>
                                 {/* HRM Edit/Delete intentionally have no status condition. */}
-                                {canEdit && <button onClick={() => handleEdit(r)} style={btnEdit}>Edit</button>}
-                                {canDelete && <button onClick={() => handleDelete(r.timeCorrectionId!)} style={btnDelete}>Delete</button>}
+                                {canEdit && (
+                                  <button
+                                    onClick={() => handleEdit(r)}
+                                    style={btnEdit}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    onClick={() =>
+                                      handleDelete(r.timeCorrectionId!)
+                                    }
+                                    style={btnDelete}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                                 {!canEdit && !canDelete && "-"}
                               </td>
                             </tr>
@@ -467,34 +720,77 @@ export default function HRTimeCorrectionModule() {
 
               {activeTab === "apply" && (
                 <>
-                  <h3>File Time Correction{selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}{editingId ? " (Editing)" : ""}</h3>
-                  {!selectedEmployee && <p style={{ color: "#dc2626" }}>Please search and select an employee first.</p>}
+                  <h3>
+                    File Time Correction
+                    {selectedEmployee ? ` — ${selectedEmployee.fullName}` : ""}
+                    {editingId ? " (Editing)" : ""}
+                  </h3>
+                  {!selectedEmployee && (
+                    <p style={{ color: "#dc2626" }}>
+                      Please search and select an employee first.
+                    </p>
+                  )}
                   {selectedEmployee && (editingId ? canEdit : canAdd) && (
-                    <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}>
+                    <form
+                      onSubmit={handleSubmit}
+                      style={{ display: "grid", gap: "0.75rem", maxWidth: 560 }}
+                    >
                       <div className={styles.formGroup}>
                         <label>Date Filed</label>
                         <input
                           type="date"
                           value={form.dateFiled}
-                          onChange={(e) => setForm({ ...form, dateFiled: e.target.value })}
+                          onChange={(e) =>
+                            setForm({ ...form, dateFiled: e.target.value })
+                          }
                           className={styles.inputField}
                           required
                         />
                       </div>
                       <div className={styles.formGroup}>
                         <label>Work Date (Date to Correct)</label>
-                        <input type="date" value={form.workDate} onChange={(e) => setForm({ ...form, workDate: e.target.value })} className={styles.inputField} required />
+                        <input
+                          type="date"
+                          value={form.workDate}
+                          onChange={(e) =>
+                            setForm({ ...form, workDate: e.target.value })
+                          }
+                          className={styles.inputField}
+                          required
+                        />
                       </div>
                       <div className={styles.formGroup}>
                         <label>Corrected Time In</label>
                         {renderTimeSelect("correctedTimeIn")}
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Break Out <span style={{ fontWeight: 400, fontSize: "0.82rem", color: "#6b7280" }}>(optional)</span></label>
+                        <label>
+                          Break Out{" "}
+                          <span
+                            style={{
+                              fontWeight: 400,
+                              fontSize: "0.82rem",
+                              color: "#6b7280",
+                            }}
+                          >
+                            (optional)
+                          </span>
+                        </label>
                         {renderTimeSelect("correctedBreakOut")}
                       </div>
                       <div className={styles.formGroup}>
-                        <label>Break In <span style={{ fontWeight: 400, fontSize: "0.82rem", color: "#6b7280" }}>(optional)</span></label>
+                        <label>
+                          Break In{" "}
+                          <span
+                            style={{
+                              fontWeight: 400,
+                              fontSize: "0.82rem",
+                              color: "#6b7280",
+                            }}
+                          >
+                            (optional)
+                          </span>
+                        </label>
                         {renderTimeSelect("correctedBreakIn")}
                       </div>
                       <div className={styles.formGroup}>
@@ -503,11 +799,32 @@ export default function HRTimeCorrectionModule() {
                       </div>
                       <div className={styles.formGroup}>
                         <label>Reason for Correction</label>
-                        <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={styles.inputField} rows={3} required />
+                        <textarea
+                          value={form.reason}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              reason: sanitizeText(e.target.value),
+                            })
+                          }
+                          className={styles.inputField}
+                          rows={3}
+                          required
+                        />
                       </div>
-                      <ApprovalSection key={editingId ?? 0} initialValues={approvalInitialValues} onDataChange={setApprovalData} showAuthorizedOfficial={false} showDueExigency={false} />
+                      <ApprovalSection
+                        key={editingId ?? 0}
+                        initialValues={approvalInitialValues}
+                        onDataChange={setApprovalData}
+                        showAuthorizedOfficial={false}
+                        showDueExigency={false}
+                      />
                       <div style={{ display: "flex", gap: "0.75rem" }}>
-                        <button type="submit" disabled={isSubmitting} className={styles.submitButton}>
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className={styles.submitButton}
+                        >
                           {isSubmitting ? "Saving..." : "Save"}
                         </button>
                         <button
@@ -518,7 +835,7 @@ export default function HRTimeCorrectionModule() {
                             setApprovalInitialValues(undefined);
                             setApprovalData({
                               recommendationStatus: "Pending",
-                              recommendationMessage: "",
+                              recommendationMessage:  "",
                               recommendingApprovalById: null,
                               authorizedOfficialId: null,
                               approvedById: null,
@@ -535,7 +852,10 @@ export default function HRTimeCorrectionModule() {
                     </form>
                   )}
                   {selectedEmployee && !(editingId ? canEdit : canAdd) && (
-                    <p style={{ color: "#dc2626" }}>You do not have permission to {editingId ? "edit" : "create"} time corrections.</p>
+                    <p style={{ color: "#dc2626" }}>
+                      You do not have permission to{" "}
+                      {editingId ? "edit" : "create"} time corrections.
+                    </p>
                   )}
                 </>
               )}
@@ -547,7 +867,32 @@ export default function HRTimeCorrectionModule() {
   );
 }
 
-const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "6px 12px", verticalAlign: "middle" };
-const btnEdit: React.CSSProperties = { padding: "3px 8px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem", marginRight: "4px" };
-const btnDelete: React.CSSProperties = { padding: "3px 8px", background: "#6b7280", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontSize: "0.75rem" };
+const th: React.CSSProperties = {
+  padding: "8px 12px",
+  textAlign: "left",
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
+const td: React.CSSProperties = {
+  padding: "6px 12px",
+  verticalAlign: "middle",
+};
+const btnEdit: React.CSSProperties = {
+  padding: "3px 8px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: "0.75rem",
+  marginRight: "4px",
+};
+const btnDelete: React.CSSProperties = {
+  padding: "3px 8px",
+  background: "#6b7280",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  fontSize: "0.75rem",
+};

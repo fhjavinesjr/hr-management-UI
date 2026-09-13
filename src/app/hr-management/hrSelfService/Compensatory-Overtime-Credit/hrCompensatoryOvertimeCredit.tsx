@@ -9,6 +9,7 @@ import tableStyles from "@/styles/tables.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { sanitizeDate, sanitizeText } from "@/lib/utils/inputSanitizers";
 import ApprovalSection, {
   ApprovalSectionData,
 } from "@/lib/approvalSection/approvalSection";
@@ -607,7 +608,13 @@ export default function HRCompensatoryOvertimeCreditModule() {
                   <input
                     type="date"
                     value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
+                    onChange={(e) => {
+                      const sanitizedDate = sanitizeDate(e.target.value);
+                      setDateFrom(sanitizedDate);
+                      if (dateTo && sanitizedDate && dateTo < sanitizedDate) {
+                        setDateTo("");
+                      }
+                    }}
                     className={styles.searchInput}
                   />
                 </div>
@@ -616,7 +623,13 @@ export default function HRCompensatoryOvertimeCreditModule() {
                   <input
                     type="date"
                     value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
+                    min={dateFrom || undefined}
+                    onChange={(e) => {
+                      const sanitizedDate = sanitizeDate(e.target.value);
+                      if (!dateFrom || !sanitizedDate || sanitizedDate >= dateFrom) {
+                        setDateTo(sanitizedDate);
+                      }
+                    }}
                     className={styles.searchInput}
                   />
                 </div>
@@ -933,7 +946,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
                           type="date"
                           value={form.dateFiled}
                           onChange={(e) =>
-                            setForm({ ...form, dateFiled: e.target.value })
+                            setForm({ ...form, dateFiled: sanitizeDate(e.target.value) })
                           }
                           className={styles.inputField}
                           required
@@ -1133,7 +1146,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
                           onChange={(e) =>
                             setForm((prev) => ({
                               ...prev,
-                              dateWorked: e.target.value,
+                              dateWorked: sanitizeDate(e.target.value),
                             }))
                           }
                           className={styles.inputField}
@@ -1174,7 +1187,7 @@ export default function HRCompensatoryOvertimeCreditModule() {
                           onChange={(e) =>
                             setForm((prev) => ({
                               ...prev,
-                              reason: e.target.value,
+                              reason: sanitizeText(e.target.value, 500),
                             }))
                           }
                           placeholder="Select an approved authority first"

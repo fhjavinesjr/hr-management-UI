@@ -8,6 +8,7 @@ import modalStyles from "@/styles/Modal.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { sanitizeDecimal } from "@/lib/utils/inputSanitizers";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 const API_BASE_URL_ADMINISTRATIVE = runtimeConfig.getApiUrl("administrative");
@@ -172,9 +173,10 @@ export default function BeginningBalanceModule() {
   };
 
   const handleBalanceChange = (index: number, value: string) => {
+    const sanitizedBalance = sanitizeDecimal(value, 12);
     setLeaveRows((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], balance: value };
+      updated[index] = { ...updated[index], balance: sanitizedBalance };
       return updated;
     });
   };
@@ -249,7 +251,7 @@ export default function BeginningBalanceModule() {
 
             {/* Sticky Header */}
             <div className={styles.stickyHeader}>
-              <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div className={styles.beginningBalanceControls}>
 
                 {/* Employee Search */}
                 <div className={styles.formGroup} style={{ flex: 1, minWidth: "220px" }}>
@@ -287,7 +289,7 @@ export default function BeginningBalanceModule() {
                 </div>
 
                 {/* Shared As Of Date */}
-                <div className={styles.formGroup} style={{ width: "auto" }}>
+                <div className={`${styles.formGroup} ${styles.asOfDateGroup}`}>
                   <label htmlFor="bb-as-of-date">As Of Date</label>
                   <input
                     id="bb-as-of-date"

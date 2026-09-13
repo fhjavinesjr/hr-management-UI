@@ -22,6 +22,9 @@ interface OvertimeRequestProps {
   }) => void;
 }
 
+const sanitizeDateTimeLocal = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? value : "";
+
 export default function OvertimeRequest({
   employeeName,
   onSubmitOvertime,
@@ -59,6 +62,24 @@ export default function OvertimeRequest({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
+    const sanitizedValue = sanitizeDateTimeLocal(value);
+
+    if (name === "from") {
+      setForm((prev) => ({
+        ...prev,
+        from: sanitizedValue,
+        to: prev.to && sanitizedValue && prev.to <= sanitizedValue ? "" : prev.to,
+      }));
+      return;
+    }
+
+    if (name === "to") {
+      if (!form.from || !sanitizedValue || sanitizedValue > form.from) {
+        setForm((prev) => ({ ...prev, to: sanitizedValue }));
+      }
+      return;
+    }
+
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 

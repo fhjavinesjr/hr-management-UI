@@ -67,6 +67,15 @@
       border-radius: 6px;
     }
 
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #34495e;
+    }
+
     button {
       background: #e74c3c;
       color: white;
@@ -74,10 +83,212 @@
       border-radius: 6px;
       cursor: pointer;
       padding: 0.5rem 1rem;
+      width: 100%;
+      min-width: 0;
 
       &:hover {
         background: #c0392b;
       }
+    }
+
+    .compactRemoveButton {
+      align-self: end;
+      height: fit-content;
+    }
+
+  }
+
+  .voluntaryWorkRow {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+
+    > label {
+      display: grid;
+      grid-template-rows: 2.4em auto;
+      align-content: start;
+
+      > input {
+        height: 42px;
+        box-sizing: border-box;
+      }
+    }
+
+    .compactRemoveButton {
+      align-self: end;
+      justify-self: stretch;
+      height: 42px;
+      box-sizing: border-box;
+    }
+  }
+
+  .civilServiceAddButton {
+    width: calc((100% - 3rem) / 7);
+    min-width: 150px;
+    box-sizing: border-box;
+  }
+
+  .workExperienceAddButton {
+    width: calc((100% - 3.5rem) / 8);
+    min-width: 150px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 1100px) {
+    .voluntaryWorkRow {
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+    }
+  }
+
+  .learningDevelopmentRow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .learningDevelopmentTitles,
+  .learningDevelopmentFields,
+  .learningDevelopmentActions {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .learningDevelopmentTitles {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #34495e;
+    align-items: end;
+  }
+
+  .learningDevelopmentFields input,
+  .learningDevelopmentFields select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 42px;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+  }
+
+  .learningDevelopmentTypeField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .learningDevelopmentActions button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .learningDevelopmentRemoveButton {
+    height: 42px;
+    box-sizing: border-box;
+    padding: 0.5rem 1rem;
+    background: #e74c3c;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover {
+      background: #c0392b;
+    }
+
+    &:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+  }
+
+  .learningDevelopmentAddButton {
+    width: calc((100% - 2.5rem) / 6);
+    min-width: 150px;
+    box-sizing: border-box;
+  }
+
+  .questionBlock input[placeholder="If YES, give details"] {
+    display: block;
+    width: min(100%, 520px);
+    min-height: 42px;
+    box-sizing: border-box;
+    margin: 0.5rem 0 1rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+
+    &:focus {
+      outline: 2px solid rgba(13, 110, 253, 0.2);
+      border-color: #0d6efd;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .learningDevelopmentTitles,
+    .learningDevelopmentFields,
+    .learningDevelopmentActions {
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+    }
+
+    .learningDevelopmentAddButton {
+      width: calc((100% - 2rem) / 5);
+    }
+  }
+
+  @media (max-width: 850px) {
+    .learningDevelopmentTitles,
+    .learningDevelopmentFields,
+    .learningDevelopmentActions {
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+    }
+
+    .learningDevelopmentAddButton {
+      width: calc((100% - 1.5rem) / 4);
+    }
+  }
+
+  @media (max-width: 650px) {
+    .learningDevelopmentTitles,
+    .learningDevelopmentFields,
+    .learningDevelopmentActions {
+      grid-template-columns: repeat(3, minmax(150px, 1fr));
+    }
+
+    .learningDevelopmentAddButton {
+      width: calc((100% - 1rem) / 3);
+    }
+  }
+
+  @media (max-width: 500px) {
+    .learningDevelopmentTitles,
+    .learningDevelopmentFields,
+    .learningDevelopmentActions {
+      grid-template-columns: repeat(2, minmax(150px, 1fr));
+    }
+
+    .learningDevelopmentAddButton {
+      width: calc((100% - 0.5rem) / 2);
+    }
+  }
+
+  .addBtn {
+    padding: 0.8rem 2rem;
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+
+    &:hover {
+      background: #0a58ca;
+    }
+
+    &:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
     }
   }
 

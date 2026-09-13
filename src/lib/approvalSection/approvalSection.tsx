@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import styles from "@/styles/approvalSection.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
+import { sanitizeText } from "@/lib/utils/inputSanitizers";
 
 export interface ApprovalSectionData {
   recommendingApprovalById: number | null;
@@ -168,8 +169,9 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
         <textarea
           value={recommendationMessage}
           onChange={(e) => {
-            setRecommendationMessage(e.target.value);
-            fireChange({ recommendationMessage: e.target.value });
+            const sanitizedMessage = sanitizeText(e.target.value, 500);
+            setRecommendationMessage(sanitizedMessage);
+            fireChange({ recommendationMessage: sanitizedMessage });
           }}
           placeholder="Enter details here"
         />
@@ -273,8 +275,9 @@ export default function ApprovalSection({ employees: propEmployees, initialValue
         <textarea
           value={approvalMessage}
           onChange={(e) => {
-            setApprovalMessage(e.target.value);
-            fireChange({ approvalMessage: e.target.value });
+            const sanitizedMessage = sanitizeText(e.target.value, 500);
+            setApprovalMessage(sanitizedMessage);
+            fireChange({ approvalMessage: sanitizedMessage });
           }}
           placeholder="Enter details here"
         />
