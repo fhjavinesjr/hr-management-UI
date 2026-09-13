@@ -13,6 +13,26 @@ import { PersonalDataModel } from "@/lib/types/PersonalData";
 import { ChildItem } from "@/lib/types/Children";
 import Image from "next/image";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
+import {
+  sanitizeAddress,
+  sanitizeCity,
+  sanitizeDate,
+  sanitizeDecimal,
+  sanitizeEmail,
+  sanitizeName,
+  sanitizeNumbers,
+  sanitizeShortName,
+  sanitizeText,
+  sanitizeZipCode,
+} from "@/lib/utils/inputSanitizers";
+import {
+  formatPagibigNo,
+  formatPhilhealthNo,
+  formatPhoneNo,
+  formatGsisNo,
+  formatTelephoneNo,
+  formatTinNo,
+} from "@/lib/utils/inputFormatters";
 
 // Default educational rows shown when the page loads
 const DEFAULT_EDUCATION = [
@@ -21,6 +41,20 @@ const DEFAULT_EDUCATION = [
   { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "Vocational/Trade Courses", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" },
   { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "College", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" },
   { educationalBackgroundId: 0, personalDataId: 0, levelOfEducation: "Graduate Studies", nameOfSchool: "", degreeCourse: "", scoreGrade: "", yearGraduated: "", fromDate: "", toDate: "", honorsReceived: "" }
+];
+
+const LEARNING_DEVELOPMENT_TYPES = [
+  "Technical Training",
+  "Management Training",
+  "Leadership Training",
+  "Skills Training",
+  "Seminar",
+  "Workshop",
+  "Conference",
+  "Orientation",
+  "Certification Training",
+  "Continuing Professional Development (CPD)",
+  "Other",
 ];
 
 type PersonalDataProps = {
@@ -1927,6 +1961,14 @@ export default function PersonalData({
     });
   };
 
+  const sanitizeSectionField = (fieldName: string, value: string) => {
+    if (fieldName.toLowerCase().includes("address")) return sanitizeAddress(value);
+    if (fieldName.toLowerCase().includes("name") || fieldName === "positionTitle") {
+      return sanitizeText(value, 150);
+    }
+    return sanitizeText(value, 200);
+  };
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -1937,19 +1979,99 @@ export default function PersonalData({
     const name = (target as HTMLInputElement).name || (target as HTMLSelectElement).name || (target as HTMLTextAreaElement).name;
 
     const isCheckbox = (target as HTMLInputElement).type === "checkbox";
+    const isRadio = (target as HTMLInputElement).type === "radio";
+    const isSelect = target.tagName === "SELECT";
     const rawValue = isCheckbox ? (target as HTMLInputElement).checked : (target as HTMLInputElement).value;
+
+    const sanitizePersonalField = (fieldName: string, value: string) => {
+      if (["dob", "govIdDate", "q35bDateFiled"].includes(fieldName)) {
+        return sanitizeDate(value);
+      }
+      if (["skillOrHobby", "distinction", "association"].includes(fieldName)) {
+        return sanitizeText(value, 200);
+      }
+      if (fieldName.endsWith("Details") || fieldName === "q35bStatus") {
+        return sanitizeText(value, 200);
+      }
+      if (fieldName === "govIdNumber") return sanitizeNumbers(value, 50);
+      if (fieldName === "govIdType") return sanitizeText(value, 100);
+      if (fieldName === "govIdPlace") return sanitizeCity(value, 100);
+      if (fieldName === "email") return sanitizeEmail(value);
+      if (
+        [
+          "surname",
+          "firstname",
+          "middlename",
+          "spouseSurname",
+          "spouseFirstname",
+          "spouseMiddlename",
+          "fatherSurname",
+          "fatherFirstname",
+          "fatherMiddlename",
+          "motherSurname",
+          "motherFirstname",
+          "motherMiddlename",
+        ].includes(fieldName)
+      ) {
+        return sanitizeName(value, 100);
+      }
+      if (fieldName === "extname") return sanitizeShortName(value);
+      if (["employeeNo", "biometricNo", "agencyEmpNo", "sssNo"].includes(fieldName)) {
+        return sanitizeNumbers(value);
+      }
+      if (fieldName === "pob") return sanitizeCity(value);
+      if (["resAddress", "permAddress"].includes(fieldName)) {
+        return sanitizeAddress(value);
+      }
+      if (fieldName === "spouseBusinessAddress") {
+        return sanitizeAddress(value);
+      }
+      if (fieldName === "spouseTelNo") return formatTelephoneNo(value);
+      if (["resZip", "permZip"].includes(fieldName)) {
+        return sanitizeZipCode(value);
+      }
+      if (fieldName === "mobileNo") return formatPhoneNo(value);
+      if (fieldName === "telNo") return formatTelephoneNo(value);
+      if (fieldName === "gsisId") return formatGsisNo(value);
+      if (fieldName === "pagibigId") return formatPagibigNo(value);
+      if (fieldName === "philhealthNo") return formatPhilhealthNo(value);
+      if (fieldName === "tinNo") return formatTinNo(value);
+      if (["height", "weight"].includes(fieldName)) return sanitizeDecimal(value, 8);
+      return sanitizeText(value, 200);
+    };
 
     // Auto-convert numeric fields (only apply for non-checkbox inputs)
     const numericFields = ["sex_id", "civilStatus_id", "height", "weight"];
 
-    const valueForSet = !isCheckbox && numericFields.includes(name) ? Number(rawValue) : rawValue;
+    const sanitizedValue = !isCheckbox && !isRadio && !isSelect && typeof rawValue === "string"
+      ? sanitizePersonalField(name, rawValue)
+      : rawValue;
+    const valueForSet = !isCheckbox && numericFields.includes(name)
+      ? Number(sanitizedValue)
+      : sanitizedValue;
 
-    // Special-case: if user answered NO to q35b (criminally charged), clear Date Filed
-    if (name === "q35b" && valueForSet === "no") {
+    const detailsFieldByAnswer: Record<string, string> = {
+      q34a: "q34aDetails",
+      q34b: "q34bDetails",
+      q35a: "q35aDetails",
+      q35b: "q35bDetails",
+      q36: "q36Details",
+      q37a: "q37aDetails",
+      q37b: "q37bDetails",
+      q37c: "q37cDetails",
+      q38: "q38Details",
+      q39a: "q39aDetails",
+      q39b: "q39bDetails",
+      q39c: "q39cDetails",
+    };
+    const detailsField = detailsFieldByAnswer[name];
+
+    if (valueForSet === "no" && (detailsField || name === "q35b")) {
       setForm((prev) => ({
         ...prev,
         [name]: valueForSet,
-        q35bDateFiled: "",
+        ...(detailsField ? { [detailsField]: "" } : {}),
+        ...(name === "q35b" ? { q35bDateFiled: "" } : {}),
       }));
     } else {
       setForm((prev) => ({
@@ -2906,7 +3028,7 @@ export default function PersonalData({
               value={row.childFullname}
               onChange={(e) => {
                 const newChildren = [...children];
-                newChildren[i].childFullname = e.target.value;
+                newChildren[i].childFullname = sanitizeName(e.target.value, 100);
                 setChildren(newChildren);
               }}
               disabled={isDisabled}
@@ -2919,7 +3041,7 @@ export default function PersonalData({
               value={row.dob}
               onChange={(e) => {
                 const newChildren = [...children];
-                newChildren[i].dob = e.target.value;
+                newChildren[i].dob = sanitizeDate(e.target.value);
                 setChildren(newChildren);
               }}
               disabled={isDisabled}
@@ -2935,6 +3057,7 @@ export default function PersonalData({
         ))}
         <button
           type="button"
+          className={styles.addBtn}
           onClick={() => handleAdd(setChildren, { childrenId: 0, personalDataId: 0, childFullname: "", dob: "" })}
           disabled={isDisabled}
         >
@@ -3011,99 +3134,110 @@ export default function PersonalData({
         <h2>IV. Educational Background</h2>
         {education.map((row, i) => (
           <div key={i} className={styles.row}>
-            <input
-              placeholder="Level (Elem/HS/College/etc.)"
-              name="levelOfEducation"
-              value={row.levelOfEducation}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].levelOfEducation = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-              readOnly
-            />
-            <input
-              placeholder="Name of School"
-              name="nameOfSchool"
-              value={row.nameOfSchool}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].nameOfSchool = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Basic Education/Degree/Course"
-              name="degreeCourse"
-              value={row.degreeCourse}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].degreeCourse = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Score/Grade"
-              name="scoreGrade"
-              value={row.scoreGrade}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].scoreGrade = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Year Graduated"
-              name="yearGraduated"
-              value={row.yearGraduated}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].yearGraduated = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="From"
-              title="From Date Educational Background (mm/dd/yyyy)"
-              name="fromDate"
-              value={row.fromDate}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].fromDate = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="To"
-              title="To Date Educational Background (mm/dd/yyyy)"
-              name="toDate"
-              value={row.toDate}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].toDate = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Scholarship/Honors"
-              name="honorsReceived"
-              value={row.honorsReceived}
-              onChange={(e) => {
-                const newEducation = [...education];
-                newEducation[i].honorsReceived = e.target.value;
-                setEducation(newEducation);
-              }}
-              disabled={isDisabled}
-            />
+            <label>
+              Level
+              <input
+                name="levelOfEducation"
+                value={row.levelOfEducation}
+                disabled={isDisabled}
+                readOnly
+              />
+            </label>
+            <label>
+              Name of School
+              <input
+                name="nameOfSchool"
+                value={row.nameOfSchool}
+                onChange={(e) => {
+                  const newEducation = [...education];
+                  newEducation[i].nameOfSchool = sanitizeSectionField("nameOfSchool", e.target.value);
+                  setEducation(newEducation);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Degree/Course
+              <input
+                name="degreeCourse"
+                value={row.degreeCourse}
+                onChange={(e) => {
+                  const newEducation = [...education];
+                  newEducation[i].degreeCourse = sanitizeSectionField("degreeCourse", e.target.value);
+                  setEducation(newEducation);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Score/Grade
+              <input
+                name="scoreGrade"
+                value={row.scoreGrade}
+                onChange={(e) => {
+                  const newEducation = [...education];
+                  newEducation[i].scoreGrade = sanitizeSectionField("scoreGrade", e.target.value);
+                  setEducation(newEducation);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Year Graduated
+              <input
+                name="yearGraduated"
+                value={row.yearGraduated}
+                onChange={(e) => {
+                  const newEducation = [...education];
+                  newEducation[i].yearGraduated = sanitizeNumbers(e.target.value, 4);
+                  setEducation(newEducation);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              From
+              <input
+                type="date"
+                title="From Date Educational Background (mm/dd/yyyy)"
+                name="fromDate"
+                value={row.fromDate}
+                onChange={(e) => {
+                  const newEducation = [...education];
+                  newEducation[i].fromDate = sanitizeDate(e.target.value);
+                  setEducation(newEducation);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              To
+              <input
+                type="date"
+                title="To Date Educational Background (mm/dd/yyyy)"
+                name="toDate"
+                value={row.toDate}
+                onChange={(e) => {
+                  const newEducation = [...education];
+                  newEducation[i].toDate = sanitizeDate(e.target.value);
+                  setEducation(newEducation);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Scholarship/Honors
+              <input
+                name="honorsReceived"
+                value={row.honorsReceived}
+                onChange={(e) => {
+                  const newEducation = [...education];
+                  newEducation[i].honorsReceived = sanitizeSectionField("honorsReceived", e.target.value);
+                  setEducation(newEducation);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
             {/* <button
               type="button"
               onClick={() => handleRemoveEducation(i)}
@@ -3140,77 +3274,89 @@ export default function PersonalData({
         <h2>V. Civil Service Eligibility</h2>
         {civilServices.map((row, i) => (
           <div key={i} className={styles.row}>
-            <input
-              placeholder="Career Service"
-              name="careerServiceName"
-              value={row.careerServiceName}
-              onChange={(e) => {
-                const newList = [...civilServices];
-                newList[i].careerServiceName = e.target.value;
-                setCivilServices(newList);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="number"
-              placeholder="Rating"
-              name="civilServiceRating"
-              value={row.civilServiceRating}
-              onChange={(e) => {
-                const newList = [...civilServices];
-                newList[i].civilServiceRating = Number(e.target.value);
-                setCivilServices(newList);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="Date of Exam"
-              title="Date of Exam (mm/dd/yyyy)"
-              name="dateOfExamination"
-              value={row.dateOfExamination}
-              onChange={(e) => {
-                const newList = [...civilServices];
-                newList[i].dateOfExamination = e.target.value;
-                setCivilServices(newList);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Place of Exam"
-              name="placeOfExamination"
-              value={row.placeOfExamination}
-              onChange={(e) => {
-                const newList = [...civilServices];
-                newList[i].placeOfExamination = e.target.value;
-                setCivilServices(newList);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="License Number"
-              name="licenseNumber"
-              value={row.licenseNumber}
-              onChange={(e) => {
-                const newList = [...civilServices];
-                newList[i].licenseNumber = e.target.value;
-                setCivilServices(newList);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              title="Date of Validity (mm/dd/yyyy)"
-              placeholder="Date of Validity"
-              name="licenseValidityDate"
-              value={row.licenseValidityDate}
-              onChange={(e) => {
-                const newList = [...civilServices];
-                newList[i].licenseValidityDate = e.target.value;
-                setCivilServices(newList);
-              }}
-              disabled={isDisabled}
-            />
+            <label>
+              Career Service
+              <input
+                name="careerServiceName"
+                value={row.careerServiceName}
+                onChange={(e) => {
+                  const newList = [...civilServices];
+                  newList[i].careerServiceName = sanitizeSectionField("careerServiceName", e.target.value);
+                  setCivilServices(newList);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Rating
+              <input
+                type="number"
+                name="civilServiceRating"
+                value={row.civilServiceRating}
+                onChange={(e) => {
+                  const newList = [...civilServices];
+                  newList[i].civilServiceRating = Number(sanitizeDecimal(e.target.value, 5));
+                  setCivilServices(newList);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Date of Exam
+              <input
+                type="date"
+                title="Date of Exam (mm/dd/yyyy)"
+                name="dateOfExamination"
+                value={row.dateOfExamination}
+                onChange={(e) => {
+                  const newList = [...civilServices];
+                  newList[i].dateOfExamination = sanitizeDate(e.target.value);
+                  setCivilServices(newList);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Place of Exam
+              <input
+                name="placeOfExamination"
+                value={row.placeOfExamination}
+                onChange={(e) => {
+                  const newList = [...civilServices];
+                  newList[i].placeOfExamination = sanitizeSectionField("placeOfExamination", e.target.value);
+                  setCivilServices(newList);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              License Number
+              <input
+                name="licenseNumber"
+                value={row.licenseNumber}
+                onChange={(e) => {
+                  const newList = [...civilServices];
+                  newList[i].licenseNumber = sanitizeText(e.target.value, 50);
+                  setCivilServices(newList);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Date of Validity
+              <input
+                type="date"
+                title="Date of Validity (mm/dd/yyyy)"
+                name="licenseValidityDate"
+                value={row.licenseValidityDate}
+                onChange={(e) => {
+                  const newList = [...civilServices];
+                  newList[i].licenseValidityDate = sanitizeDate(e.target.value);
+                  setCivilServices(newList);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
             <button
               type="button"
               onClick={() => handleRemoveCivilService(i)}
@@ -3222,6 +3368,7 @@ export default function PersonalData({
         ))}
         <button
           type="button"
+          className={`${styles.addBtn} ${styles.civilServiceAddButton}`}
           onClick={() =>
             handleAdd(setCivilServices, {
               civilServiceEligibilityId: 0,
@@ -3245,134 +3392,127 @@ export default function PersonalData({
         <h2>VI. Work Experience</h2>
         {workExperience.map((row, i) => (
           <div key={i} className={styles.row}>
-            <input
-              type="date"
-              placeholder="From"
-              title="From Date Work Experience (mm/dd/yyyy)"
-              name="fromDate"
-              value={row.fromDate}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                newWork[i].fromDate = e.target.value;
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="To"
-              title="To Date Work Experience (mm/dd/yyyy)"
-              name="toDate"
-              value={row.toDate}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                newWork[i].toDate = e.target.value;
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Position Title"
-              name="positionTitle"
-              value={row.positionTitle}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                newWork[i].positionTitle = e.target.value;
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Agency Name"
-              name="agencyName"
-              value={row.agencyName}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                newWork[i].agencyName = e.target.value;
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
-              placeholder="Monthly Salary"
-              name="monthlySalary"
-              value={row.monthlySalary ?? ""}
-              onKeyDown={(e) => {
-                const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
-                if (allowed.includes(e.key)) return;
-                if (/^[0-9.]$/.test(e.key)) return;
-                e.preventDefault();
-              }}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                const input = e.target as HTMLInputElement;
-                if (input.value === "") {
-                  newWork[i].monthlySalary = null;
-                } else {
-                  const num = input.valueAsNumber;
-                  if (!Number.isFinite(num)) return;
-                  newWork[i].monthlySalary = num;
-                }
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="number"
-              step="1"
-              min="0"
-              inputMode="numeric"
-              placeholder="Pay Grade"
-              name="payGrade"
-              value={row.payGrade ?? ""}
-              onKeyDown={(e) => {
-                const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
-                if (allowed.includes(e.key)) return;
-                if (/^[0-9]$/.test(e.key)) return;
-                e.preventDefault();
-              }}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                const input = e.target as HTMLInputElement;
-                if (input.value === "") {
-                  newWork[i].payGrade = null;
-                } else {
-                  const num = input.valueAsNumber;
-                  if (!Number.isFinite(num)) return;
-                  newWork[i].payGrade = Math.floor(num);
-                }
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Status"
-              name="workStatus"
-              value={row.workStatus}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                newWork[i].workStatus = e.target.value;
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Gov’t Service (Y/N)"
-              name="boolGovernmentService"
-              value={row.boolGovernmentService}
-              onChange={(e) => {
-                const newWork = [...workExperience];
-                newWork[i].boolGovernmentService = e.target.value;
-                setWorkExperience(newWork);
-              }}
-              disabled={isDisabled}
-            />
+            <label>
+              From Date
+              <input
+                type="date"
+                title="From Date Work Experience (mm/dd/yyyy)"
+                name="fromDate"
+                value={row.fromDate}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  newWork[i].fromDate = sanitizeDate(e.target.value);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              To Date
+              <input
+                type="date"
+                title="To Date Work Experience (mm/dd/yyyy)"
+                name="toDate"
+                value={row.toDate}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  newWork[i].toDate = sanitizeDate(e.target.value);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Position Title
+              <input
+                name="positionTitle"
+                value={row.positionTitle}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  newWork[i].positionTitle = sanitizeSectionField("positionTitle", e.target.value);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Agency Name
+              <input
+                name="agencyName"
+                value={row.agencyName}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  newWork[i].agencyName = sanitizeSectionField("agencyName", e.target.value);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Monthly Salary
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                name="monthlySalary"
+                value={row.monthlySalary ?? ""}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  const sanitizedValue = sanitizeDecimal(e.target.value, 12);
+                  newWork[i].monthlySalary = sanitizedValue === "" ? null : Number(sanitizedValue);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Pay Grade
+              <input
+                type="number"
+                step="1"
+                min="0"
+                inputMode="numeric"
+                name="payGrade"
+                value={row.payGrade ?? ""}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  const sanitizedValue = sanitizeNumbers(e.target.value, 3);
+                  newWork[i].payGrade = sanitizedValue === "" ? null : Number(sanitizedValue);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Status
+              <input
+                name="workStatus"
+                value={row.workStatus}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  newWork[i].workStatus = sanitizeText(e.target.value, 50);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Government Service (Y/N)
+              <input
+                name="boolGovernmentService"
+                value={row.boolGovernmentService}
+                onChange={(e) => {
+                  const newWork = [...workExperience];
+                  newWork[i].boolGovernmentService = sanitizeText(e.target.value, 3);
+                  setWorkExperience(newWork);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
             <button
               type="button"
+              className={styles.compactRemoveButton}
               onClick={() => handleRemoveWorkExperience(i)}
               disabled={isDisabled}
             >
@@ -3382,6 +3522,7 @@ export default function PersonalData({
         ))} 
         <button
           type="button"
+          className={`${styles.addBtn} ${styles.workExperienceAddButton}`}
           onClick={() =>
             handleAdd(setWorkExperience, {
               workExperienceId: 0,
@@ -3406,85 +3547,84 @@ export default function PersonalData({
       <section>
         <h2>VII. Voluntary Work</h2>
         {voluntaryWork.map((row, i) => (
-          <div key={i} className={styles.row}>
-            <input
-              placeholder="Organization Name & Address"
-              name="organizationName"
-              value={row.organizationName}
-              onChange={(e) => {
-                const newVol = [...voluntaryWork];
-                newVol[i].organizationName = e.target.value;
-                setVoluntaryWork(newVol);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="From"
-              title="From Date Voluntary Experience (mm/dd/yyyy)"
-              name="fromDate"
-              value={row.fromDate}
-              onChange={(e) => {
-                const newVol = [...voluntaryWork];
-                newVol[i].fromDate = e.target.value;
-                setVoluntaryWork(newVol);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="To"
-              title="To Date Voluntary Experience (mm/dd/yyyy)"
-              name="toDate"
-              value={row.toDate}
-              onChange={(e) => {
-                const newVol = [...voluntaryWork];
-                newVol[i].toDate = e.target.value;
-                setVoluntaryWork(newVol);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="number"
-              step="1"
-              min="0"
-              inputMode="numeric"
-              placeholder="Hours"
-              name="voluntaryHrs"
-              value={row.voluntaryHrs ?? ""}
-              onKeyDown={(e) => {
-                const allowed = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab", "Home", "End"];
-                if (allowed.includes(e.key)) return;
-                if (/^[0-9]$/.test(e.key)) return;
-                e.preventDefault();
-              }}
-              onChange={(e) => {
-                const newVol = [...voluntaryWork];
-                const input = e.target as HTMLInputElement;
-                if (input.value === "") {
-                  newVol[i].voluntaryHrs = null;
-                } else {
-                  const num = input.valueAsNumber;
-                  if (!Number.isFinite(num)) return;
-                  newVol[i].voluntaryHrs = Math.floor(num);
-                }
-                setVoluntaryWork(newVol);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Position/Nature of Work"
-              name="positionTitle"
-              value={row.positionTitle}
-              onChange={(e) => {
-                const newVol = [...voluntaryWork];
-                newVol[i].positionTitle = e.target.value;
-                setVoluntaryWork(newVol);
-              }}
-              disabled={isDisabled}
-            />
+          <div key={i} className={`${styles.row} ${styles.voluntaryWorkRow}`}>
+            <label>
+              Organization Name & Address
+              <input
+                name="organizationName"
+                value={row.organizationName}
+                onChange={(e) => {
+                  const newVol = [...voluntaryWork];
+                  newVol[i].organizationName = sanitizeSectionField("organizationName", e.target.value);
+                  setVoluntaryWork(newVol);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              From Date
+              <input
+                type="date"
+                title="From Date Voluntary Experience (mm/dd/yyyy)"
+                name="fromDate"
+                value={row.fromDate}
+                onChange={(e) => {
+                  const newVol = [...voluntaryWork];
+                  newVol[i].fromDate = sanitizeDate(e.target.value);
+                  setVoluntaryWork(newVol);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              To Date
+              <input
+                type="date"
+                title="To Date Voluntary Experience (mm/dd/yyyy)"
+                name="toDate"
+                value={row.toDate}
+                onChange={(e) => {
+                  const newVol = [...voluntaryWork];
+                  newVol[i].toDate = sanitizeDate(e.target.value);
+                  setVoluntaryWork(newVol);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Hours
+              <input
+                type="number"
+                step="1"
+                min="0"
+                inputMode="numeric"
+                name="voluntaryHrs"
+                value={row.voluntaryHrs ?? ""}
+                onChange={(e) => {
+                  const newVol = [...voluntaryWork];
+                  const sanitizedValue = sanitizeNumbers(e.target.value, 5);
+                  newVol[i].voluntaryHrs = sanitizedValue === "" ? null : Number(sanitizedValue);
+                  setVoluntaryWork(newVol);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
+            <label>
+              Position/Nature of Work
+              <input
+                name="positionTitle"
+                value={row.positionTitle}
+                onChange={(e) => {
+                  const newVol = [...voluntaryWork];
+                  newVol[i].positionTitle = sanitizeSectionField("positionTitle", e.target.value);
+                  setVoluntaryWork(newVol);
+                }}
+                disabled={isDisabled}
+              />
+            </label>
             <button
               type="button"
+              className={styles.compactRemoveButton}
               onClick={() => handleRemoveVoluntaryWork(i)}
               disabled={isDisabled}
             >
@@ -3494,6 +3634,7 @@ export default function PersonalData({
         ))}
         <button
           type="button"
+          className={styles.addBtn}
           onClick={() =>
             handleAdd(setVoluntaryWork, {
               voluntaryWorkId: 0,
@@ -3515,89 +3656,127 @@ export default function PersonalData({
       <section>
         <h2>VIII. Learning & Development</h2>
         {trainings.map((row, i) => (
-          <div key={i} className={styles.row}>
-            <input
-              placeholder="Title of Program"
-              name="programName"
-              value={row.programName}
-              onChange={(e) => {
-                const newTrain = [...trainings];
-                newTrain[i].programName = e.target.value;
-                setTrainings(newTrain);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="From"
-              title="From Date Learning & Development (mm/dd/yyyy)"
-              name="fromDate"
-              value={row.fromDate}
-              onChange={(e) => {
-                const newTrain = [...trainings];
-                newTrain[i].fromDate = e.target.value;
-                setTrainings(newTrain);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              type="date"
-              placeholder="To"
-              title="To Date Learning & Development (mm/dd/yyyy)"
-              name="toDate"
-              value={row.toDate}
-              onChange={(e) => {
-                const newTrain = [...trainings];
-                newTrain[i].toDate = e.target.value;
-                setTrainings(newTrain);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Hours"
-              name="lndHrs"
-              type="number"
-              value={row.lndHrs !== null ? String(row.lndHrs) : ""}
-              onChange={(e) => {
-                const newTrain = [...trainings];
-                newTrain[i].lndHrs = e.target.value !== "" ? Number(e.target.value) : null;
-                setTrainings(newTrain);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Type"
-              name="lndType"
-              value={row.lndType}
-              onChange={(e) => {
-                const newTrain = [...trainings];
-                newTrain[i].lndType = e.target.value;
-                setTrainings(newTrain);
-              }}
-              disabled={isDisabled}
-            />
-            <input
-              placeholder="Conducted By"
-              name="conductedBy"
-              value={row.conductedBy}
-              onChange={(e) => {
-                const newTrain = [...trainings];
-                newTrain[i].conductedBy = e.target.value;
-                setTrainings(newTrain);
-              }}
-              disabled={isDisabled}
-            />
-            <button
-              type="button"
-              onClick={() => handleRemoveTraining(i)}
-              disabled={isDisabled}
-            >
-              Remove
-            </button>
+          <div key={i} className={styles.learningDevelopmentRow}>
+            <div className={styles.learningDevelopmentTitles} aria-hidden="true">
+              <span>Title of Program</span>
+              <span>From Date</span>
+              <span>To Date</span>
+              <span>Hours</span>
+              <span>Type</span>
+              <span>Conducted By</span>
+            </div>
+            <div className={styles.learningDevelopmentFields}>
+              <input
+                name="programName"
+                aria-label="Title of Program"
+                value={row.programName}
+                onChange={(e) => {
+                  const newTrain = [...trainings];
+                  newTrain[i].programName = sanitizeSectionField("programName", e.target.value);
+                  setTrainings(newTrain);
+                }}
+                disabled={isDisabled}
+              />
+              <input
+                type="date"
+                title="From Date Learning & Development (mm/dd/yyyy)"
+                name="fromDate"
+                aria-label="From Date"
+                value={row.fromDate}
+                onChange={(e) => {
+                  const newTrain = [...trainings];
+                  newTrain[i].fromDate = sanitizeDate(e.target.value);
+                  setTrainings(newTrain);
+                }}
+                disabled={isDisabled}
+              />
+              <input
+                type="date"
+                title="To Date Learning & Development (mm/dd/yyyy)"
+                name="toDate"
+                aria-label="To Date"
+                value={row.toDate}
+                onChange={(e) => {
+                  const newTrain = [...trainings];
+                  newTrain[i].toDate = sanitizeDate(e.target.value);
+                  setTrainings(newTrain);
+                }}
+                disabled={isDisabled}
+              />
+              <input
+                type="number"
+                name="lndHrs"
+                aria-label="Hours"
+                value={row.lndHrs !== null ? String(row.lndHrs) : ""}
+                onChange={(e) => {
+                  const newTrain = [...trainings];
+                  const sanitizedValue = sanitizeNumbers(e.target.value, 5);
+                  newTrain[i].lndHrs = sanitizedValue === "" ? null : Number(sanitizedValue);
+                  setTrainings(newTrain);
+                }}
+                disabled={isDisabled}
+              />
+              <div className={styles.learningDevelopmentTypeField}>
+                <select
+                  name="lndType"
+                  aria-label="Type"
+                  value={LEARNING_DEVELOPMENT_TYPES.includes(row.lndType) ? row.lndType : row.lndType ? "Other" : ""}
+                  onChange={(e) => {
+                    const newTrain = [...trainings];
+                    newTrain[i].lndType = e.target.value;
+                    setTrainings(newTrain);
+                  }}
+                  disabled={isDisabled}
+                >
+                  <option value="">Select Type</option>
+                  {LEARNING_DEVELOPMENT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+                {(row.lndType === "Other" || (row.lndType !== "" && !LEARNING_DEVELOPMENT_TYPES.includes(row.lndType))) && (
+                  <input
+                    name="lndTypeOther"
+                    aria-label="Other Learning & Development Type"
+                    placeholder="Specify other type"
+                    value={row.lndType === "Other" ? "" : row.lndType}
+                    onChange={(e) => {
+                      const newTrain = [...trainings];
+                      newTrain[i].lndType = sanitizeText(e.target.value, 100);
+                      setTrainings(newTrain);
+                    }}
+                    disabled={isDisabled}
+                  />
+                )}
+              </div>
+              <input
+                name="conductedBy"
+                aria-label="Conducted By"
+                value={row.conductedBy}
+                onChange={(e) => {
+                  const newTrain = [...trainings];
+                  newTrain[i].conductedBy = sanitizeSectionField("conductedBy", e.target.value);
+                  setTrainings(newTrain);
+                }}
+                disabled={isDisabled}
+              />
+            </div>
+            <div className={styles.learningDevelopmentActions}>
+              <button
+                type="button"
+                className={styles.learningDevelopmentRemoveButton}
+                onClick={() => handleRemoveTraining(i)}
+                disabled={isDisabled}
+              >
+                Remove
+              </button>
+            </div>
           </div>
         ))}
         <button
           type="button"
+          className={`${styles.addBtn} ${styles.learningDevelopmentAddButton}`}
           onClick={() =>
             handleAdd(setTrainings, {
               learningAndDevelopmentId: 0,
@@ -3697,7 +3876,7 @@ export default function PersonalData({
             name="q34aDetails"
             value={form.q34aDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q34a !== "yes"}
           />
 
           <p>
@@ -3732,7 +3911,7 @@ export default function PersonalData({
             name="q34bDetails"
             value={form.q34bDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q34b !== "yes"}
           />
         </div>
 
@@ -3769,7 +3948,7 @@ export default function PersonalData({
             name="q35aDetails"
             value={form.q35aDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q35a !== "yes"}
           />
 
           <p>35b. Have you ever been criminally charged before any court?</p>
@@ -3801,7 +3980,7 @@ export default function PersonalData({
             name="q35bDetails"
             value={form.q35bDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q35b !== "yes"}
           />
           <div className={styles.row}>
             <label>
@@ -3865,7 +4044,7 @@ export default function PersonalData({
             name="q36Details"
             value={form.q36Details ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q36 !== "yes"}
           />
         </div>
 
@@ -3905,7 +4084,7 @@ export default function PersonalData({
             name="q37aDetails"
             value={form.q37aDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q37a !== "yes"}
           />
 
           <p>
@@ -3940,7 +4119,7 @@ export default function PersonalData({
             name="q37bDetails"
             value={form.q37bDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q37b !== "yes"}
           />
 
           <p>
@@ -3976,7 +4155,7 @@ export default function PersonalData({
             name="q37cDetails"
             value={form.q37cDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q37c !== "yes"}
           />
         </div>
 
@@ -4014,7 +4193,7 @@ export default function PersonalData({
             name="q38Details"
             value={form.q38Details ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q38 !== "yes"}
           />
         </div>
 
@@ -4055,7 +4234,7 @@ export default function PersonalData({
             name="q39aDetails"
             value={form.q39aDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q39a !== "yes"}
           />
 
           <p>b. Are you a person with disability?</p>
@@ -4087,7 +4266,7 @@ export default function PersonalData({
             name="q39bDetails"
             value={form.q39bDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q39b !== "yes"}
           />
 
           <p>c. Are you a solo parent?</p>
@@ -4119,7 +4298,7 @@ export default function PersonalData({
             name="q39cDetails"
             value={form.q39cDetails ?? ""}
             onChange={handleChange}
-            disabled={isDisabled}
+            disabled={isDisabled || form.q39c !== "yes"}
           />
         </div>
       </section>
@@ -4135,7 +4314,7 @@ export default function PersonalData({
               value={row.refName}
               onChange={(e) => {
                 const newReferences = [...references];
-                newReferences[i].refName = e.target.value;
+                newReferences[i].refName = sanitizeSectionField("refName", e.target.value);
                 setReferences(newReferences);
               }}
               disabled={isDisabled}
@@ -4146,7 +4325,7 @@ export default function PersonalData({
               value={row.address}
               onChange={(e) => {
                 const newReferences = [...references];
-                newReferences[i].address = e.target.value;
+                newReferences[i].address = sanitizeAddress(e.target.value);
                 setReferences(newReferences);
               }}
               disabled={isDisabled}
@@ -4157,7 +4336,7 @@ export default function PersonalData({
               value={row.contactNo}
               onChange={(e) => {
                 const newReferences = [...references];
-                newReferences[i].contactNo = e.target.value;
+                newReferences[i].contactNo = formatTelephoneNo(e.target.value);
                 setReferences(newReferences);
               }}
               disabled={isDisabled}
@@ -4173,6 +4352,7 @@ export default function PersonalData({
         ))}
         <button
           type="button"
+          className={styles.addBtn}
           onClick={() =>
             handleAdd(setReferences, { referencesId: 0, personalDataId: Number(form.personalDataId) || 0, refName: "", address: "", contactNo: "" })
           }

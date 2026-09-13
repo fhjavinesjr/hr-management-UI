@@ -14,6 +14,13 @@
         padding: 0.75rem 0;    // add vertical padding
     }
 
+      .beginningBalanceControls {
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
+
     .formGroup {
         display: flex;
         flex-direction: column;
@@ -52,6 +59,11 @@
             }
         }
 
+    }
+
+    .asOfDateGroup {
+      flex: 0 1 220px;
+      min-width: 220px;
     }
 
     /* Tabs */

@@ -483,17 +483,13 @@ export default function Separation({employees, userRole, selectedEmployee, separ
               type="text"
               list={"employee-list"}
               placeholder="Employee No / Lastname"
-              value={
-                ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
-                  ? inputValueEmployeeInterviewer // ✅ Admin can type freely
-                  : selectedEmployeeInterviewer
-                  ? `[${selectedEmployeeInterviewer.employeeNo}] ${selectedEmployeeInterviewer.fullName}`
-                  : ""
-              }
-              readOnly={((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))} // ✅ Non-admin can't edit
+              value={selectedEmployeeInterviewer
+                ? `[${selectedEmployeeInterviewer.employeeNo}] ${selectedEmployeeInterviewer.fullName}`
+                : inputValueEmployeeInterviewer}
+              readOnly={isDisabled}
               onChange={(e) => {
-                if (((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
-                  setInputValueEmployeeInterviewer(e.target.value); // ✅ Track admin typing
+                if (!isDisabled) {
+                  setInputValueEmployeeInterviewer(e.target.value);
 
                   const selected = employees?.find(
                     (emp) =>
@@ -539,17 +535,13 @@ export default function Separation({employees, userRole, selectedEmployee, separ
               type="text"
               list={"employee-list"}
               placeholder="Employee No / Lastname"
-              value={
-                ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
-                  ? inputValueProcessedBy // ✅ Admin can type freely
-                  : selectedProcessedBy
-                  ? `[${selectedProcessedBy.employeeNo}] ${selectedProcessedBy.fullName}`
-                  : ""
-              }
-              readOnly={((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))} // ✅ Non-admin can't edit
+              value={selectedProcessedBy
+                ? `[${selectedProcessedBy.employeeNo}] ${selectedProcessedBy.fullName}`
+                : inputValueProcessedBy}
+              readOnly={isDisabled}
               onChange={(e) => {
-                if (((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
-                  setInputValueProcessedBy(e.target.value); // ✅ Track admin typing
+                if (!isDisabled) {
+                  setInputValueProcessedBy(e.target.value);
 
                   const selected = employees?.find(
                     (emp) =>
@@ -578,17 +570,13 @@ export default function Separation({employees, userRole, selectedEmployee, separ
               type="text"
               list={"employee-list"}
               placeholder="Employee No / Lastname"
-              value={
-                ((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))
-                  ? inputValueApprovedBy // ✅ Admin can type freely
-                  : selectedApprovedBy
-                  ? `[${selectedApprovedBy.employeeNo}] ${selectedApprovedBy.fullName}`
-                  : ""
-              }
-              readOnly={((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))} // ✅ Non-admin can't edit
+              value={selectedApprovedBy
+                ? `[${selectedApprovedBy.employeeNo}] ${selectedApprovedBy.fullName}`
+                : inputValueApprovedBy}
+              readOnly={isDisabled}
               onChange={(e) => {
-                if (((!canAdd && !canEdit) || (canAdd && !canEdit) || (!canAdd && canEdit))) {
-                  setInputValueApprovedBy(e.target.value); // ✅ Track admin typing
+                if (!isDisabled) {
+                  setInputValueApprovedBy(e.target.value);
 
                   const selected = employees?.find(
                     (emp) =>

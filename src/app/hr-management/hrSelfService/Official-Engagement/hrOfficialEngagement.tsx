@@ -9,6 +9,7 @@ import tableStyles from "@/styles/tables.module.scss";
 import { Employee } from "@/lib/types/Employee";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { sanitizeDate } from "@/lib/utils/inputSanitizers";
 import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
@@ -320,11 +321,33 @@ export default function HROfficialEngagementModule() {
               <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date From</label>
-                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      const sanitizedDate = sanitizeDate(e.target.value);
+                      setDateFrom(sanitizedDate);
+                      if (dateTo && sanitizedDate && dateTo < sanitizedDate) {
+                        setDateTo("");
+                      }
+                    }}
+                    className={styles.searchInput}
+                  />
                 </div>
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Date To</label>
-                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={styles.searchInput} />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => {
+                      const sanitizedDate = sanitizeDate(e.target.value);
+                      if (!dateFrom || !sanitizedDate || sanitizedDate >= dateFrom) {
+                        setDateTo(sanitizedDate);
+                      }
+                    }}
+                    className={styles.searchInput}
+                  />
                 </div>
                 <div className={styles.formGroup} style={{ width: "auto" }}>
                   <label>Type</label>

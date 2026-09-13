@@ -13,6 +13,7 @@ import { Employee } from "@/lib/types/Employee";
 import { PersonalDataModel } from "@/lib/types/PersonalData";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 import { SeparationModel } from "@/lib/types/Separation";
+import { sanitizeText } from "@/lib/utils/inputSanitizers";
 
 const API_BASE_URL_HRM = runtimeConfig.getApiUrl("hrm");
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
@@ -249,12 +250,13 @@ export default function EmploymentRecord() {
                   // disabled={isUserRuleset}
                   onChange={(e) => {
                     if (empCanAccess && !isUserRuleset) {
-                      setInputValue(e.target.value); // ✅ Track admin typing
+                      const sanitizedValue = sanitizeText(e.target.value, 150);
+                      setInputValue(sanitizedValue);
 
                       const selected = employees.find(
                         (emp) =>
                           `[${emp.employeeNo}] ${emp.fullName}`.toLowerCase() ===
-                          e.target.value.toLowerCase()
+                          sanitizedValue.toLowerCase()
                       );
                       if (selected) {
                         setSelectedEmployee({ ...selected, isSearched: false });
