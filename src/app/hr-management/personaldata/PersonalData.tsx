@@ -2311,8 +2311,9 @@ export default function PersonalData({
           await fetchEmploymentRecords();
         }
 
-        if(submitMethod === "POST") {
-          // Fetch employees
+        {
+          // Refresh after both create and update so Employee No changes are
+          // reflected immediately in the selector and local employee cache.
           const empRes = await fetchWithAuth(
             `${API_BASE_URL_HRM}/api/employees/basicInfo`
           );
@@ -2324,7 +2325,10 @@ export default function PersonalData({
           const employees: Employee[] = await empRes.json();
           const filteredEmployees = employees.filter((emp) => (emp.employeeNo ?? "").toLowerCase() !== "admin");
           localStorageUtil.setEmployees(filteredEmployees); //Store employees list to be used later in other module
-          const createdEmployee = filteredEmployees.find(emp => emp.employeeNo === form.employeeNo) || null;
+          const savedEmployeeId = employeeData.employeeId ?? selectedEmployee?.employeeId;
+          const createdEmployee = filteredEmployees.find(
+            (emp) => String(emp.employeeId) === String(savedEmployeeId)
+          ) ?? filteredEmployees.find((emp) => emp.employeeNo === employeeData.employeeNo) ?? null;
 
           if (createdEmployee && onEmployeeCreated) {
             onEmployeeCreated(createdEmployee); // 🚀 PASS BACK TO PARENT
