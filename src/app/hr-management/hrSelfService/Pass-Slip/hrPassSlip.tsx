@@ -200,6 +200,14 @@ export default function HRPassSlipModule() {
       Swal.fire({ icon: "warning", title: "Departure time is required" });
       return;
     }
+    if (!form.arrivalTime) {
+      Swal.fire({ icon: "warning", title: "Return time is required" });
+      return;
+    }
+    if (!form.details.trim()) {
+      Swal.fire({ icon: "warning", title: "Pass slip details are required" });
+      return;
+    }
     const departureTime = sanitizeTime(form.departureTime);
     const arrivalTime = sanitizeTime(form.arrivalTime);
     if (!departureTime) {
@@ -226,7 +234,7 @@ export default function HRPassSlipModule() {
         passSlipDate: form.passSlipDate,
         purpose: form.purpose,
         departureTime: `${departureTime}:00`,
-        arrivalTime: arrivalTime ? `${arrivalTime}:00` : "",
+        arrivalTime: `${arrivalTime}:00`,
         details: form.details,
         status: approvalData.approvedStatus || "Pending",
         approvedById: approvalData.approvedById,
@@ -236,8 +244,8 @@ export default function HRPassSlipModule() {
         recommendationRemarks: approvalData.recommendationMessage,
       };
       const url = isUpdate
-        ? `${API_BASE_URL_HRM}/api/pass-slip/update/${editingId}`
-        : `${API_BASE_URL_HRM}/api/pass-slip/create`;
+        ? `${API_BASE_URL_HRM}/api/pass-slip/hrm/update/${editingId}`
+        : `${API_BASE_URL_HRM}/api/pass-slip/hrm/create`;
       const method = isUpdate ? "PUT" : "POST";
       const res = await fetchWithAuth(url, {
         method,
@@ -679,12 +687,14 @@ export default function HRPassSlipModule() {
                               <td style={td}>{statusBadge(r.status)}</td>
                               <td style={td}>
                                 {/* HRM Edit/Delete intentionally have no status condition. */}
-                                <button
-                                  onClick={() => handlePrint(r.passSlipId)}
-                                  style={btnPrint}
-                                >
-                                  Print
-                                </button>
+                                {r.status?.toLowerCase() === "approved" && (
+                                  <button
+                                    onClick={() => handlePrint(r.passSlipId)}
+                                    style={btnPrint}
+                                  >
+                                    Print
+                                  </button>
+                                )}
                                 {canEdit && (
                                   <button
                                     onClick={() => handleEdit(r)}
@@ -797,6 +807,7 @@ export default function HRPassSlipModule() {
                             setForm({ ...form, arrivalTime: sanitizedTime });
                           }}
                           className={styles.inputField}
+                          required
                         />
                       </div>
                       <div className={styles.formGroup}>
@@ -808,6 +819,7 @@ export default function HRPassSlipModule() {
                           }
                           className={styles.inputField}
                           rows={3}
+                          required
                         />
                       </div>
                       <ApprovalSection

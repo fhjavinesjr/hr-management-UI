@@ -274,6 +274,8 @@ export default function ServiceRecord({
           onCancel={handleCancel}
           selectedEmployee={selectedEmployee}
           employeeAppointments={employeeAppointments}
+          canAdd={canAdd}
+          canEdit={canEdit}
         />
       )}
 

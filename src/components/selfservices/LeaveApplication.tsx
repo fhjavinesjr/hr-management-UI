@@ -2,6 +2,7 @@
 
 import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import React, { useState, useEffect, useMemo } from "react";
+import Swal from "sweetalert2";
 import styles from "@/styles/LeaveApplication.module.scss";
 import modalStyles from "@/styles/Modal.module.scss";
 import ApprovalSection, { ApprovalSectionData } from "@/lib/approvalSection/approvalSection";
@@ -42,6 +43,103 @@ function balanceLabelFor(leaveType: string): { label: string; key: keyof LeaveBa
   }
 }
 
+interface ExistingLeaveRecord {
+  id: number;
+  from: string;
+  to: string;
+  leaveType: string;
+  status: string;
+}
+
+interface StatutoryValidation {
+  errors: string[];
+  notices: string[];
+}
+
+function countWorkingDays(start: Date, end: Date): number {
+  if (end < start) return 0;
+  let days = 0;
+  const current = new Date(start);
+  current.setHours(0, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(0, 0, 0, 0);
+  while (current <= last) {
+    if (current.getDay() !== 0 && current.getDay() !== 6) days++;
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+}
+
+function validateStatutoryDates(
+  leaveType: string,
+  from: string,
+  to: string,
+  existingLeaves: ExistingLeaveRecord[],
+  editingId?: number,
+): StatutoryValidation {
+  const result: StatutoryValidation = { errors: [], notices: [] };
+  if (!leaveType) return result;
+
+  if (leaveType === "Paternity Leave") {
+    result.notices.push(
+      "Paternity Leave is limited to 7 days and may be used continuously or intermittently on days immediately before, during, or after childbirth or miscarriage, but not later than 60 days after delivery.",
+    );
+  } else if (leaveType === "Maternity Leave") {
+    result.notices.push(
+      "Expanded Maternity Leave for live childbirth covers up to 105 calendar days with full pay and must be taken continuously and without interruption.",
+    );
+  } else if (leaveType === "Solo Parent Leave") {
+    result.notices.push(
+      "Solo Parent Leave is limited to 7 working days per year, may be staggered or continuous, and requires a valid Solo Parent Identification Card.",
+    );
+  }
+
+  if (!from || !to) return result;
+  const start = new Date(from);
+  const end = new Date(to);
+  if (end < start) {
+    result.errors.push("The end date cannot be earlier than the start date.");
+    return result;
+  }
+
+  if (leaveType === "Paternity Leave") {
+    const days = countWorkingDays(start, end);
+    if (days > 7) {
+      result.errors.push(`Paternity Leave cannot exceed 7 working days. The selected dates contain ${days} working days.`);
+    }
+  } else if (leaveType === "Maternity Leave") {
+    const calendarDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+    if (calendarDays > 105) {
+      result.errors.push(`Maternity Leave cannot exceed 105 calendar days. The selected range contains ${calendarDays} calendar days.`);
+    }
+  } else if (leaveType === "Solo Parent Leave") {
+    for (let year = start.getFullYear(); year <= end.getFullYear(); year++) {
+      const yearStart = new Date(year, 0, 1);
+      const yearEnd = new Date(year, 11, 31);
+      const selectedDays = countWorkingDays(start > yearStart ? start : yearStart, end < yearEnd ? end : yearEnd);
+      const filedDays = existingLeaves
+        .filter((record) => record.id !== editingId)
+        .filter((record) => record.leaveType.toLowerCase() === "solo parent leave")
+        .filter((record) => !["disapproved", "rejected", "cancelled", "canceled"].includes(record.status.toLowerCase()))
+        .reduce((total, record) => {
+          const existingStart = new Date(record.from);
+          const existingEnd = new Date(record.to);
+          if (existingEnd < yearStart || existingStart > yearEnd) return total;
+          return total + countWorkingDays(
+            existingStart > yearStart ? existingStart : yearStart,
+            existingEnd < yearEnd ? existingEnd : yearEnd,
+          );
+        }, 0);
+      if (filedDays + selectedDays > 7) {
+        result.errors.push(
+          `Solo Parent Leave is limited to 7 working days in ${year}. This employee has ${Math.max(0, 7 - filedDays)} working day(s) remaining.`,
+        );
+      }
+    }
+  }
+  return result;
+}
+
 interface EditRecord {
   id?: number;
   dateFiled?: string;
@@ -60,6 +158,7 @@ interface EditRecord {
   approvedStatus?: string;
   approvalMessage?: string;
   dueExigencyService?: boolean;
+  withPay?: boolean;
 }
 
 interface LeaveApplicationProps {
@@ -85,9 +184,11 @@ interface LeaveApplicationProps {
     approvedStatus?: string;
     approvalMessage?: string;
     dueExigencyService?: boolean;
+    withPay: boolean;
   }) => void;
   onClear?: () => void;
   employees?: Employee[];
+  existingLeaves?: ExistingLeaveRecord[];
 }
 
 const initialFormState = {
@@ -99,6 +200,7 @@ const initialFormState = {
   detailOption: "",
   details: "",
   noOfDays: "",
+  withPay: true,
 };
 
 export default function LeaveApplication({
@@ -108,6 +210,7 @@ export default function LeaveApplication({
   onSubmitLeave,
   onClear,
   employees,
+  existingLeaves = [],
 }: LeaveApplicationProps) {
 
   const [form, setForm] = useState(initialFormState);
@@ -150,6 +253,7 @@ export default function LeaveApplication({
         detailOption: parsedDetails.option,
         details: parsedDetails.details,
         noOfDays: editRecord.noOfDays != null ? String(editRecord.noOfDays) : "",
+        withPay: editRecord.withPay !== false,
       });
     } else {
       setForm({ ...initialFormState, dateFiled: today });
@@ -193,12 +297,21 @@ export default function LeaveApplication({
   const detailKind = leaveDetailKind(form.leaveType);
   const displayBalance = balInfo && balance ? (balance[balInfo.key] as number | null) : null;
   const vlForForcedDisplay = form.leaveType === "Forced Leave" && balance ? balance.vacationLeaveBalance : null;
+  const statutoryValidation = useMemo(
+    () => validateStatutoryDates(form.leaveType, form.from, form.to, existingLeaves, editRecord?.id),
+    [form.leaveType, form.from, form.to, existingLeaves, editRecord?.id],
+  );
 
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => {
+    if (e.target instanceof HTMLInputElement && e.target.type === "checkbox") {
+      const { name, checked } = e.target;
+      setForm((prev) => ({ ...prev, [name]: checked }));
+      return;
+    }
     const { name, value } = e.target;
     if (name === "leaveType") {
       setForm((prev) => ({ ...prev, leaveType: value, detailOption: "", details: "" }));
@@ -236,6 +349,17 @@ export default function LeaveApplication({
       return;
     }
 
+    if (statutoryValidation.errors.length > 0) {
+      void Swal.fire({
+        title: "Cannot Save Leave Application",
+        html: `<ul style="text-align:left;margin:0;padding-left:1.2rem;">${statutoryValidation.errors
+          .map((error) => `<li style="margin-bottom:0.5rem;">${error}</li>`)
+          .join("")}</ul>`,
+        icon: "error",
+      });
+      return;
+    }
+
     // Call the parent component callback with form values
     onSubmitLeave({
       id: editRecord?.id,
@@ -256,6 +380,7 @@ export default function LeaveApplication({
       approvedStatus: approvalData.approvedStatus,
       approvalMessage: approvalData.approvalMessage,
       dueExigencyService: approvalData.dueExigencyService,
+      withPay: form.withPay,
     });
 
     const today = new Date().toISOString().split("T")[0];
@@ -304,6 +429,15 @@ export default function LeaveApplication({
               </option>
             ))}
           </select>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", marginTop: "0.5rem", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              name="withPay"
+              checked={form.withPay}
+              onChange={handleChange}
+            />
+            With Pay
+          </label>
         </div>
 
         {/* Balance indicator — shown after a leave type with a balance is selected */}
@@ -340,6 +474,18 @@ export default function LeaveApplication({
             </div>
           )}
         </div>
+
+        {statutoryValidation.notices.map((notice) => (
+          <div key={notice} style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "8px", padding: "0.6rem 1rem", marginBottom: "0.75rem", color: "#1d4ed8", fontSize: "0.84rem" }}>
+            &#9432; {notice}
+          </div>
+        ))}
+
+        {form.from && statutoryValidation.errors.map((error) => (
+          <div key={error} style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "8px", padding: "0.6rem 1rem", marginBottom: "0.75rem", color: "#dc2626", fontSize: "0.84rem" }}>
+            &#10005; {error}
+          </div>
+        ))}
 
         {/* Inclusive Dates for normal leaves */}
         {!isMonetization && (

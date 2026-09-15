@@ -77,10 +77,8 @@ export default function PersonalData({
   fetchEmploymentRecords,
   onEmployeeCreated,
   newSetEmployees,
-  userRole,
   canAdd = false,
   canEdit = false,
-  canDelete = false,
 }: PersonalDataProps) {
   const [permissionRulesets, setPermissionRulesets] = useState<PermissionRuleset[]>([]);
 
@@ -447,7 +445,7 @@ export default function PersonalData({
           }));
         }
       }
-    } catch (e) {
+    } catch {
       // silent
     }
   }, [permissionRulesets, selectedEmployee]);
@@ -544,7 +542,7 @@ export default function PersonalData({
   }, [personalData, fetchChildren]);
 
   const [isDisabled, setIsDisabled] = useState(true);
-  const [isUserRuleset, setIsUserRuleset] = useState(false);
+  const [, setIsUserRuleset] = useState(false);
 
   // Parse a stored full name into surname / firstname / middlename heuristically
   const parseFullName = (fullname?: string | null) => {
@@ -1915,7 +1913,8 @@ export default function PersonalData({
   };
 
   const handlePrintPDS = async () => {
-    const employeeId = Number(selectedEmployee?.employeeId ?? form.employeeId);
+    const employeeId = Number(selectedEmployee?.employeeId);
+    const loadedEmployeeId = Number(personalData?.employeeId ?? form.employeeId);
 
     if (!employeeId || Number.isNaN(employeeId) || !selectedEmployee?.isSearched) {
       await Swal.fire({
@@ -1926,9 +1925,19 @@ export default function PersonalData({
       return;
     }
 
+    if (!loadedEmployeeId || employeeId !== loadedEmployeeId) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Employee Record Changed",
+        text: "The loaded Personal Data does not match the selected employee. Please reload the employee before printing.",
+      });
+      return;
+    }
+
     try {
-      const response = await fetchWithAuth(`${API_BASE_URL_HRM}/api/pds/report/${employeeId}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL_HRM}/api/pds/report/${employeeId}?requestId=${Date.now()}`, {
         method: "GET",
+        cache: "no-store",
       });
 
       if (!response.ok) {

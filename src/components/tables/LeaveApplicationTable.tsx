@@ -14,6 +14,7 @@ interface LeaveRecord {
   status: string;
   commutation?: string;
   details?: string;
+  withPay: boolean;
 }
 
 interface LeaveApplicationTableProps {
@@ -118,7 +119,9 @@ export default function LeaveApplicationTable({ data, onEdit, onDelete, onPrint,
               <td>{record.dateFiled}</td>
               <td>{record.from}</td>
               <td>{record.to}</td>
-              <td>{record.leaveType}</td>
+              <td>
+                {record.leaveType}{record.withPay === false ? " (Without Pay)" : ""}
+              </td>
               <td>
                 <span
                   className={`${tableStyles.statusBadge} ${

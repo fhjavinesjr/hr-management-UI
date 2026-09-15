@@ -12,8 +12,6 @@ import { Employee } from "@/lib/types/Employee";
 import { EmployeeAppointmentModel } from "@/lib/types/EmployeeAppointment";
 import {
   sanitizeDate,
-  sanitizeDecimal,
-  sanitizeNumbers,
   sanitizeText,
 } from "@/lib/utils/inputSanitizers";
 import {
@@ -115,6 +113,9 @@ export default function EmployeeAppointment({
 
   const [form, setForm] = useState<Appointment>(initialData || emptyForm);
   const [isDisabled, setIsDisabled] = useState(mode === "service_record" ? false : !initialData);
+  const [saveMode, setSaveMode] = useState<"create" | "update">(
+    initialData?.employeeAppointmentId ? "update" : "create"
+  );
   // Tracks the plantilla the employee already owns — never changes during editing
   const originalPlantillaId = useRef<number | "">("");
 
@@ -153,6 +154,7 @@ export default function EmployeeAppointment({
             activeAppointment: latestAppointment.activeAppointment ?? true,
             mode: ""
           });
+          setSaveMode("update");
 
           setSelectedPositionId(latestAppointment.jobPositionId ? String(latestAppointment.jobPositionId) : "");
           originalPlantillaId.current = latestAppointment.plantillaId ? Number(latestAppointment.plantillaId) : "";
@@ -208,6 +210,7 @@ export default function EmployeeAppointment({
 
     if (initialData) {
       setForm(initialData);
+      setSaveMode(initialData.employeeAppointmentId ? "update" : "create");
       originalPlantillaId.current = initialData.plantillaId !== "" ? Number(initialData.plantillaId) : "";
 
       if (initialData.jobPositionId) {
@@ -341,33 +344,16 @@ export default function EmployeeAppointment({
         return;
       }
 
-      let latestAppointment = null;
-      if (employeeAppointments && employeeAppointments.length > 0) {
-        // Filter out invalid dates
-        const validAppointments = employeeAppointments.filter(a => a.assumptionToDutyDate && !isNaN(new Date(a.assumptionToDutyDate).getTime()));
+      const isUpdate = form.mode === "edit_service_record"
+        || (saveMode === "update" && Boolean(form.employeeAppointmentId));
 
-        if (validAppointments.length > 0) {
-          // Find the active appointment first; fall back to latest by assumptionToDutyDate
-          latestAppointment =
-            validAppointments.find((a) => a.activeAppointment === true) ??
-            validAppointments.reduce((latest, current) => {
-              return new Date(current.assumptionToDutyDate) > new Date(latest.assumptionToDutyDate)
-                ? current
-                : latest;
-            });
-        }
+      if (isUpdate && !canEdit) {
+        await Swal.fire("Access Denied", "You do not have permission to edit employee appointments.", "error");
+        return;
       }
-
-      if(employeeAppointments === null || employeeAppointments?.length === 0) {
-        form.activeAppointment = true;
-      }
-      let isUpdate = false;
-      if(latestAppointment?.assumptionToDutyDate === toCustomFormat(form.assumptionToDutyDate, true)) {
-        isUpdate = true;
-      }
-      if(latestAppointment?.assumptionToDutyDate && form.assumptionToDutyDate 
-          && new Date(latestAppointment?.assumptionToDutyDate).getTime() < new Date(toCustomFormat(form.assumptionToDutyDate, true)).getTime()) {
-        form.activeAppointment = true;
+      if (!isUpdate && !canAdd) {
+        await Swal.fire("Access Denied", "You do not have permission to add employee appointments.", "error");
+        return;
       }
 
       // Format dates to backend expected pattern using toCustomFormat util
@@ -390,7 +376,7 @@ export default function EmployeeAppointment({
         salaryPerMonth: form.salaryPerMonth ? Number(String(form.salaryPerMonth).replace(/,/g, "")) : null,
         salaryPerDay: form.salaryPerDay ? Number(String(form.salaryPerDay).replace(/,/g, "")) : null,
         details: form.details,
-        activeAppointment: mode === "service_record" ? false : form.activeAppointment,
+        activeAppointment: mode === "service_record" ? false : (isUpdate ? form.activeAppointment : true),
       };
 
       if(payload.plantillaId === null) {
@@ -398,15 +384,6 @@ export default function EmployeeAppointment({
         return;
       }
 
-      if(form.mode === "edit_service_record") {
-        isUpdate = true;
-      }
-
-      if(canAdd && !canEdit) {
-        //User's level access has no edit access but has add access only — force create a new appointment record instead of updating existing one
-        isUpdate = false;
-        await Swal.fire("ERROR", "System is expecting only to EDIT the appointment but user has only ADD access. Please update permission or user level access of the user.", "error");
-      }
       
       const url = isUpdate
         ? `${API_BASE_URL_HRM}/api/employeeAppointment/update/${form.employeeAppointmentId}`
@@ -461,6 +438,7 @@ export default function EmployeeAppointment({
   const handleCancel = () => {
     // Disable the form
     setIsDisabled(true);
+    setSaveMode(form.employeeAppointmentId ? "update" : "create");
 
     // Execute external cancel handler
     if (onCancel) {
@@ -484,6 +462,8 @@ export default function EmployeeAppointment({
       .filter(
         (a) =>
           a.assumptionToDutyDate
+          && !(saveMode === "update"
+            && String(a.employeeAppointmentId) === String(form.employeeAppointmentId))
       )
       .map((a) => new Date(a.assumptionToDutyDate))
       .filter((d) => !isNaN(d.getTime())); // ignore invalid dates
@@ -593,6 +573,7 @@ export default function EmployeeAppointment({
                   className={styles.editBtn}
                   onClick={(e) => {
                     e.preventDefault();
+                    setSaveMode("create");
                     setIsDisabled(false);
                   }}
                 >
@@ -605,6 +586,7 @@ export default function EmployeeAppointment({
                   className={styles.editBtn}
                   onClick={(e) => {
                     e.preventDefault();
+                    setSaveMode("update");
                     setIsDisabled(false);
                   }}
                 >
@@ -725,6 +707,7 @@ export default function EmployeeAppointment({
                   className={styles.editBtn}
                   onClick={(e) => {
                     e.preventDefault();
+                    setSaveMode("create");
                     setIsDisabled(false);
                   }}
                 >
@@ -737,6 +720,7 @@ export default function EmployeeAppointment({
                   className={styles.editBtn}
                   onClick={(e) => {
                     e.preventDefault();
+                    setSaveMode("update");
                     setIsDisabled(false);
                   }}
                 >

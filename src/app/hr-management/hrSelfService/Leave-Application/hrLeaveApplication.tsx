@@ -69,6 +69,7 @@ interface LeaveRecord {
   status: string;
   commutation?: string;
   details?: string;
+  withPay: boolean;
 }
 
 interface MonetizationRecord {
@@ -144,6 +145,7 @@ interface EditRecord {
   approvedStatus?: string;
   approvalMessage?: string;
   dueExigencyService?: boolean;
+  withPay?: boolean;
 }
 
 interface ApiLeaveDTO {
@@ -165,6 +167,7 @@ interface ApiLeaveDTO {
   approvedStatus: string | null;
   approvalMessage: string | null;
   dueExigencyService: boolean | null;
+  withPay: boolean | null;
 }
 
 export default function HRLeaveApplicationModule() {
@@ -272,6 +275,7 @@ export default function HRLeaveApplicationModule() {
       status: dto.status,
       commutation: dto.commutation ?? undefined,
       details: dto.details ?? undefined,
+      withPay: dto.withPay !== false,
     }),
     [],
   );
@@ -527,6 +531,7 @@ export default function HRLeaveApplicationModule() {
     approvedStatus?: string;
     approvalMessage?: string;
     dueExigencyService?: boolean;
+    withPay: boolean;
   }) => {
     const isUpdate = !!(leave.id && leave.id > 0);
 
@@ -586,6 +591,7 @@ export default function HRLeaveApplicationModule() {
       approvedStatus: leave.approvedStatus || "Pending",
       approvalMessage: leave.approvalMessage ?? null,
       dueExigencyService: leave.dueExigencyService ?? false,
+      withPay: leave.withPay,
     };
 
     try {
@@ -652,6 +658,7 @@ export default function HRLeaveApplicationModule() {
       approvedStatus: initialApprovedStatus,
       approvalMessage: raw?.approvalMessage ?? "",
       dueExigencyService: raw?.dueExigencyService ?? false,
+      withPay: raw?.withPay !== false,
     });
     setActiveTab("apply");
   };
@@ -1353,6 +1360,7 @@ export default function HRLeaveApplicationModule() {
                       employeeId={selectedEmployee?.employeeId ?? null}
                       editRecord={editingRecord}
                       employees={employees}
+                      existingLeaves={allLeaves}
                       onSubmitLeave={handleSubmitLeave}
                       onClear={handleClearForm}
                     />

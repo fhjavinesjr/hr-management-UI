@@ -341,8 +341,8 @@ export default function LeaveInformationModule() {
     };
   }, [stopQueuePolling]);
 
-  // The selected month is the posting period. Leave processing uses the previous
-  // calendar month's attendance, independently of payroll cutoff offsets.
+  // The selected month is the posting period. The actual DTR interval comes
+  // from the active Administrative LEAVE cutoff setting.
   const resolvedDates = useMemo<{ start: string; end: string } | null>(() => {
     if (selectedSettingId === "") return null;
     const setting = salaryPeriodSettings.find((s) => s.salaryPeriodSettingId === selectedSettingId);
@@ -352,10 +352,15 @@ export default function LeaveInformationModule() {
     return { start, end };
   }, [selectedSettingId, selectedYear, selectedMonth, salaryPeriodSettings]);
 
-  const attendanceDates = useMemo(() => ({
-    start: resolveISODate(1, -1, selectedYear, selectedMonth),
-    end: resolveISODate(31, -1, selectedYear, selectedMonth),
-  }), [selectedYear, selectedMonth]);
+  const attendanceDates = useMemo<{ start: string; end: string } | null>(() => {
+    if (selectedSettingId === "") return null;
+    const setting = salaryPeriodSettings.find((s) => s.salaryPeriodSettingId === selectedSettingId);
+    if (!setting) return null;
+    return {
+      start: resolveISODate(setting.cutoffStartDay, setting.cutoffStartMonthOffset, selectedYear, selectedMonth),
+      end: resolveISODate(setting.cutoffEndDay, setting.cutoffEndMonthOffset, selectedYear, selectedMonth),
+    };
+  }, [selectedSettingId, selectedYear, selectedMonth, salaryPeriodSettings]);
 
   const fetchPeriodRecords = useCallback(async () => {
     setIsLoading(true);
@@ -364,8 +369,8 @@ export default function LeaveInformationModule() {
       if (viewAllYear) {
         url = `${API_BASE_URL_HRM}/api/leave-information/get-by-year?year=${selectedYear}`;
       } else {
-        if (!resolvedDates) { setIsLoading(false); return; }
-        url = `${API_BASE_URL_HRM}/api/leave-information/get-by-period?start=${resolvedDates.start}&end=${resolvedDates.end}`;
+        if (!attendanceDates) { setIsLoading(false); return; }
+        url = `${API_BASE_URL_HRM}/api/leave-information/get-by-period?start=${attendanceDates.start}&end=${attendanceDates.end}`;
       }
       const res = await fetchWithAuth(url);
       if (!res.ok) throw new Error("Failed to fetch leave information");
@@ -380,10 +385,10 @@ export default function LeaveInformationModule() {
     } finally {
       setIsLoading(false);
     }
-  }, [resolvedDates, viewAllYear, selectedYear, employees]);
+  }, [attendanceDates, viewAllYear, selectedYear, employees]);
 
   const handleProcess = async () => {
-    if (!resolvedDates) {
+    if (!resolvedDates || !attendanceDates) {
       Swal.fire({ icon: "warning", title: "Select a salary period setting, month, and year first" });
       return;
     }
@@ -393,6 +398,17 @@ export default function LeaveInformationModule() {
     }
     if (scope === "EMPLOYEE" && !selectedEmployee) {
       Swal.fire({ icon: "warning", title: "Select an employee for employee-scope processing" });
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cutoffEnd = new Date(`${attendanceDates.end}T00:00:00`);
+    if (cutoffEnd >= today) {
+      Swal.fire({
+        icon: "warning",
+        title: "DTR cutoff is not complete",
+        text: `Leave processing can start only after ${attendanceDates.end}.`,
+      });
       return;
     }
     const confirm = await Swal.fire({
@@ -424,7 +440,10 @@ export default function LeaveInformationModule() {
         body: JSON.stringify(payload),
       });
 
-      if (!startRes.ok) throw new Error(await startRes.text());
+      if (!startRes.ok) {
+        const errorBody = await startRes.json().catch(() => null) as LeaveProcessBatchStartResponseDTO | null;
+        throw new Error(errorBody?.message || "Leave processing could not start");
+      }
       const started: LeaveProcessBatchStartResponseDTO = await startRes.json();
       if (!started.jobId) {
         throw new Error(started.message || "Failed to start leave processing job");
@@ -680,7 +699,7 @@ export default function LeaveInformationModule() {
                 </div>
 
                 {/* Resolved dates preview — hidden when viewing all year */}
-                {resolvedDates && !viewAllYear && (
+                {resolvedDates && attendanceDates && !viewAllYear && (
                   <div style={{ fontSize: "0.8rem", color: "#6b7280", paddingBottom: "0.3rem" }}>
                     Posting period: <strong>{resolvedDates.start}</strong> → <strong>{resolvedDates.end}</strong>
                     <br />
