@@ -160,7 +160,7 @@ export default function HRPassSlipModule() {
     setIsLoading(true);
     try {
       const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/pass-slip/get-all/${emp.employeeId}`,
+        `${API_BASE_URL_HRM}/api/pass-slip/hrm/get-all/${emp.employeeId}`,
       );
       if (!res.ok) throw new Error("Failed to fetch pass slip records");
       const data: PassSlipDTO[] = await res.json();
@@ -341,7 +341,7 @@ export default function HRPassSlipModule() {
     if (!confirm.isConfirmed) return;
     try {
       const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/pass-slip/delete/${passSlipId}`,
+        `${API_BASE_URL_HRM}/api/pass-slip/hrm/delete/${passSlipId}`,
         { method: "DELETE" },
       );
       if (!res.ok) throw new Error(await res.text());

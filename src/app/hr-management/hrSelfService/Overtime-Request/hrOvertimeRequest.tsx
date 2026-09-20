@@ -50,6 +50,10 @@ interface OvertimeRequestDTO {
   recommendationStatus?: string | null;
   recommendedById?: number | null;
   recommendationRemarks?: string | null;
+  supervisorFiled?: boolean;
+  groupRequestId?: string | null;
+  filedByEmployeeId?: number | null;
+  expectedOutput?: string;
   workType?: string;
   dutyShiftCode?: string | null;
   authorityReference?: string;
@@ -1045,6 +1049,11 @@ export default function HROvertimeRequestModule() {
                               <td style={td}>{statusBadge(r.status, r.recommendationStatus)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
                               <td style={td}>
+                                {r.supervisorFiled && (
+                                  <span style={{ display: "block", color: "#64748b", fontSize: "0.75rem", marginBottom: 4 }}>
+                                    Staff Overtime group — managed through Approval Request
+                                  </span>
+                                )}
                                 {/* HRM Edit/Delete intentionally have no status condition. */}
                                 {(r.status === "Approved" ||
                                   r.status === "Disapproved") && (
@@ -1057,7 +1066,7 @@ export default function HROvertimeRequestModule() {
                                     Print
                                   </button>
                                 )}
-                                {canEdit && (
+                                {canEdit && !r.supervisorFiled && (
                                   <button
                                     onClick={() => handleEdit(r)}
                                     style={btnEdit}
@@ -1065,7 +1074,7 @@ export default function HROvertimeRequestModule() {
                                     Edit
                                   </button>
                                 )}
-                                {canDelete && (
+                                {canDelete && !r.supervisorFiled && (
                                   <button
                                     onClick={() =>
                                       handleDelete(r.overtimeRequestId!)

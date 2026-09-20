@@ -7,7 +7,7 @@ import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 import { onboardingJson, OnboardingApiError, type AppointmentIntake, type AppointmentResult } from "@/lib/services/onboarding";
 import styles from "@/styles/Onboarding.module.scss";
 
-const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canPublish: false,
+const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canDelete: false, canPublish: false,
   canSubmit: false, canApprove: false, canFinalize: false, dataScope: "NONE" };
 const failure = (error: unknown) => error instanceof OnboardingApiError && error.status === 409
   ? `This intake or an authoritative source changed. Reload before retrying. ${error.message}`

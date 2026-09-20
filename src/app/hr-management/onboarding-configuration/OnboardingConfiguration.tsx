@@ -5,7 +5,7 @@ import { localStorageUtil, type FeaturePermission } from "@/lib/utils/localStora
 import { onboardingJson, type OnboardingTemplate } from "@/lib/services/onboarding";
 import styles from "@/styles/Onboarding.module.scss";
 
-const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canPublish: false, canSubmit: false, canApprove: false, canFinalize: false, dataScope: "NONE" };
+const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canDelete: false, canPublish: false, canSubmit: false, canApprove: false, canFinalize: false, dataScope: "NONE" };
 export default function OnboardingConfiguration() {
   const [permission, setPermission] = useState(denied); const [ready, setReady] = useState(false); const [draft, setDraft] = useState<OnboardingTemplate | null>(null);
   const [form, setForm] = useState({ code: "DEFAULT", effectiveFrom: new Date().toISOString().slice(0, 10), effectiveTo: "",

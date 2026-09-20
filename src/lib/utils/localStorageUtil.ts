@@ -4,7 +4,7 @@
 import { Employee } from "@/lib/types/Employee";
 
 export type FeaturePermission = {
-  canAccess: boolean; canAdd: boolean; canEdit: boolean; canPublish: boolean;
+  canAccess: boolean; canAdd: boolean; canEdit: boolean; canDelete: boolean; canPublish: boolean;
   canSubmit: boolean; canApprove: boolean; canFinalize: boolean;
   dataScope: "NONE" | "OWN_RECORDS" | "ASSIGNED_RECORDS" | "AGENCY_WIDE";
 };
@@ -66,8 +66,8 @@ export const localStorageUtil = {
     const raw = localStorage.getItem("permissionData");
     if (!raw || raw === "__superadmin__") return true;
     try {
-      const data = JSON.parse(raw) as Record<string, { canAdd: boolean }>;
-      return data[key]?.canAdd === true;
+      const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canAdd?: boolean }>;
+      return data[key]?.canAccess === true && data[key]?.canAdd === true;
     } catch { return false; }
   },
   canEdit: (key: string): boolean => {
@@ -75,8 +75,8 @@ export const localStorageUtil = {
     const raw = localStorage.getItem("permissionData");
     if (!raw || raw === "__superadmin__") return true;
     try {
-      const data = JSON.parse(raw) as Record<string, { canEdit: boolean }>;
-      return data[key]?.canEdit === true;
+      const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canEdit?: boolean }>;
+      return data[key]?.canAccess === true && data[key]?.canEdit === true;
     } catch { return false; }
   },
   canDelete: (key: string): boolean => {
@@ -84,18 +84,18 @@ export const localStorageUtil = {
     const raw = localStorage.getItem("permissionData");
     if (!raw || raw === "__superadmin__") return true;
     try {
-      const data = JSON.parse(raw) as Record<string, { canDelete: boolean }>;
-      return data[key]?.canDelete === true;
+      const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canDelete?: boolean }>;
+      return data[key]?.canAccess === true && data[key]?.canDelete === true;
     } catch { return false; }
   },
 
   getFeaturePermission: (key: string): FeaturePermission => {
-    const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canPublish: false,
+    const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canDelete: false, canPublish: false,
       canSubmit: false, canApprove: false, canFinalize: false, dataScope: "NONE" };
     if (typeof window === "undefined") return denied;
     const administrator = localStorage.getItem("isAdministrator") === "true" ||
       localStorage.getItem("permissionData") === "__superadmin__" || localStorage.getItem("userRole") === "1";
-    if (administrator) return { canAccess: true, canAdd: true, canEdit: true, canPublish: true,
+    if (administrator) return { canAccess: true, canAdd: true, canEdit: true, canDelete: true, canPublish: true,
       canSubmit: true, canApprove: true, canFinalize: true, dataScope: "AGENCY_WIDE" };
     try {
       const raw = localStorage.getItem("permissionData"); if (!raw) return denied;
@@ -103,6 +103,7 @@ export const localStorageUtil = {
       const canAccess = feature?.canAccess === true;
       const dataScope = feature?.dataScope === "OWN_RECORDS" || feature?.dataScope === "ASSIGNED_RECORDS" || feature?.dataScope === "AGENCY_WIDE" ? feature.dataScope : "NONE";
       return { canAccess, canAdd: canAccess && feature?.canAdd === true, canEdit: canAccess && feature?.canEdit === true,
+        canDelete: canAccess && feature?.canDelete === true,
         canPublish: canAccess && feature?.canPublish === true, canSubmit: canAccess && feature?.canSubmit === true,
         canApprove: canAccess && feature?.canApprove === true, canFinalize: canAccess && feature?.canFinalize === true,
         dataScope: canAccess ? dataScope : "NONE" };

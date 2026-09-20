@@ -8,7 +8,7 @@ import { onboardingJson, OnboardingApiError, openHrmPdf, type AppointmentDocumen
 import styles from "@/styles/Onboarding.module.scss";
 
 type Permissions = { appointment: FeaturePermission; onboarding: FeaturePermission; documents: FeaturePermission };
-const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canPublish: false,
+const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canDelete: false, canPublish: false,
   canSubmit: false, canApprove: false, canFinalize: false, dataScope: "NONE" };
 const initial: Permissions = { appointment: denied, onboarding: denied, documents: denied };
 const agencyWide = (permission: FeaturePermission) => permission.canAccess && permission.dataScope === "AGENCY_WIDE";
