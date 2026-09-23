@@ -33,8 +33,18 @@ export const localStorageUtil = {
     localStorage.removeItem("employeeFullname");
   },
 
-  setEmployeeRole: (userRole: string) => localStorage.setItem("userRole", userRole),
-  getEmployeeRole: () => localStorage.getItem("userRole"),
+  setEmployeeRole: (userRole: string | null | undefined) => {
+    const normalized = userRole?.trim();
+    if (!normalized || normalized.toLowerCase() === "null" || normalized.toLowerCase() === "undefined") {
+      localStorage.removeItem("userRole");
+      return;
+    }
+    localStorage.setItem("userRole", normalized);
+  },
+  getEmployeeRole: () => {
+    const role = localStorage.getItem("userRole")?.trim();
+    return !role || role.toLowerCase() === "null" || role.toLowerCase() === "undefined" ? null : role;
+  },
 
   setPermissionName: (name: string) => localStorage.setItem("permissionName", name),
   getPermissionName: () => localStorage.getItem("permissionName"),
@@ -55,7 +65,8 @@ export const localStorageUtil = {
   canAccess: (key: string): boolean => {
     if (localStorage.getItem("isAdministrator") === "true") return true;
     const raw = localStorage.getItem("permissionData");
-    if (!raw || raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return true;
+    if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess: boolean }>;
       return data[key]?.canAccess === true;
@@ -64,7 +75,8 @@ export const localStorageUtil = {
   canAdd: (key: string): boolean => {
     if (localStorage.getItem("isAdministrator") === "true") return true;
     const raw = localStorage.getItem("permissionData");
-    if (!raw || raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return true;
+    if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canAdd?: boolean }>;
       return data[key]?.canAccess === true && data[key]?.canAdd === true;
@@ -73,7 +85,8 @@ export const localStorageUtil = {
   canEdit: (key: string): boolean => {
     if (localStorage.getItem("isAdministrator") === "true") return true;
     const raw = localStorage.getItem("permissionData");
-    if (!raw || raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return true;
+    if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canEdit?: boolean }>;
       return data[key]?.canAccess === true && data[key]?.canEdit === true;
@@ -82,7 +95,8 @@ export const localStorageUtil = {
   canDelete: (key: string): boolean => {
     if (localStorage.getItem("isAdministrator") === "true") return true;
     const raw = localStorage.getItem("permissionData");
-    if (!raw || raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return true;
+    if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canDelete?: boolean }>;
       return data[key]?.canAccess === true && data[key]?.canDelete === true;
@@ -128,4 +142,11 @@ export const localStorageUtil = {
     return parsed[key] ?? null;
   },
   clearSystemConfig: () => localStorage.removeItem("systemConfig"),
+
+  clearAuthorization: () => {
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("permissionName");
+    localStorage.removeItem("isAdministrator");
+    localStorage.setItem("permissionData", "{}");
+  },
 };

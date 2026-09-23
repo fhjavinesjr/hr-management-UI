@@ -61,6 +61,9 @@ interface OvertimeRequestDTO {
   emergencyJustification?: string;
   breakMinutes?: number;
   netAuthorizedHours?: number;
+  businessUnitId?: number | null;
+  participantEmployeeIds?: number[];
+  groupDiscrepancySummary?: string | null;
 }
 
 interface FormState {
@@ -68,6 +71,7 @@ interface FormState {
   dateTimeFrom: string;
   dateTimeTo: string;
   purpose: string;
+  expectedOutput: string;
   workType: string;
   dutyShiftCode: string;
   authorityReference: string;
@@ -191,6 +195,7 @@ export default function HROvertimeRequestModule() {
     dateTimeFrom: nowLocal(),
     dateTimeTo: nowLocal(),
     purpose: "",
+    expectedOutput: "",
     workType: "REGULAR_OVERTIME",
     dutyShiftCode: "",
     authorityReference: "",
@@ -531,6 +536,7 @@ export default function HROvertimeRequestModule() {
         dateTimeFrom: form.dateTimeFrom.replace("T", " ") + ":00",
         dateTimeTo: form.dateTimeTo.replace("T", " ") + ":00",
         purpose: form.purpose,
+        expectedOutput: form.expectedOutput,
         workType: form.workType,
         dutyShiftCode: form.dutyShiftCode || null,
         authorityReference: form.authorityReference,
@@ -586,8 +592,12 @@ export default function HROvertimeRequestModule() {
       } else {
         // HRM maintenance edit is status-independent and applies the exact
         // recommendation/final status selected by the administrator.
+        const editingRecord = records.find((record) => record.overtimeRequestId === editingId);
+        const updateUrl = editingRecord?.supervisorFiled && editingRecord.groupRequestId
+          ? `${API_BASE_URL_HRM}/api/overtime-request/staff/hrm-update/${encodeURIComponent(editingRecord.groupRequestId)}`
+          : `${API_BASE_URL_HRM}/api/overtime-request/hrm-update/${editingId}`;
         await send(
-          `${API_BASE_URL_HRM}/api/overtime-request/hrm-update/${editingId}`,
+          updateUrl,
           "PUT",
           payload,
         );
@@ -617,6 +627,7 @@ export default function HROvertimeRequestModule() {
         dateTimeFrom: nowLocal(),
         dateTimeTo: nowLocal(),
         purpose: "",
+        expectedOutput: "",
         workType: "REGULAR_OVERTIME",
         dutyShiftCode: "",
         authorityReference: "",
@@ -660,6 +671,7 @@ export default function HROvertimeRequestModule() {
       dateTimeFrom: toLocal(r.dateTimeFrom as unknown as string),
       dateTimeTo: toLocal(r.dateTimeTo as unknown as string),
       purpose: r.purpose,
+      expectedOutput: r.expectedOutput ?? "",
       workType: r.workType ?? "REGULAR_OVERTIME",
       dutyShiftCode: r.dutyShiftCode ?? "",
       authorityReference: r.authorityReference ?? "",
@@ -687,7 +699,7 @@ export default function HROvertimeRequestModule() {
     setActiveTab("apply");
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (record: OvertimeRequestDTO) => {
     const confirm = await Swal.fire({
       title: "Delete this overtime request?",
       text: "HRM deletion is allowed regardless of workflow status and cannot be undone.",
@@ -698,8 +710,11 @@ export default function HROvertimeRequestModule() {
     });
     if (!confirm.isConfirmed) return;
     try {
+      const deleteUrl = record.supervisorFiled && record.groupRequestId
+        ? `${API_BASE_URL_HRM}/api/overtime-request/staff/hrm-delete/${encodeURIComponent(record.groupRequestId)}`
+        : `${API_BASE_URL_HRM}/api/overtime-request/hrm-delete/${record.overtimeRequestId}`;
       const res = await fetchWithAuth(
-        `${API_BASE_URL_HRM}/api/overtime-request/hrm-delete/${id}`,
+        deleteUrl,
         { method: "DELETE" },
       );
       if (!res.ok) throw new Error(await res.text());
@@ -1029,9 +1044,11 @@ export default function HROvertimeRequestModule() {
                             <th style={th}>From</th>
                             <th style={th}>To</th>
                             <th style={th}>Authorized Hours</th>
+                            <th style={th}>Staff</th>
                             <th style={th}>Purpose</th>
                             <th style={th}>Status</th>
                             <th style={th}>Remarks</th>
+                            <th style={th}>Reported Discrepancy</th>
                             <th style={th}>Actions</th>
                           </tr>
                         </thead>
@@ -1045,13 +1062,23 @@ export default function HROvertimeRequestModule() {
                               <td style={td}>{fmtDateTime(r.dateTimeFrom)}</td>
                               <td style={td}>{fmtDateTime(r.dateTimeTo)}</td>
                               <td style={td}>{(r.netAuthorizedHours ?? r.totalHours ?? 0).toFixed(2)} hrs</td>
+                              <td style={td}>
+                                {r.supervisorFiled
+                                  ? (r.participantEmployeeIds ?? [])
+                                      .map((id) => employees.find((employee) => Number(employee.employeeId) === id)?.fullName ?? `Employee #${id}`)
+                                      .join(", ") || `Employee #${r.employeeId}`
+                                  : "Individual request"}
+                              </td>
                               <td style={td}>{r.purpose}</td>
                               <td style={td}>{statusBadge(r.status, r.recommendationStatus)}</td>
                               <td style={td}>{r.approvalRemarks ?? "—"}</td>
+                              <td style={{ ...td, color: r.groupDiscrepancySummary ? "#b45309" : undefined }}>
+                                {r.groupDiscrepancySummary ?? "—"}
+                              </td>
                               <td style={td}>
                                 {r.supervisorFiled && (
                                   <span style={{ display: "block", color: "#64748b", fontSize: "0.75rem", marginBottom: 4 }}>
-                                    Staff Overtime group — managed through Approval Request
+                                    Staff Overtime group — HRM changes apply to every participant
                                   </span>
                                 )}
                                 {/* HRM Edit/Delete intentionally have no status condition. */}
@@ -1066,22 +1093,22 @@ export default function HROvertimeRequestModule() {
                                     Print
                                   </button>
                                 )}
-                                {canEdit && !r.supervisorFiled && (
+                                {canEdit && (
                                   <button
                                     onClick={() => handleEdit(r)}
                                     style={btnEdit}
                                   >
-                                    Edit
+                                    {r.supervisorFiled ? "Edit Group" : "Edit"}
                                   </button>
                                 )}
-                                {canDelete && !r.supervisorFiled && (
+                                {canDelete && (
                                   <button
                                     onClick={() =>
-                                      handleDelete(r.overtimeRequestId!)
+                                      handleDelete(r)
                                     }
                                     style={btnDelete}
                                   >
-                                    Delete
+                                    {r.supervisorFiled ? "Delete Group" : "Delete"}
                                   </button>
                                 )}
                               </td>
@@ -1304,6 +1331,17 @@ export default function HROvertimeRequestModule() {
                           className={styles.inputField}
                           rows={3}
                           required
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Expected Output</label>
+                        <textarea
+                          value={form.expectedOutput}
+                          onChange={(e) =>
+                            setForm({ ...form, expectedOutput: sanitizeText(e.target.value, 500) })
+                          }
+                          className={styles.inputField}
+                          rows={3}
                         />
                       </div>
                       <ApprovalSection

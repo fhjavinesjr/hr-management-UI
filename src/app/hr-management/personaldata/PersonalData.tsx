@@ -2148,7 +2148,6 @@ export default function PersonalData({
       const requiredFields: Array<{ value: unknown; label: string }> = [
         { value: form.employeeNo,      label: "Employee No." },
         { value: form.biometricNo,     label: "Biometric No." },
-        { value: form.userRole,        label: "Role" },
         { value: form.surname,         label: "Surname" },
         { value: form.firstname,       label: "First Name" },
         { value: form.middlename,      label: "Middle Name" },
@@ -2561,7 +2560,7 @@ export default function PersonalData({
 
           <label>
             <span>
-              Role <span style={{ color: "red" }}>*</span>
+              Role
             </span>
             <select
               name="userRole"

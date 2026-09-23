@@ -24,11 +24,16 @@ type EmployeeBootstrap = {
   employeeNo: string;
   biometricNo?: string;
   fullName: string;
+  role?: string | null;
 };
 
 const normalizeEmployeeNo = (value: string) => value.trim().toLowerCase();
 
 export async function bootstrapSso(code: string, target: SsoTarget): Promise<void> {
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("permissionName");
+  localStorage.removeItem("isAdministrator");
+  localStorage.setItem("permissionData", "{}");
   const exchangeResponse = await fetch(
     `${runtimeConfig.getApiUrl("administrative")}/api/sso/exchange`,
     {
@@ -78,10 +83,15 @@ export async function bootstrapSso(code: string, target: SsoTarget): Promise<voi
   localStorage.setItem("employeeFullname", currentEmployee.fullName);
   localStorage.setItem("employeeId", String(currentEmployee.employeeId));
   localStorage.setItem("biometricNo", currentEmployee.biometricNo ?? "");
-  localStorage.setItem("userRole", exchange.employeeRole);
+  const currentRole = currentEmployee.role?.trim();
+  if (currentRole) {
+    localStorage.setItem("userRole", currentRole);
+  } else {
+    localStorage.removeItem("userRole");
+  }
 
   const isInstallAdmin = normalizeEmployeeNo(currentEmployee.employeeNo) === "admin";
-  if (!isInstallAdmin && !exchange.permission) {
+  if (!isInstallAdmin && (!currentRole || !exchange.permission)) {
     throw new Error("No permission ruleset is assigned to this account.");
   }
   localStorage.setItem(
@@ -109,4 +119,3 @@ export async function bootstrapSso(code: string, target: SsoTarget): Promise<voi
   localStorage.setItem(AUTH_CONFIG.COOKIE.IS_LOGGED_IN, "true");
   localStorage.setItem(AUTH_CONFIG.COOKIE.LAST_ACTIVITY, now.toString());
 }
-

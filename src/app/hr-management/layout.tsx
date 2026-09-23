@@ -5,6 +5,7 @@ import Script from "next/script";
 import './globals.css';
 import PageAuthentication from "./PageAuthentication";
 import LayoutClientWrapper from "./layoutClientWrapper";
+import HrmModuleAccessGuard from "@/components/auth/HrmModuleAccessGuard";
 
 export const metadata: Metadata = {
   title: "Human Resource Management",
@@ -20,9 +21,11 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
       <body className="Human-Resource-Management">
 
         <PageAuthentication>
-          <LayoutClientWrapper>
-            {children}
-          </LayoutClientWrapper>
+          <HrmModuleAccessGuard>
+            <LayoutClientWrapper>
+              {children}
+            </LayoutClientWrapper>
+          </HrmModuleAccessGuard>
         </PageAuthentication>
 
       </body>

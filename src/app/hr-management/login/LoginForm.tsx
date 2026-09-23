@@ -35,6 +35,10 @@ export default function LoginPage() {
       const employeePassword = formData.get("employeePassword") as string;
       const normalizedEmployeeNo = normalizeEmployeeNo(employeeNo);
 
+      localStorageUtil.clearAuthorization();
+      localStorageUtil.clearEmployees();
+      localStorageUtil.clearEmployeeInfo();
+
       // Login
       const response = await fetch(`${API_BASE_URL}/api/employee/login`, {
         method: "POST",
@@ -127,8 +131,7 @@ export default function LoginPage() {
           }
         }
       } else {
-        // Keep entered identifier for UI display while downstream data resolves.
-        localStorageUtil.setEmployeeNo(employeeNo.trim());
+        throw new Error("The signed-in employee record could not be loaded");
       }
 
       // Fetch and store system configuration from backend
