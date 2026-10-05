@@ -134,6 +134,14 @@ const menuItems = [
     adminOnly: true,
     permKey: "hrm.plantillaMonitoring",
   },
+  {
+    id: 15,
+    icon: "/personal_info.png",
+    label: "SALN Administration",
+    goto: "/hr-management/saln",
+    isActive: false,
+    permKey: "hrm.saln.review",
+  },
 ];
 
 const otherItems = [

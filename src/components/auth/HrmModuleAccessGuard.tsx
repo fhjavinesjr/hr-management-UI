@@ -40,7 +40,8 @@ export default function HrmModuleAccessGuard({ children }: { children: React.Rea
       return;
     }
 
-    setAllowed(false);
+    // Keep an already-authorized page mounted while focus/visibility checks run.
+    // Unmounting here discards in-progress forms, selections, and loaded results.
     try {
       const [securityResponse, permissionResponse] = await Promise.all([
         fetchWithAuth(`${runtimeConfig.getApiUrl("hrm")}/api/employee/me/security-status`),
