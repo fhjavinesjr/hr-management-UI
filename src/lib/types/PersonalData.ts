@@ -21,6 +21,9 @@ export type PersonalDataModel = {
   philhealthNo: string;
   sssNo: string;
   tinNo: string;
+  rdoCode: string;
+  birBranchCode: string;
+  birRegionCode: string;
   agencyEmpNo: string;
   citizenship: string;
   resAddress: string;

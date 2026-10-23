@@ -9,8 +9,10 @@ import { useRouter } from "next/navigation";
 import { localStorageUtil } from "@/lib/utils/localStorageUtil";
 import { runtimeConfig } from "@/lib/utils/runtimeConfig";
 
+type NavigationItem = { id: number; icon: string; label: string; goto: string; isActive: boolean;
+  permKey?: string; permKeys?: string[]; adminOnly?: boolean };
 
-const menuItems = [
+const menuItems: NavigationItem[] = [
   {
     id: 12,
     icon: "/personal_info.png",
@@ -26,14 +28,6 @@ const menuItems = [
     goto: "/hr-management/onboarding-configuration",
     isActive: false,
     permKey: "hrm.onboarding-configuration",
-  },
-  {
-    id: 14,
-    icon: "/personal_info.png",
-    label: "Appointment & Onboarding Reports",
-    goto: "/hr-management/appointment-reports",
-    isActive: false,
-    permKeys: ["hrm.appointment-report", "hrm.onboarding-report", "hrm.appointment-documents"],
   },
   {
     id: 1,
@@ -136,6 +130,12 @@ const menuItems = [
   },
 ];
 
+const reportItems: NavigationItem[] = [
+  { id: 14, icon: "/personal_info.png", label: "HRM Reports",
+    goto: "/hr-management/reports", isActive: false,
+    permKeys: ["hrm.appointment-report", "hrm.onboarding-report", "hrm.appointment-documents", "hrm.reports.leaveSummary"] },
+];
+
 const otherItems = [
   {
     id: 1,
@@ -163,10 +163,12 @@ export default function Sidebar() {
   const router = useRouter();
   useEffect(() => {}, []); // keep effect hook for future use
 
-  const visibleMenuItems = menuItems.filter(item => Array.isArray(item.permKeys)
+  const visible = (items: NavigationItem[]) => items.filter(item => Array.isArray(item.permKeys)
     ? item.permKeys.some(key => { const permission = localStorageUtil.getFeaturePermission(key);
       return permission.canAccess && permission.dataScope === "AGENCY_WIDE"; })
     : typeof item.permKey === "string" && localStorageUtil.canAccess(item.permKey));
+  const visibleMenuItems = visible(menuItems);
+  const visibleReportItems = visible(reportItems);
 
   return (
     <nav className={styles.Sidebar} role="navigation" aria-label="Main navigation">
@@ -183,6 +185,14 @@ export default function Sidebar() {
           ))}
         </div>
       </div>
+
+      {visibleReportItems.length > 0 && <div className={styles.menuSection}>
+        <h2 className={styles.menuHeader}>REPORTS</h2>
+        <div role="menu">
+          {visibleReportItems.map(item => <MenuItem key={item.id} icon={item.icon} label={item.label}
+            goto={item.goto} isActive={pathname === item.goto} onClick={() => {}} />)}
+        </div>
+      </div>}
 
       <div className={styles.menuSection}>
         <h2 className={styles.menuHeader}>UTILITIES</h2>

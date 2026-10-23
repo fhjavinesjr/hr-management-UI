@@ -3,6 +3,9 @@
 
 import { Employee } from "@/lib/types/Employee";
 
+const isBuiltInSuperAdmin = () => typeof window !== "undefined" &&
+  localStorage.getItem("employeeNo")?.trim().toLowerCase() === "admin";
+
 export type FeaturePermission = {
   canAccess: boolean; canAdd: boolean; canEdit: boolean; canDelete: boolean; canPublish: boolean;
   canSubmit: boolean; canApprove: boolean; canFinalize: boolean;
@@ -51,7 +54,7 @@ export const localStorageUtil = {
   clearPermissionName: () => localStorage.removeItem("permissionName"),
 
   setIsAdministrator: (val: boolean) => localStorage.setItem("isAdministrator", val ? "true" : "false"),
-  getIsAdministrator: () => localStorage.getItem("isAdministrator") === "true",
+  getIsAdministrator: isBuiltInSuperAdmin,
 
   // Permission data — full module permission map from the matched ruleset
   // null means super admin (all access). An empty object means no access to anything.
@@ -63,9 +66,9 @@ export const localStorageUtil = {
     try { return JSON.parse(raw); } catch { return null; }
   },
   canAccess: (key: string): boolean => {
-    if (localStorage.getItem("isAdministrator") === "true") return true;
+    if (isBuiltInSuperAdmin()) return true;
     const raw = localStorage.getItem("permissionData");
-    if (raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return false;
     if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess: boolean }>;
@@ -73,9 +76,9 @@ export const localStorageUtil = {
     } catch { return false; }
   },
   canAdd: (key: string): boolean => {
-    if (localStorage.getItem("isAdministrator") === "true") return true;
+    if (isBuiltInSuperAdmin()) return true;
     const raw = localStorage.getItem("permissionData");
-    if (raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return false;
     if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canAdd?: boolean }>;
@@ -83,9 +86,9 @@ export const localStorageUtil = {
     } catch { return false; }
   },
   canEdit: (key: string): boolean => {
-    if (localStorage.getItem("isAdministrator") === "true") return true;
+    if (isBuiltInSuperAdmin()) return true;
     const raw = localStorage.getItem("permissionData");
-    if (raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return false;
     if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canEdit?: boolean }>;
@@ -93,9 +96,9 @@ export const localStorageUtil = {
     } catch { return false; }
   },
   canDelete: (key: string): boolean => {
-    if (localStorage.getItem("isAdministrator") === "true") return true;
+    if (isBuiltInSuperAdmin()) return true;
     const raw = localStorage.getItem("permissionData");
-    if (raw === "__superadmin__") return true;
+    if (raw === "__superadmin__") return false;
     if (!raw) return false;
     try {
       const data = JSON.parse(raw) as Record<string, { canAccess?: boolean; canDelete?: boolean }>;
@@ -107,8 +110,7 @@ export const localStorageUtil = {
     const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canDelete: false, canPublish: false,
       canSubmit: false, canApprove: false, canFinalize: false, dataScope: "NONE" };
     if (typeof window === "undefined") return denied;
-    const administrator = localStorage.getItem("isAdministrator") === "true" ||
-      localStorage.getItem("permissionData") === "__superadmin__" || localStorage.getItem("userRole") === "1";
+    const administrator = isBuiltInSuperAdmin();
     if (administrator) return { canAccess: true, canAdd: true, canEdit: true, canDelete: true, canPublish: true,
       canSubmit: true, canApprove: true, canFinalize: true, dataScope: "AGENCY_WIDE" };
     try {

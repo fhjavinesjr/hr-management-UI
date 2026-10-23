@@ -1,4 +1,5 @@
-import Main from "../main/Main";
-import AppointmentReportsWorkspace from "./AppointmentReportsWorkspace";
+import { redirect } from "next/navigation";
 
-export default function AppointmentReportsPage() { return <Main><AppointmentReportsWorkspace /></Main>; }
+export default function AppointmentReportsPage() {
+  redirect("/hr-management/reports?report=personnel-action");
+}

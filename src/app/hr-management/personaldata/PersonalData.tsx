@@ -110,6 +110,9 @@ export default function PersonalData({
     philhealthNo: "",
     sssNo: "",
     tinNo: "",
+    rdoCode: "",
+    birBranchCode: "",
+    birRegionCode: "",
     agencyEmpNo: "",
     citizenship: "",
     resAddress: "",
@@ -177,6 +180,9 @@ export default function PersonalData({
       philhealthNo: "",
       sssNo: "",
       tinNo: "",
+      rdoCode: "",
+      birBranchCode: "",
+      birRegionCode: "",
       agencyEmpNo: "",
       citizenship: "",
       resAddress: "",
@@ -322,6 +328,9 @@ export default function PersonalData({
         philhealthNo: "",
         sssNo: "",
         tinNo: "",
+        rdoCode: "",
+        birBranchCode: "",
+        birRegionCode: "",
         agencyEmpNo: "",
         citizenship: "",
         resAddress: "",
@@ -2045,6 +2054,10 @@ export default function PersonalData({
       if (fieldName === "pagibigId") return formatPagibigNo(value);
       if (fieldName === "philhealthNo") return formatPhilhealthNo(value);
       if (fieldName === "tinNo") return formatTinNo(value);
+      if (fieldName === "rdoCode") return value.replace(/[^A-Za-z0-9-]/g, "").slice(0, 10);
+      if (fieldName === "birBranchCode") {
+        return value.replace(/\D/g, "").slice(0, 4);
+      }
       if (["height", "weight"].includes(fieldName)) return sanitizeDecimal(value, 8);
       return sanitizeText(value, 200);
     };
@@ -2222,6 +2235,9 @@ export default function PersonalData({
         philhealthNo: form.philhealthNo,
         sssNo: form.sssNo,
         tinNo: form.tinNo,
+        rdoCode: form.rdoCode,
+        birBranchCode: form.birBranchCode,
+        birRegionCode: form.birRegionCode,
         agencyEmpNo: form.agencyEmpNo,
         citizenship: form.citizenship,
         resAddress: form.resAddress,
@@ -2766,6 +2782,47 @@ export default function PersonalData({
               onChange={handleChange}
               disabled={isDisabled}
             />
+          </label>
+          <label>
+            BIR RDO Code{" "}
+            <input
+              type="text"
+              name="rdoCode"
+              value={form.rdoCode}
+              onChange={handleChange}
+              disabled={isDisabled}
+              maxLength={10}
+            />
+          </label>
+          <label>
+            BIR Branch Code{" "}
+            <input
+              type="text"
+              name="birBranchCode"
+              value={form.birBranchCode}
+              onChange={handleChange}
+              disabled={isDisabled}
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="0000"
+            />
+          </label>
+          <label>
+            BIR Region{" "}
+            <select
+              name="birRegionCode"
+              value={form.birRegionCode}
+              onChange={handleChange}
+              disabled={isDisabled}
+            >
+              <option value="">Select BIR region</option>
+              {[
+                "NCR", "CAR", "I", "II", "III", "IV-A", "IV-B", "V", "VI",
+                "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "ARMM",
+              ].map((region) => (
+                <option key={region} value={region}>{region}</option>
+              ))}
+            </select>
           </label>
           <label>
             Agency Employee No.{" "}
