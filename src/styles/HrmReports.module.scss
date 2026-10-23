@@ -1,0 +1,85 @@
+.page {
+  box-sizing: border-box; width: 100%; min-width: 0; min-height: calc(100vh - 60px);
+  padding: 24px; background: #f3f5f9; color: #24344d;
+}
+
+.layout {
+  display: grid; grid-template-columns: 240px minmax(0, 1fr);
+  gap: 22px; min-height: calc(100vh - 108px);
+}
+
+.reportList, .panel {
+  min-width: 0; padding: 24px; background: #fff;
+  border: 1px solid #dce4f0; border-radius: 10px;
+}
+
+.reportList {
+  align-self: stretch;
+}
+
+.reportList h2 { margin: 0 0 18px; font-size: 15px; color: #24344d; }
+
+.reportChoice, .selectedReport {
+  display: block; width: 100%; margin-bottom: 4px; padding: 12px;
+  border: 0; border-radius: 6px; background: transparent;
+  color: #24344d; font: inherit; font-size: 13px;
+  text-align: left; line-height: 1.35; cursor: pointer;
+}
+
+.selectedReport { background: #e8ecff; color: #4355c7; font-weight: 700; }
+.reportChoice:hover, .reportChoice:focus-visible { background: #f0f3fc; }
+.reportChoice:focus-visible, .selectedReport:focus-visible { outline: 2px solid #6574dd; outline-offset: 2px; }
+
+.panel > div { gap: 0; }
+.panel h1 { margin: 0 0 8px; color: #394fb6; font-size: 23px; }
+.panel h2 { margin: 26px 0 8px; color: #24344d; font-size: 16px; }
+.panel p { line-height: 1.5; }
+.panel section { padding: 0; border: 0; border-radius: 0; }
+.panel section + section { margin-top: 24px; padding-top: 8px; }
+.panel section > p:last-child { margin-top: 24px; color: #66748b; font-size: 12px; }
+.panel section label { font-size: 13px; }
+.singleField { max-width: 520px; margin-top: 20px; }
+.panel .leaveFields, .panel .documentFields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 24px;
+  row-gap: 24px;
+  margin-top: 20px;
+}
+.panel .leaveFields > div, .panel .documentFields > div { min-width: 0; gap: 7px; }
+.panel .reportActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.panel section input, .panel section select, .panel section textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px;
+  border: 1px solid #bac8dd;
+  border-radius: 6px;
+  background: #fff;
+  color: #24344d;
+  font: inherit;
+}
+.panel section input:focus-visible, .panel section select:focus-visible, .panel section textarea:focus-visible {
+  outline: 2px solid #6574dd;
+  outline-offset: 1px;
+}
+.panel section button {
+  min-height: 42px;
+  padding: 11px 20px;
+  border: 0;
+  border-radius: 6px;
+  background: #5965d8;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+.panel section button:hover:not(:disabled) { background: #4351c5; }
+.panel section button:disabled { opacity: .55; cursor: not-allowed; }
+
+@media (max-width: 850px) {
+  .page { padding: 12px; }
+  .layout { grid-template-columns: 1fr; gap: 12px; }
+  .reportList { align-self: auto; }
+  .panel { padding: 18px; }
+  .panel .leaveFields,
+  .panel .documentFields { grid-template-columns: 1fr; }
+}

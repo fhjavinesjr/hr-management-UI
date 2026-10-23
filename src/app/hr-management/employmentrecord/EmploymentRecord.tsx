@@ -336,7 +336,14 @@ export default function EmploymentRecord() {
                 <PersonalData selectedEmployee={selectedEmployee} personalData={personalData} fetchEmploymentRecords={fetchEmploymentRecords} userRole={userRole}
                   canAdd={empCanAdd} canEdit={empCanEdit} canDelete={empCanDelete}
                   onEmployeeCreated={(employee) => {
-                    setSelectedEmployee(employee);
+                    // A successful save means this employee now has a loaded
+                    // Personal Data record. Preserve that state when replacing
+                    // the selection with the refreshed basic employee details.
+                    setSelectedEmployee({
+                      ...employee,
+                      isSearched: true,
+                      isCleared: false,
+                    });
                     setInputValue(`[${employee.employeeNo}] ${employee.fullName}`);
                   }}
                   newSetEmployees={(employees) => {

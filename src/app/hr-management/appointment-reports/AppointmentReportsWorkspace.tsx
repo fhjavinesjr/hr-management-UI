@@ -5,7 +5,9 @@ import Swal from "sweetalert2";
 import { localStorageUtil, type FeaturePermission } from "@/lib/utils/localStorageUtil";
 import { onboardingJson, OnboardingApiError, openHrmPdf, type AppointmentDocument,
   type AppointmentDocumentKind } from "@/lib/services/onboarding";
+import type { HrmReportId } from "@/components/reports/HrmReportsShell";
 import styles from "@/styles/Onboarding.module.scss";
+import reportStyles from "@/styles/HrmReports.module.scss";
 
 type Permissions = { appointment: FeaturePermission; onboarding: FeaturePermission; documents: FeaturePermission };
 const denied: FeaturePermission = { canAccess: false, canAdd: false, canEdit: false, canDelete: false, canPublish: false,
@@ -17,7 +19,7 @@ const errorMessage = (error: unknown) => error instanceof OnboardingApiError && 
   : error instanceof Error ? error.message : "Unable to complete the report request.";
 const numberOrNull = (value: string): number | null => value.trim() ? Number(value) : null;
 
-export default function AppointmentReportsWorkspace() {
+export default function AppointmentReportsWorkspace({ report }: { report: Exclude<HrmReportId, "leave"> }) {
   const today = new Date().toISOString().slice(0, 10);
   const [permissions, setPermissions] = useState(initial); const [ready, setReady] = useState(false);
   const [reportIds, setReportIds] = useState({ appointmentId: "", intakeId: "" });
@@ -59,12 +61,20 @@ export default function AppointmentReportsWorkspace() {
   if (!ready) return <div className={styles.notice}>Checking Administrative permissions…</div>;
   if (!anyAccess) return <section className={styles.card}><h1>Access denied</h1><p>Your Administrative ruleset does not grant agency-wide appointment reporting access.</p></section>;
   return <div className={styles.page} data-testid="phase5f-appointment-reports">
-    <section className={styles.card}><h1>Appointment and onboarding reports</h1><p>Reports are generated from authoritative HR records. Official Oath and Assumption forms render only from finalized immutable document metadata and approved packaged templates.</p>{notice && <div className={styles.notice} role="alert">{notice}</div>}</section>
-    {(agencyWide(permissions.appointment) || agencyWide(permissions.onboarding)) && <section className={styles.card}><h2>Existing HR records</h2><div className={styles.grid}>
-      {agencyWide(permissions.appointment) && <div className={styles.field}><label htmlFor="reportAppointmentId">Employee appointment ID</label><input id="reportAppointmentId" value={reportIds.appointmentId} onChange={e => setReportIds({ ...reportIds, appointmentId: e.target.value })} /><div className={styles.actions}><button disabled={busy || !reportIds.appointmentId} onClick={() => void openPdf(`/api/employeeAppointment/report/${encodeURIComponent(reportIds.appointmentId)}`, "PersonnelAction.pdf")}>Open Personnel Action</button></div></div>}
-      {agencyWide(permissions.onboarding) && <div className={styles.field}><label htmlFor="reportIntakeId">Completed onboarding intake ID</label><input id="reportIntakeId" value={reportIds.intakeId} onChange={e => setReportIds({ ...reportIds, intakeId: e.target.value.trim() })} /><div className={styles.actions}><button disabled={busy || !reportIds.intakeId} onClick={() => void openPdf(`/api/hrm/v1/appointment-intakes/${encodeURIComponent(reportIds.intakeId)}/onboarding-completion.pdf`, "OnboardingCompletion.pdf")}>Open completion record</button></div></div>}
-    </div></section>}
-    {agencyWide(permissions.documents) && <section className={styles.card}><h2>Oath of Office / Assumption to Duty</h2><p>Employee signatory IDs resolve authoritative names and active positions on the server. A finalized record cannot be edited; corrections must create a linked successor.</p><div className={styles.grid}>
+    <section className={styles.card}>
+      <h1>{report === "personnel-action" ? "Personnel Action" : report === "onboarding-completion" ? "Onboarding Completion" : "Oath of Office / Assumption to Duty"}</h1>
+      <p>{report === "personnel-action" ? "Open the personnel action form from an existing employee appointment." : report === "onboarding-completion" ? "Open the completion record from a finalized onboarding intake." : "Prepare an Oath or Assumption document from authoritative HR records. Finalized documents are immutable."}</p>
+      {notice && <div className={styles.notice} role="alert">{notice}</div>}
+    </section>
+    {report === "personnel-action" && agencyWide(permissions.appointment) && <section className={styles.card}>
+      <div className={`${styles.field} ${reportStyles.singleField}`}><label htmlFor="reportAppointmentId">Employee appointment ID</label><input id="reportAppointmentId" value={reportIds.appointmentId} onChange={e => setReportIds({ ...reportIds, appointmentId: e.target.value })} /></div>
+      <div className={`${styles.actions} ${reportStyles.reportActions}`}><button disabled={busy || !reportIds.appointmentId} onClick={() => void openPdf(`/api/employeeAppointment/report/${encodeURIComponent(reportIds.appointmentId)}`, "PersonnelAction.pdf")}>Open Personnel Action</button></div>
+    </section>}
+    {report === "onboarding-completion" && agencyWide(permissions.onboarding) && <section className={styles.card}>
+      <div className={`${styles.field} ${reportStyles.singleField}`}><label htmlFor="reportIntakeId">Completed onboarding intake ID</label><input id="reportIntakeId" value={reportIds.intakeId} onChange={e => setReportIds({ ...reportIds, intakeId: e.target.value.trim() })} /></div>
+      <div className={`${styles.actions} ${reportStyles.reportActions}`}><button disabled={busy || !reportIds.intakeId} onClick={() => void openPdf(`/api/hrm/v1/appointment-intakes/${encodeURIComponent(reportIds.intakeId)}/onboarding-completion.pdf`, "OnboardingCompletion.pdf")}>Open completion record</button></div>
+    </section>}
+    {report === "appointment-document" && agencyWide(permissions.documents) && <section className={styles.card}><h2>Document details</h2><p>Employee signatory IDs resolve authoritative names and active positions on the server. A finalized record cannot be edited; corrections must create a linked successor.</p><div className={`${styles.grid} ${reportStyles.documentFields}`}>
       <div className={styles.field}><label htmlFor="documentAppointmentId">Appointment ID</label><input id="documentAppointmentId" value={form.appointmentId} onChange={e => setForm({ ...form, appointmentId: e.target.value })} /></div>
       <div className={styles.field}><label htmlFor="kind">Document kind</label><select id="kind" disabled={document?.status === "FINALIZED"} value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value as AppointmentDocumentKind })}><option value="OATH_OF_OFFICE">Oath of Office</option><option value="ASSUMPTION_TO_DUTY">Certificate of Assumption to Duty</option></select></div>
       <div className={styles.field}><label htmlFor="issueDate">Issue date</label><input id="issueDate" type="date" value={form.issueDate} onChange={e => setForm({ ...form, issueDate: e.target.value })} /></div>
@@ -76,7 +86,7 @@ export default function AppointmentReportsWorkspace() {
       <div className={styles.field}><label htmlFor="documentId">Document ID</label><input id="documentId" value={form.documentId} onChange={e => setForm({ ...form, documentId: e.target.value.trim() })} /></div>
       <div className={styles.field}><label htmlFor="recordVersion">Record version</label><input id="recordVersion" type="number" min="0" value={form.recordVersion} onChange={e => setForm({ ...form, recordVersion: e.target.value })} /></div>
       <div className={styles.field}><label htmlFor="supersedes">Superseded document ID (corrections only)</label><input id="supersedes" value={form.supersedesDocumentId} onChange={e => setForm({ ...form, supersedesDocumentId: e.target.value.trim() })} /></div>
-    </div><div className={styles.actions}>
+    </div><div className={`${styles.actions} ${reportStyles.reportActions}`}>
       {permissions.documents.canAdd && <button disabled={busy || !form.appointmentId || !form.issueDate || !form.venue} onClick={() => void mutate("create")}>Create draft</button>}
       {permissions.documents.canEdit && <button disabled={busy || !form.appointmentId || !form.documentId || document?.status === "FINALIZED"} onClick={() => void mutate("update")}>Update draft</button>}
       {permissions.documents.canFinalize && <button disabled={busy || !form.appointmentId || !form.documentId || document?.status === "FINALIZED"} onClick={() => void mutate("finalize")}>Finalize immutable snapshot</button>}
